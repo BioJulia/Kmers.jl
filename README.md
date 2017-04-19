@@ -1,4 +1,4 @@
 # Kmers.jl
 In development: Kmer types and methods for julia!
 
-## Maintainer: @kdmurray
+### BioJulia Maintainer: Kevin Murray (@kdmurray)

@@ -4,7 +4,6 @@ A Count-min Sketch
 type CountMinSketch{T<:Unsigned} <: AbstractSketch
     # We store the sketch as a Matrix
     sketch::Matrix{T}
-
     seeds::Vector{UInt}
 
     """
@@ -16,25 +15,26 @@ type CountMinSketch{T<:Unsigned} <: AbstractSketch
     * `tables::Int`: The number of tables to create
     * `tablesize::Int`: The size of each table
     """
-    function CountMinSketch(tables::Int, tablesize::Int, array::Matrix{T})
+    function CountMinSketch(array::Matrix{T})
+        tables, tablesize = size(array)
         if !(1 <= tables <= 20)
             error("Must have between 1 and 20 tables")
         end
         tablesize > 1 || error("Table size must be greater than 1")
-        sketch = zeros(T, tablesize, tables)
         seeds = map(hash, 1:tables)
-        return new(sketch, seeds)
+        return new(array, seeds)
     end
     function CountMinSketch(tables::Int, tablesize::Int)
         if !(1 <= tables <= 20)
             error("Must have between 1 and 20 tables")
         end
         tablesize > 1 || error("Table size must be greater than 1")
-        sketch = zeros(T, tablesize, tables)
+        sketch = zeros(T, tables, tablesize)
         seeds = map(hash, 1:tables)
         return new(sketch, seeds)
     end
 end
+
 
 
 """
@@ -49,10 +49,10 @@ Arguments
 * `count::Integer`: a (potentially negative) number of `item`s to add.
 """
 function add!(cms::CountMinSketch, item, count::Int)
-    for i in 1:cms.tables
-        offset = (hash(item, cms.seeds[i]) % cms.tablesize) + 1
-        @inbounds x = cms.sketch[offset,i]
-        @inbounds cms.sketch[offset, i] = clamp(x + count,
+    for i in 1:size(cms)[1]
+        offset = (hash(item, cms.seeds[i]) % size(cms)[2]) + 1
+        @inbounds x = cms.sketch[i, offset]
+        @inbounds cms.sketch[i, offset] = clamp(x + count,
                                                 typemin(eltype(cms)),
                                                 typemax(eltype(cms)))
     end
@@ -70,11 +70,11 @@ Arguments
 * `cms`: A count-min sketch
 * `item`: any hashable item
 """
-function Base.getindex(cms::CountMinSketch, item)
-    minval = cms.tpmax
-    for i in 1:cms.tables
-        offset = (hash(item, cms.seeds[i]) % cms.tablesize) + 1
-        @inbounds val = cms.sketch[offset, i]
+function Base.getindex{T}(cms::CountMinSketch{T}, item)
+    minval = typemax(T)
+    for i in 1:size(cms)[1]
+        offset = (hash(item, cms.seeds[i]) % size(cms)[2]) + 1
+        @inbounds val = cms.sketch[i, offset]
         minval = val < minval ? val : minval
     end
     return minval
@@ -110,9 +110,9 @@ Generally avoid using a `CountMinSketch` with a collision rate above about 0.05
 - 0.10.
 """
 function collisionrate(cms::CountMinSketch)
-    occupancy = sum(cms.sketch .> 0, 1)
+    occupancy = sum(cms.sketch .> 0, 2)
     # The total FPR is the product of all rates, as we assume each is truly
     # independent
-    rate = prod(float(occupancy) / float(cms.tablesize))
+    rate = prod(float(occupancy) / float(size(cms)[2]))
     return rate
 end

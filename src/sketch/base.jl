@@ -1,5 +1,5 @@
 "Base of all sketching data structures"
-abstract type AbstractSketch end
+abstract AbstractSketch
 
 """
 Add one `item` to a sketch
@@ -24,5 +24,5 @@ function Base.haskey(sketch::AbstractSketch, item)
 end
 
 function Base.show(io::IO, sketch::AbstractSketch)
-    print("$(typeof(sketch)) with shape $(shape(sketch)) and eltype $(eltype(sketch)")
+    print("$(typeof(sketch)) with shape $(shape(sketch)) and eltype $(eltype(sketch))")
 end

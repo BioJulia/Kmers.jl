@@ -26,7 +26,7 @@ end
     complement(seq::T) where {T<:Kmer}
 Return the complement of a short sequence type `x`.
 """
-@inline function BioSymbols.complement(seq::T) where {T<:Kmer}
+@inline function BioSequences.complement(seq::T) where {T<:Kmer}
     return T(_complement_bitpar(Alphabet(seq), seq.data...))
 end
 

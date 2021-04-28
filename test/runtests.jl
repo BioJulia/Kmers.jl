@@ -1,5 +1,17 @@
 using Kmers
-using Base.Test
+import BioSequences: @dna_str, @aa_str, @rna_str
+using Test
 
-# write your own tests here
-@test 1 == 2
+@testset "Mers" begin
+    include("conversion.jl")
+    include("comparisons.jl")
+    include("length.jl")
+    include("access.jl")
+    include("random.jl")
+    include("find.jl")
+    include("print.jl")
+    include("transformations.jl")
+    include("mismatches.jl")
+    include("debruijn_neighbors.jl")
+    #include("mers/shuffle.jl")
+end

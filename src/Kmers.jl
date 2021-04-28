@@ -1,5 +1,5 @@
 module Kmers
 
-# package code goes here
+include("kmer.jl")
 
 end # module

@@ -82,7 +82,7 @@ export
     AA_Gap,
     
     # BioSequences re-exports
-    Alpahbet,
+    Alphabet,
     BioSequence,
     NucleicAcidAlphabet,
     AminoAcidAlphabet,

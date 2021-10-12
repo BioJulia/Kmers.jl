@@ -11,7 +11,7 @@ __precompile__()
 module Kmers
 
 export
-    # Types & aliases
+    # BioSymbols re-exports.
     NucleicAcid,
     DNA,
     RNA,
@@ -80,7 +80,16 @@ export
     AA_X,
     AA_Term,
     AA_Gap,
-
+    
+    # BioSequences re-exports
+    Alpahbet,
+    BioSequence,
+    NucleicAcidAlphabet,
+    AminoAcidAlphabet,
+    DNAAlphabet,
+    RNAAlphabet,
+    
+    
     ###
     ### Mers
     ###

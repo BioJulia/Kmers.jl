@@ -35,8 +35,8 @@ end
 Return the reverse of short sequence type variable `seq`.
 """
 @inline function Base.reverse(seq::Kmer{A,K,N}) where {A,K,N}
-#    rdata = _reverse(identity, BitsPerSymbol(seq), seq.data...)
-    rdata = _reverse(BitsPerSymbol(seq), seq.data...)
+#    rdata = _reverse(identity, BioSequences.BitsPerSymbol(seq), seq.data...)
+    rdata = _reverse(BioSequences.BitsPerSymbol(seq), seq.data...)
     return Kmer{A,K,N}(rightshift_carry(rdata, 64N - 2K))
 end
 
@@ -52,7 +52,7 @@ end
 #=
 @inline function reverse_complement2(seq::Kmer{A,K,N}) where {A,K,N}
     f = x -> complement_bitpar(x, A())
-    rdata = _reverse(f, BitsPerSymbol(seq), seq.data...)
+    rdata = _reverse(f, BioSequences.BitsPerSymbol(seq), seq.data...)
     return Kmer{A,K,N}(rightshift_carry(rdata, 64N - 2K))
 end
 =#

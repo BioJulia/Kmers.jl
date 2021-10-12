@@ -18,7 +18,7 @@ You can install BioSequences from the julia
 REPL. Press `]` to enter pkg mode, and enter the following:
 
 ```julia
-add BioSequences
+add Kmers
 ```
 
 If you are interested in the cutting edge of the development, please check out
@@ -29,9 +29,9 @@ the master branch to try new features before release.
 
 BioSequences is tested against Julia `1.X` on Linux, OS X, and Windows.
 
-[![Unit tests](https://github.com/BioJulia/BioSequences.jl/workflows/Unit%20tests/badge.svg?branch=master)](https://github.com/BioJulia/BioSequences.jl/actions?query=workflow%3A%22Unit+tests%22+branch%3Amaster)
-[![Documentation](https://github.com/BioJulia/BioSequences.jl/workflows/Documentation/badge.svg?branch=master)](https://github.com/BioJulia/BioSequences.jl/actions?query=workflow%3ADocumentation+branch%3Amaster)
-[![](https://codecov.io/gh/BioJulia/BioSequences.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/BioSequences.jl)
+[![Unit tests](https://github.com/BioJulia/Kmers.jl/workflows/Unit%20tests/badge.svg?branch=master)](https://github.com/BioJulia/Kmers.jl/actions?query=workflow%3A%22Unit+tests%22+branch%3Amaster)
+[![Documentation](https://github.com/BioJulia/Kmers.jl/workflows/Documentation/badge.svg?branch=master)](https://github.com/BioJulia/BioKmers.jl/actions?query=workflow%3ADocumentation+branch%3Amaster)
+[![](https://codecov.io/gh/BioJulia/Kmers.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/Kmers.jl)
 
 
 ## Contributing

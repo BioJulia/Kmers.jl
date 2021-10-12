@@ -36,9 +36,11 @@ struct Kmer{A<:Alphabet,K,N} <: BioSequence{A}
         # TODO: Decide on whether this method should always mask the (64N - 2K)
         # MSBs of the input tuple, as we do that in quite a few cases before
         # calling this constructor: see the typemin, typemax, rand, and transformations.jl
-        return new(_cliphead(n_unused(Kmer{A,K,N}) * bits_per_symbol(A()), data...))
+        return new(_cliphead(n_unused(Kmer{A,K,N}) * BioSequences.bits_per_symbol(A()), data...))
     end
 end
+
+BioSequences.encoded_data(seq::Kmer{A,K,N}) where {A,K,N} = seq.data
 
 # Create a blank ntuple of appropriate length for a given Kmer with N.
 @inline blank_ntuple(::Type{Kmer{A,K,N}}) where {A,K,N} = ntuple(x -> zero(UInt64), Val{N}())
@@ -71,15 +73,15 @@ Kmer{A}(nucs) where {A,K} = Kmer{A,length(nucs)}(nucs)
 @inline function _build_kmer_data(nucs, ::Type{Kmer{A,K,N}}) where {A,K,N}
     checkmer(Kmer{A,K,N})
     # Construct the head.
-    elements_per_chunk = div(64, bits_per_symbol(A()))
-    bases_in_head = div(64 - (64N - (bits_per_symbol(A()) * K)), bits_per_symbol(A()))
+    elements_per_chunk = div(64, BioSequences.bits_per_symbol(A()))
+    bases_in_head = div(64 - (64N - (BioSequences.bits_per_symbol(A()) * K)), BioSequences.bits_per_symbol(A()))
     head = zero(UInt64)
     @inbounds for i in 1:bases_in_head
         nt = convert(eltype(Kmer{A,K,N}), nucs[i])
         if isgap(nt)
             throw(ArgumentError("cannot create a mer with gaps"))
         end
-        head = (head << bits_per_symbol(A())) | UInt64(encode(A(), nt))
+        head = (head << BioSequences.bits_per_symbol(A())) | UInt64(BioSequences.encode(A(), nt))
     end
     # And the rest of the sequence
     idx = Ref(bases_in_head + 1)
@@ -92,7 +94,7 @@ Kmer{A}(nucs) where {A,K} = Kmer{A,length(nucs)}(nucs)
             if isgap(nt)
                 throw(ArgumentError("cannot create a mer with gaps"))
             end
-            body = (body << bits_per_symbol(A())) | UInt64(encode(A(), nt))
+            body = (body << BioSequences.bits_per_symbol(A())) | UInt64(BioSequences.encode(A(), nt))
             idx[] += 1
         end
         return body
@@ -107,7 +109,7 @@ end
     stop = length(nucs)
     while i ≤ stop
         nt = convert(eltype(A), @inbounds nucs[i])
-        bits = encode(A(), nt)
+        bits = BioSequences.encode(A(), nt)
         kmer_data = leftshift_carry(kmer_data, 2, fbits)
         filled += 1
         if filled == K
@@ -169,7 +171,7 @@ Kmer{DNAAlphabet{2},63,2}
 ```
 """
 @inline function kmertype(::Type{Kmer{A,K}}) where {A,K}
-    return Kmer{A,K,seq_data_len(A, K)}
+    return Kmer{A,K,BioSequences.seq_data_len(A, K)}
 end
 @inline kmertype(::Type{Kmer{A,K,N}}) where {A,K,N} = Kmer{A,K,N}
 
@@ -209,7 +211,7 @@ const RNACodon = RNAKmer{3,1}
 ###
 
 @inline ksize(::Type{Kmer{A,K,N}}) where {A,K,N} = K
-@inline capacity(::Type{Kmer{A,K,N}}) where {A,K,N} = div(64N, bits_per_symbol(A()))
+@inline capacity(::Type{Kmer{A,K,N}}) where {A,K,N} = div(64N, BioSequences.bits_per_symbol(A()))
 @inline capacity(seq::Kmer) = capacity(typeof(seq))
 @inline n_unused(::Type{Kmer{A,K,N}}) where {A,K,N} = capacity(Kmer{A,K,N}) - K
 @inline n_unused(seq::Kmer) = n_unused(typeof(seq))
@@ -231,7 +233,7 @@ parameterisation of the Kmer type is good.
     if K < 1
         throw(ArgumentError("Bad kmer parameterisation. K must be greater than 0."))
     end
-    n = seq_data_len(A, K)
+    n = BioSequences.seq_data_len(A, K)
     if n !== N
         # This has been significantly changed conceptually from before. Now we
         # don't just check K, but *enforce* the most appropriate N for K.

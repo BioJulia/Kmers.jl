@@ -1,3 +1,15 @@
+
+# TODO: this should end up in BioSequences.jl?
+
+"Extract the element stored in a packed bitarray referred to by bidx."
+@inline function BioSequences.extract_encoded_element(bidx::BioSequences.BitIndex{N,W}, data::NTuple{n,W}) where {N,n,W}
+    @inbounds chunk = data[BioSequences.index(bidx)]
+    offchunk = chunk >> (BioSequences.bitwidth(bidx) - N - BioSequences.offset(bidx))
+    return offchunk & BioSequences.bitmask(bidx)
+end
+
+
+
 """
     _cliphead(by::Integer, head::UInt64, tail...)
 
@@ -45,16 +57,16 @@ end
 
 @inline _leftshift_carry(nbits::Integer, prevcarry::UInt64) = prevcarry, ()
 
-@inline function _reverse(bpe::BitsPerSymbol{N}, head::UInt64, tail...) where {N}
+@inline function _reverse(bpe::BioSequences.BitsPerSymbol{N}, head::UInt64, tail...) where {N}
     return (_reverse(bpe, tail...)..., reversebits(head, bpe))
 end
 
-@inline _reverse(::BitsPerSymbol{N}) where {N} = ()
+@inline _reverse(::BioSequences.BitsPerSymbol{N}) where {N} = ()
 
 #=
-@inline function _reverse(f::F, bpe::BitsPerSymbol{N}, head::UInt64, tail...) where {N,F<:Function}
+@inline function _reverse(f::F, bpe::BioSequences.BitsPerSymbol{N}, head::UInt64, tail...) where {N,F<:Function}
     return (_reverse(f, bpe, tail...)..., f(reversebits(head, bpe)))
 end
 
-@inline _reverse(f::F, ::BitsPerSymbol{N}) where {N,F<:Function} = ()
+@inline _reverse(f::F, ::BioSequences.BitsPerSymbol{N}) where {N,F<:Function} = ()
 =#

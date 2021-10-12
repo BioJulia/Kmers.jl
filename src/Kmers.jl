@@ -32,11 +32,6 @@ export
 
 using BioSequences
 
-import BioSequences:
-    BitsPerSymbol
-
-#import BioSymbols
-
 include("kmer.jl")
 
 end # module

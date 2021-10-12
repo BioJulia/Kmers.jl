@@ -8,9 +8,18 @@
 
 ## Description
 
-BioSequences provides data types and methods for common operations with
-biological sequences, including DNA, RNA, and amino acid sequences.
+Kmers provides a specialised concrete `BioSequence` subtype, optimised for
+representing short immutable sequences called kmers: contiguous sub-strings of k
+nucleotides of some reference sequence.
 
+They are used extensively in bioinformatic analyses as an informational unit.
+This concept was popularised by short read assemblers. 
+Analyses within the kmer space benefit from a simple formulation of the sampling
+problem and direct in-hash comparisons.
+
+Kmers provides the type representing kmers as well as the implementations of
+the APIs specified by the
+[`BioSequences.jl`](https://github.com/BioJulia/BioSequences.jl) package.
 
 ## Installation
 
@@ -27,7 +36,7 @@ the master branch to try new features before release.
 
 ## Testing
 
-BioSequences is tested against Julia `1.X` on Linux, OS X, and Windows.
+Kmers is tested against Julia `1.X` on Linux, OS X, and Windows.
 
 [![Unit tests](https://github.com/BioJulia/Kmers.jl/workflows/Unit%20tests/badge.svg?branch=master)](https://github.com/BioJulia/Kmers.jl/actions?query=workflow%3A%22Unit+tests%22+branch%3Amaster)
 [![Documentation](https://github.com/BioJulia/Kmers.jl/workflows/Documentation/badge.svg?branch=master)](https://github.com/BioJulia/BioKmers.jl/actions?query=workflow%3ADocumentation+branch%3Amaster)

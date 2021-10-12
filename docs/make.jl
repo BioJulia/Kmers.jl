@@ -5,8 +5,8 @@ makedocs(
     sitename = "Kmers.jl",
     pages = [
         "Home"                           => "index.md",
-        "Kmer types"                     => "kmer_types.md"#,
-        #"Constructing kmers"             => "construction.md",
+        "Kmer types"                     => "kmer_types.md",
+        "Constructing kmers"             => "construction.md"#,
         #"Indexing & modifying kmers"     => "transforms.md",
         #"Predicates"                     => "predicates.md",
         #"Random kmers"                   => "random.md",

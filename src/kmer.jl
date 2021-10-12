@@ -145,7 +145,7 @@ end
 end
 
 @inline function Kmer(seq::String)
-    seq′ = remove_newlines(seq)
+    seq′ = BioSequences.remove_newlines(seq)
     hast = false
     hasu = false
     for c in seq′

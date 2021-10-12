@@ -1,7 +1,7 @@
 module TestKmers
 
 using Kmers
-import BioSequences: @dna_str, @aa_str, @rna_str
+import BioSequences: @dna_str, @aa_str, @rna_str, LongSequence
 using Test
 
 # Return a random DNA/RNA sequence of the given length.

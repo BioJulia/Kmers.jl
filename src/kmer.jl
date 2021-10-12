@@ -13,16 +13,18 @@ A parametric, immutable, bitstype for representing Kmers - short sequences.
 Given the number of Kmers generated from raw sequencing reads, avoiding
 repetetive memory allocation and triggering of garbage collection is important,
 as is the ability to effectively pack Kmers into arrays and similar collections.
-In julia this means an immutable bitstype must represent such shorter Kmer
-sequences. Thankfully this is not much of a limitation - kmers are rarely
-manipulated and so by and large don't have to be mutable like `LongSequence`s.
+
+In practice that means we an immutable bitstype as the internal representation
+of these sequences. Thankfully, this is not much of a limitation - kmers are
+rarely manipulated and so by and large don't have to be mutable.
+
 Excepting their immutability, they fulfill the rest of the API and behaviours
 expected from a concrete `BioSequence` type, and non-mutating transformations
 of the type are still defined.
 
 !!! warning
     Given their immutability, `setindex` and mutating sequence transformations
-    are not implemented for kmers e.g. `reverse_complement!`. 
+    are not implemented for Kmers e.g. `reverse_complement!`. 
 !!! tip
     Note that some sequence transformations that are not mutating are
     available, since they can return a new kmer value as a result e.g.

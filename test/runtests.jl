@@ -4,6 +4,8 @@ using Kmers
 import BioSequences: @dna_str, @aa_str, @rna_str, LongSequence
 using Test
 
+const GROUP = get(ENV, "GROUP", "All")
+
 # Return a random DNA/RNA sequence of the given length.
 function random_seq(n::Integer, nts, probs)
     cumprobs = cumsum(probs)

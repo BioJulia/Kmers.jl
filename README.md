@@ -66,14 +66,6 @@ the core contributors and the person who filed the expense will be reimbursed.
 
 Thank you to all our backers and sponsors!
 
-Love our work and community? [Become a backer](https://opencollective.com/biojulia#backer).
-
-[![backers](https://opencollective.com/biojulia/backers.svg?width=890)](https://opencollective.com/biojulia#backers)
-
-Does your company use BioJulia? Help keep BioJulia feature rich and healthy by
-[sponsoring the project](https://opencollective.com/biojulia#sponsor)
-Your logo will show up here with a link to your website.
-
 [![](https://opencollective.com/biojulia/sponsor/0/avatar.svg)](https://opencollective.com/biojulia/sponsor/0/website)
 [![](https://opencollective.com/biojulia/sponsor/1/avatar.svg)](https://opencollective.com/biojulia/sponsor/1/website)
 [![](https://opencollective.com/biojulia/sponsor/2/avatar.svg)](https://opencollective.com/biojulia/sponsor/2/website)

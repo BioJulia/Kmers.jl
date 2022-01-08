@@ -4,7 +4,7 @@
 "Extract the element stored in a packed bitarray referred to by bidx."
 @inline function BioSequences.extract_encoded_element(bidx::BioSequences.BitIndex{N,W}, data::NTuple{n,W}) where {N,n,W}
     @inbounds chunk = data[BioSequences.index(bidx)]
-    offchunk = chunk >> (BioSequences.bitwidth(bidx) - N - BioSequences.offset(bidx))
+    offchunk = chunk >> (BioSequences.bitwidth(W) - N - BioSequences.offset(bidx))
     return offchunk & BioSequences.bitmask(bidx)
 end
 
@@ -58,7 +58,7 @@ end
 @inline _leftshift_carry(nbits::Integer, prevcarry::UInt64) = prevcarry, ()
 
 @inline function _reverse(bpe::BioSequences.BitsPerSymbol{N}, head::UInt64, tail...) where {N}
-    return (_reverse(bpe, tail...)..., reversebits(head, bpe))
+    return (_reverse(bpe, tail...)..., BioSequences.reversebits(head, bpe))
 end
 
 @inline _reverse(::BioSequences.BitsPerSymbol{N}) where {N} = ()

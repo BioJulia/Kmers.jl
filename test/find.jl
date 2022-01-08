@@ -8,7 +8,7 @@
     @test findnext(DNA_A, kmer, 2) == 4
 
     @test_throws BoundsError findnext(DNA_A, kmer, 0)
-    @test_throws BoundsError findnext(DNA_A, kmer, 6)
+    @test findnext(DNA_A, kmer, 6) === nothing
 
     @test findprev(DNA_A, kmer, 5) == 4
     @test findprev(DNA_C, kmer, 5) == 2
@@ -16,7 +16,7 @@
     @test findprev(DNA_T, kmer, 5) == nothing
     @test findprev(DNA_G, kmer, 4) == 3
 
-    @test_throws BoundsError findprev(DNA_A, kmer, 0)
+    @test findprev(DNA_A, kmer, 0) === nothing
     @test_throws BoundsError findprev(DNA_A, kmer, 6)
 
     @test findfirst(DNA_A, kmer) == 1

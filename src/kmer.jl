@@ -294,8 +294,10 @@ include("transformations.jl")
 ###
 
 # TODO: Decide on this vs. old iterator pattern. I like the terseness of the code vs defining an iterator. Neither allocate.
-fw_neighbors(kmer::Kmer) = ntuple(i -> pushlast(kmer, ACGT[i]), Val{4}())
-bw_neighbors(kmer::Kmer) = ntuple(i -> pushfirst(kmer, ACGT[i]), Val{4}())
+fw_neighbors(kmer::Kmer{A,K,N}) where {A<:DNAAlphabet,K,N} = ntuple(i -> pushlast(kmer, ACGT[i]), Val{4}())
+fw_neighbors(kmer::Kmer{A,K,N}) where {A<:RNAAlphabet,K,N} = ntuple(i -> pushlast(kmer, ACGU[i]), Val{4}())
+bw_neighbors(kmer::Kmer{A,K,N}) where {A<:DNAAlphabet,K,N} = ntuple(i -> pushfirst(kmer, ACGT[i]), Val{4}())
+bw_neighbors(kmer::Kmer{A,K,N}) where {A<:RNAAlphabet,K,N} = ntuple(i -> pushfirst(kmer, ACGU[i]), Val{4}())
 
 #=
 # Neighbors on a de Bruijn graph

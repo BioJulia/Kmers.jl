@@ -10,12 +10,12 @@
         @test dna_kmer[4] == DNA_G
 
         # Access indexes out of bounds
-        @test_throws Exception dna_kmer[-1]
-        @test_throws Exception dna_kmer[0]
-        @test_throws Exception dna_kmer[5]
-        @test_throws Exception getindex(dna_kmer,-1)
-        @test_throws Exception getindex(dna_kmer, 0)
-        @test_throws Exception getindex(dna_kmer, 5)
+        @test_throws BoundsError dna_kmer[-1]
+        @test_throws BoundsError dna_kmer[0]
+        @test_throws BoundsError dna_kmer[5]
+        @test_throws BoundsError getindex(dna_kmer,-1)
+        @test_throws BoundsError getindex(dna_kmer, 0)
+        @test_throws BoundsError getindex(dna_kmer, 5)
     end
 
     @testset "Iteration through DNA Kmer" begin
@@ -27,7 +27,7 @@
         @test iterate(DNAKmer("ACTG"), 1)  !== nothing
         @test iterate(DNAKmer("ACTG"), 4)  !== nothing
         @test iterate(DNAKmer("ACTG"), 5)  === nothing
-        @test iterate(DNAKmer("ACTG"), -1) !== nothing
+        @test_throws BoundsError iterate(DNAKmer("ACTG"), -1)
 
         dna_vec = [DNA_A, DNA_C, DNA_T, DNA_G]
         @test all([nt === dna_vec[i] for (i, nt) in enumerate(dna_kmer)])
@@ -40,12 +40,12 @@
         @test rna_kmer[4] == RNA_G
 
         # Access indexes out of bounds
-        @test_throws Exception rna_kmer[-1]
-        @test_throws Exception rna_kmer[0]
-        @test_throws Exception rna_kmer[5]
-        @test_throws Exception getindex(rna_kmer, -1)
-        @test_throws Exception getindex(rna_kmer, 0)
-        @test_throws Exception getindex(rna_kmer, 5)
+        @test_throws BoundsError rna_kmer[-1]
+        @test_throws BoundsError rna_kmer[0]
+        @test_throws BoundsError rna_kmer[5]
+        @test_throws BoundsError getindex(rna_kmer, -1)
+        @test_throws BoundsError getindex(rna_kmer, 0)
+        @test_throws BoundsError getindex(rna_kmer, 5)
     end
 
     @testset "Iteration through RNA Kmer" begin
@@ -59,7 +59,7 @@
         @test iterate(RNAKmer("ACUG"), 1)  !== nothing
         @test iterate(RNAKmer("ACUG"), 4)  !== nothing
         @test iterate(RNAKmer("ACUG"), 5)  === nothing
-        @test iterate(RNAKmer("ACUG"), -1) !== nothing
+        @test_throws BoundsError iterate(RNAKmer("ACUG"), -1)
 
         rna_vec = [RNA_A, RNA_C, RNA_U, RNA_G]
         @test all([nt === rna_vec[i] for (i, nt) in enumerate(rna_kmer)])
@@ -72,11 +72,11 @@
         @test aa_kmer[4] == AA_N
 
         # Access indexes out of bounds
-        @test_throws Exception aa_kmer[-1]
-        @test_throws Exception aa_kmer[0]
-        @test_throws Exception aa_kmer[5]
-        @test_throws Exception getindex(aa_kmer,-1)
-        @test_throws Exception getindex(aa_kmer, 0)
-        @test_throws Exception getindex(aa_kmer, 5)
+        @test_throws BoundsError aa_kmer[-1]
+        @test_throws BoundsError aa_kmer[0]
+        @test_throws BoundsError aa_kmer[5]
+        @test_throws BoundsError getindex(aa_kmer,-1)
+        @test_throws BoundsError getindex(aa_kmer, 0)
+        @test_throws BoundsError getindex(aa_kmer, 5)
     end
 end

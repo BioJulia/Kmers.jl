@@ -2,8 +2,9 @@
     @testset "Equality" begin
         function check_seq_kmer_equality(len)
             a = DNAKmer(random_dna_kmer(len))
-            b = LongDNASeq(a)
-            return a == b && b == a
+            b = LongDNA{4}(a)
+            c = LongDNA{2}(a)
+            return a == b == c && c == b == a
         end
 
         for len in [1, 10, 32, 64, 128]

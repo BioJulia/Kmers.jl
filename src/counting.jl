@@ -30,7 +30,7 @@ Base.count(::typeof(isGC), x::Kmer{A,K,N}) where {A<:NucleicAcidAlphabet,K,N} = 
     bd = b.data
     sum = 0
     @inbounds for i in 1:N
-        sum += mismatch_bitcount(ad[i], bd[i], A())
+        sum += BioSequences.mismatch_bitcount(ad[i], bd[i], A())
     end
     return sum
 end
@@ -41,7 +41,7 @@ end
     bd = b.data
     sum = 0
     @inbounds for i in 1:N
-        sum += match_bitcount(ad[i], bd[i], A())
+        sum += BioSequences.match_bitcount(ad[i], bd[i], A())
     end
     return sum - n_unused(a)
 end

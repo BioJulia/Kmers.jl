@@ -6,13 +6,15 @@ end
 
 @inline _complement_bitpar(a::A) where {A<:NucleicAcidAlphabet{2}} = ()
 
-@inline function pushfirst(x::Kmer{A,K,N}, nt::DNA) where {A,K,N}
-    ntbits = UInt64(@inbounds twobitnucs[reinterpret(UInt8, nt) + 0x01]) << (62 - (64N - 2K))
+@inline function pushfirst(x::Kmer{A,K,N}, nt) where {A,K,N}
+    ntbits = UInt64(BioSequences.encode(A(), nt)) << (62 - (64N - 2K))
+    #ntbits = UInt64(@inbounds BioSequences.twobitnucs[reinterpret(UInt8, nt) + 0x01]) << (62 - (64N - 2K))
     return Kmer{A,K,N}(_rightshift_carry(2, ntbits, x.data...))
 end
 
-@inline function pushlast(x::Kmer{A,K,N}, nt::DNA) where {A,K,N}
-    ntbits = UInt64(@inbounds twobitnucs[reinterpret(UInt8, nt) + 0x01])
+@inline function pushlast(x::Kmer{A,K,N}, nt) where {A,K,N}
+    ntbits = UInt64(BioSequences.encode(A(), nt))
+    #ntbits = UInt64(@inbounds BioSequences.twobitnucs[reinterpret(UInt8, nt) + 0x01])
     _, newbits = _leftshift_carry(2, ntbits, x.data...)
     return Kmer{A,K,N}(newbits)
 end
@@ -45,7 +47,7 @@ end
 
 Return the reverse complement of `x`.
 """
-@inline function reverse_complement(x::Kmer{A,K,N}) where {A,K,N}
+@inline function BioSequences.reverse_complement(x::Kmer{A,K,N}) where {A,K,N}
     return complement(reverse(x))
 end
 
@@ -82,6 +84,7 @@ function swap(x::T, i, j) where {T<:AbstractMer}
     x = ((b >> i) ⊻ (b >> j)) & encoded_data_type(x)(0x03)
     return T(b ⊻ ((x << i) | (x << j)))
 end
+
 
 
 function Random.shuffle(x::T) where {T<:AbstractMer}

@@ -57,15 +57,15 @@ global reps = 10
             # Long(DNA|RNA)Seq Constructions
             #   Check that DNAKmers can be constructed from a Long(DNA|RNA)Seq
             #   Long(DNA|RNA)Seq → Kmer → Long(DNA|RNA)Seq
-            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{2},len}, LongSequence{DNAAlphabet{2}}(random_dna_kmer(len))) for _ in 1:reps])
-            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{4},len}, LongSequence{DNAAlphabet{4}}(random_dna_kmer(len))) for _ in 1:reps])
-            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{4},len}, LongSequence{DNAAlphabet{2}}(random_dna_kmer(len))) for _ in 1:reps])
-            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{2},len}, LongSequence{DNAAlphabet{4}}(random_dna_kmer(len))) for _ in 1:reps])
-            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{2},len}, LongSequence{RNAAlphabet{2}}(random_rna_kmer(len))) for _ in 1:reps])
-            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{4},len}, LongSequence{RNAAlphabet{4}}(random_rna_kmer(len))) for _ in 1:reps])
-            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{4},len}, LongSequence{RNAAlphabet{2}}(random_rna_kmer(len))) for _ in 1:reps])
-            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{2},len}, LongSequence{RNAAlphabet{4}}(random_rna_kmer(len))) for _ in 1:reps])
-            @test all(Bool[check_longsequence_construction(AAKmer{len},              LongSequence{AminoAcidAlphabet}(random_aa(len)))    for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{2},len}, LongDNA{2}(random_dna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{4},len}, LongDNA{4}(random_dna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{4},len}, LongDNA{2}(random_dna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{2},len}, LongDNA{4}(random_dna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{2},len}, LongRNA{2}(random_rna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{4},len}, LongRNA{4}(random_rna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{4},len}, LongRNA{2}(random_rna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{2},len}, LongRNA{4}(random_rna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(AAKmer{len},              LongAA(random_aa(len)))    for _ in 1:reps])
             
             # BioSequence Construction
             #   Check that kmers can be constructed from a BioSequence
@@ -83,11 +83,11 @@ global reps = 10
             # Construction from element arrays
             #   Check that kmers can be constructed from an array of elements
             #   Vector{T} → Kmer{A,K,N} → Vector{T}
-            @test all(Bool[check_nucarray_kmer(Kmer{DNAAlphabet{2},len}, random_dna_kmer_nucleotides(len)) for _ in 1:reps])
-            @test all(Bool[check_nucarray_kmer(Kmer{DNAAlphabet{4},len}, random_dna_kmer_nucleotides(len)) for _ in 1:reps])
-            @test all(Bool[check_nucarray_kmer(Kmer{RNAAlphabet{2},len}, random_rna_kmer_nucleotides(len)) for _ in 1:reps])
-            @test all(Bool[check_nucarray_kmer(Kmer{RNAAlphabet{4},len}, random_rna_kmer_nucleotides(len)) for _ in 1:reps])
-            @test all(Bool[check_nucarray_kmer(AAKmer{len},              random_aa_kmer_elements(len))     for _ in 1:reps])
+            @test all(Bool[check_nucarray_kmer(Kmer{DNAAlphabet{2},len}, random_dna_symbols(len, [0.25, 0.25, 0.25, 0.25, 0.0])) for _ in 1:reps])
+            @test all(Bool[check_nucarray_kmer(Kmer{DNAAlphabet{4},len}, random_dna_symbols(len)) for _ in 1:reps])
+            @test all(Bool[check_nucarray_kmer(Kmer{RNAAlphabet{2},len}, random_rna_symbols(len, [0.25, 0.25, 0.25, 0.25, 0.0])) for _ in 1:reps])
+            @test all(Bool[check_nucarray_kmer(Kmer{RNAAlphabet{4},len}, random_rna_symbols(len)) for _ in 1:reps])
+            @test all(Bool[check_nucarray_kmer(AAKmer{len},              random_aa_symbols(len))     for _ in 1:reps])
             
             # Roundabout conversions
             @test all(Bool[check_roundabout_construction(Kmer{DNAAlphabet{2},len}, DNAAlphabet{2},    random_dna_kmer(len)) for _ in 1:reps])
@@ -115,16 +115,16 @@ global reps = 10
     @test_throws MethodError Kmer(RNA_A, DNA_A) # no mixing of RNA and DNA
 
     @testset "From strings" begin
-        @test DNAKmer("ACTG") == DNAKmer(LongDNASeq("ACTG"))
-        @test RNAKmer("ACUG") == RNAKmer(LongRNASeq("ACUG"))
+        @test DNAKmer("ACTG") == DNAKmer(LongDNA{4}("ACTG"))
+        @test RNAKmer("ACUG") == RNAKmer(LongRNA{4}("ACUG"))
 
         # N is not allowed in Kmers
         @test_throws Exception DNAMmer("ACGTNACGT")
         @test_throws Exception RNAKmer("ACGUNACGU")
 
         # Test string literals
-        @test mer"ACTG"dna == DNAKmer(LongDNASeq("ACTG"))
-        @test mer"AVBM"aa  == AAKmer(LongAASeq("AVBM"))
+        @test mer"ACTG"dna == DNAKmer(LongDNA{4}("ACTG"))
+        @test mer"AVBM"aa  == AAKmer(LongAA("AVBM"))
         @test isa(mer"ACGT"dna, DNAKmer{4})
         @test isa(mer"AVBM"aa,  AAKmer{4})
         @test_throws LoadError eval(:(mer"ACGN"dna))
@@ -132,22 +132,22 @@ global reps = 10
     end
     
     @testset "Capacity" begin
-        @test BioSequences.capacity(DNAKmer(random_dna_kmer(10))) == 32
-        @test BioSequences.capacity(RNAKmer(random_rna_kmer(10))) == 32
-        @test BioSequences.capacity(DNAKmer(random_dna_kmer(32))) == 32
-        @test BioSequences.capacity(RNAKmer(random_rna_kmer(32))) == 32
-        @test BioSequences.capacity(DNAKmer(random_dna_kmer(33))) == 64
-        @test BioSequences.capacity(AAKmer(random_aa(8))) == 8
-        @test BioSequences.capacity(AAKmer(random_aa(10))) == 16
+        @test Kmers.capacity(DNAKmer(random_dna_kmer(10))) == 32
+        @test Kmers.capacity(RNAKmer(random_rna_kmer(10))) == 32
+        @test Kmers.capacity(DNAKmer(random_dna_kmer(32))) == 32
+        @test Kmers.capacity(RNAKmer(random_rna_kmer(32))) == 32
+        @test Kmers.capacity(DNAKmer(random_dna_kmer(33))) == 64
+        @test Kmers.capacity(AAKmer(random_aa(8))) == 8
+        @test Kmers.capacity(AAKmer(random_aa(10))) == 16
     end
     
     @testset "N unused" begin
-        @test BioSequences.n_unused(DNAKmer(random_dna_kmer(10))) == 22
-        @test BioSequences.n_unused(RNAKmer(random_rna_kmer(10))) == 22
-        @test BioSequences.n_unused(DNAKmer(random_dna_kmer(32))) == 0
-        @test BioSequences.n_unused(RNAKmer(random_rna_kmer(32))) == 0
-        @test BioSequences.n_unused(DNAKmer(random_dna_kmer(33))) == 31
-        @test BioSequences.n_unused(AAKmer(random_aa(8))) == 0
-        @test BioSequences.n_unused(AAKmer(random_aa(10))) == 6
+        @test Kmers.n_unused(DNAKmer(random_dna_kmer(10))) == 22
+        @test Kmers.n_unused(RNAKmer(random_rna_kmer(10))) == 22
+        @test Kmers.n_unused(DNAKmer(random_dna_kmer(32))) == 0
+        @test Kmers.n_unused(RNAKmer(random_rna_kmer(32))) == 0
+        @test Kmers.n_unused(DNAKmer(random_dna_kmer(33))) == 31
+        @test Kmers.n_unused(AAKmer(random_aa(8))) == 0
+        @test Kmers.n_unused(AAKmer(random_aa(10))) == 6
     end
 end

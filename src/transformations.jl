@@ -26,7 +26,16 @@ end
 
 """
     complement(seq::T) where {T<:Kmer}
-Return the complement of a short sequence type `x`.
+
+Return a kmer's complement kmer.
+
+# Examples
+
+```jldoctest
+julia> complement(Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C))
+DNA 5-mer:
+AATCG
+```
 """
 @inline function BioSequences.complement(seq::T) where {T<:Kmer}
     return T(_complement_bitpar(Alphabet(seq), seq.data...))
@@ -34,7 +43,16 @@ end
 
 """
     reverse(seq::Kmer{A,K,N}) where {A,K,N}
-Return the reverse of short sequence type variable `seq`.
+
+Return a kmer that is the reverse of the input kmer.
+
+# Examples
+
+```jldoctest
+julia> reverse(Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C))
+DNA 5-mer:
+CGATT
+```
 """
 @inline function Base.reverse(seq::Kmer{A,K,N}) where {A,K,N}
 #    rdata = _reverse(identity, BioSequences.BitsPerSymbol(seq), seq.data...)
@@ -43,12 +61,20 @@ Return the reverse of short sequence type variable `seq`.
 end
 
 """
-    reverse_complement(x::Kmer)
+    reverse_complement(seq::Kmer)
 
-Return the reverse complement of `x`.
+Return the kmer that is the reverse complement of the input kmer.
+
+# Examples
+
+```jldoctest
+julia> reverse_complement(Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C))
+DNA 5-mer:
+GCTAA
+```
 """
-@inline function BioSequences.reverse_complement(x::Kmer{A,K,N}) where {A,K,N}
-    return complement(reverse(x))
+@inline function BioSequences.reverse_complement(seq::Kmer{A,K,N}) where {A,K,N}
+    return complement(reverse(seq))
 end
 
 #=
@@ -60,15 +86,23 @@ end
 =#
 
 """
-    canonical(x::Kmer)
+    canonical(seq::Kmer)
 
-Return the canonical sequence of `x`.
+Return the canonical sequence of `seq`.
 
-A canonical sequence is the numerical lesser of a k-mer and its reverse complement.
+A canonical sequence is the numerical lesser of a kmer and its reverse complement.
 This is useful in hashing/counting sequences in data that is not strand specific,
 and thus observing the short sequence is equivalent to observing its reverse complement.
+
+# Examples
+
+```jldoctest
+julia> canonical(Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C))
+DNA 5-mer:
+GCTAA
+```
 """
-@inline canonical(x::Kmer) = min(x, reverse_complement(x))
+@inline BioSequences.canonical(seq::Kmer) = min(seq, reverse_complement(seq))
 
 ###
 ### Old Mer specific specializations of src/biosequence/transformations.jl

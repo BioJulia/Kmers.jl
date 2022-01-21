@@ -267,7 +267,7 @@ Construct a Kmer from a variable number `K` of DNA nucleotides.
 # Examples
 
 ```jldoctest
-julia> DNAKmer{5}(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C)
+julia> Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C)
 DNA 5-mer:
 TTAGC
 ```
@@ -285,7 +285,7 @@ Construct a Kmer from a variable number `K` of RNA nucleotides.
 # Examples
 
 ```jldoctest
-julia> RNAKmer{5}(RNA_U, RNA_U, RNA_A, RNA_G, RNA_C)
+julia> Kmer(RNA_U, RNA_U, RNA_A, RNA_G, RNA_C)
 DNA 5-mer:
 UUAGC
 ```
@@ -385,6 +385,7 @@ const RNACodon = RNAKmer{3,1}
 
 
 @inline ksize(::Type{Kmer{A,K,N}}) where {A,K,N} = K
+@inline nsize(::Type{Kmer{A,K,N}}) where {A,K,N} = N
 @inline per_word_capacity(::Type{Kmer{A,K,N}}) where {A,K,N} = div(64, BioSequences.bits_per_symbol(A()))
 @inline per_word_capacity(seq::Kmer) = per_word_capacity(typeof(seq))
 @inline capacity(::Type{Kmer{A,K,N}}) where {A,K,N} = per_word_capacity(Kmer{A,K,N}) * N
@@ -430,8 +431,37 @@ function Base.typemax(::Type{Kmer{A,K,N}}) where {A,K,N}
     return Kmer{A,K,N}((typemax(UInt64), ntuple(i -> typemax(UInt64), N - 1)...))
 end
 
-function Base.rand(::Type{Kmer{A,K,N}}) where {A,K,N}
-    return Kmer{A,K,N}((rand(UInt64), ntuple(i -> rand(UInt64), N - 1)...))
+@inline function rand_kmer_data(::Type{Kmer{A,K,N}}, ::Val{true}) where {A,K,N}
+    return Kmer{A,K,N}(ntuple(i -> rand(UInt64), Val{N}()))
+end
+
+@inline function rand_kmer_data(::Type{Kmer{A,K,N}}, ::Val{false}) where {A,K,N}
+    ## All based on alphabet type of Kmer, so should constant fold.
+    bits_per_sym = BioSequences.bits_per_symbol(A())
+    n_head = elements_in_head(Kmer{A,K,N})
+    n_per_chunk = per_word_capacity(Kmer{A,K,N})
+    # Construct the head.
+    head = zero(UInt64)
+    @inbounds for i in 1:n_head
+        bits = UInt64(BioSequences.encode(A(), rand(symbols(A()))))
+        head = (head << bits_per_sym) | bits
+    end
+    # And the rest of the sequence
+    tail = ntuple(Val{N - 1}()) do i
+        Base.@_inline_meta
+        body = zero(UInt64)
+        @inbounds for _ in 1:n_per_chunk
+            bits = UInt64(BioSequences.encode(A(), rand(symbols(A()))))
+            body = (body << bits_per_sym) | bits
+        end
+        return body
+    end
+    return (head, tail...)
+end
+
+@inline function Base.rand(::Type{Kmer{A,K,N}}) where {A,K,N}
+    checkmer(Kmer{A,K,N})
+    return Kmer{A,K,N}(rand_kmer_data(Kmer{A,K,N}, BioSequences.iscomplete(A())))
 end
 
 Base.rand(::Type{Kmer{A,K}}) where {A,K} = rand(kmertype(Kmer{A,K}))

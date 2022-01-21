@@ -1,4 +1,4 @@
-# <img src="./sticker.svg" width="30%" align="right" /> Kmers
+# Kmers
 
 [![Latest Release](https://img.shields.io/github/release/BioJulia/Kmers.jl.svg)](https://github.com/BioJulia/Kmers.jl/releases/latest)
 [![MIT license](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/BioJulia/Kmers.jl/blob/master/LICENSE)

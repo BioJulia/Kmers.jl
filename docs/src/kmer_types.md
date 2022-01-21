@@ -1,3 +1,10 @@
+```@meta
+CurrentModule = Kmers
+DocTestSetup = quote
+    using Kmers
+end
+```
+
 # Kmer types
 
 Bioinformatic analyses make extensive use of kmers.

@@ -20,7 +20,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/BioJulia/Kmer.jl.git",
+    repo = "github.com/BioJulia/Kmers.jl.git",
     push_preview = true,
     deps = nothing,
     make = nothing

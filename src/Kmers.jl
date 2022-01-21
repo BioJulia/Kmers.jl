@@ -121,6 +121,13 @@ export
 
 using BioSequences
 
+ispermitted(::DNAAlphabet{2}, nt::DNA) = count_ones(nt) == 1 && isvalid(nt)
+ispermitted(::DNAAlphabet{2}, data::UInt) = x < UInt(4)
+ispermitted(::DNAAlphabet{4}, nt::DNA) = isvalid(nt)
+ispermitted(::DNAAlphabet{4}, data::UInt) = isvalid(DNA, data)
+ispermitted(::AminoAcidAlphabet, aa::AminoAcid) = reinterpret(UInt8, aa) <= reinterpret(UInt8, AA_Gap)
+ispermitted(::AminoAcidAlphabet, data::UInt) = data <= 0x1b
+
 include("kmer.jl")
 
 end # module

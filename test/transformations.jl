@@ -47,4 +47,14 @@
             test_rna_revcomp(RNAKmer{len}, random_rna_kmer(len))
         end
     end
+    
+    @testset "Canonical" begin
+        @test canonical(DNAKmer{4,1}("ACCG")) == DNAKmer{4,1}("ACCG")
+        @test canonical(DNAKmer{4,1}("GCAC")) == DNAKmer{4,1}("GCAC")
+        @test canonical(RNAKmer{4,1}("AAUU")) == RNAKmer{4,1}("AAUU")
+        @test canonical(RNAKmer{4,1}("UGGA")) == RNAKmer{4,1}("UCCA")
+        @test canonical(RNAKmer{4,1}("CGAU")) == RNAKmer{4,1}("AUCG")
+        @test canonical(RNAKmer{4,1}("UGGA")) == RNAKmer{4,1}("UCCA")
+        @test canonical(DNAKmer{4,1}("GCAC")) == DNAKmer{4,1}("GCAC")
+    end
 end

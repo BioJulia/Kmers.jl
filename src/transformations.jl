@@ -86,7 +86,7 @@ end
 =#
 
 """
-    canonical(seq::Kmer)
+    canonical(seq::Kmer{A,K,N}) where {A,K,N}
 
 Return the canonical sequence of `seq`.
 
@@ -102,7 +102,13 @@ DNA 5-mer:
 GCTAA
 ```
 """
-@inline BioSequences.canonical(seq::Kmer) = min(seq, reverse_complement(seq))
+@inline function BioSequences.canonical(seq::Kmer{A,K,N}) where {A,K,N}
+    if N < 4
+		return min(seq, reverse_complement(seq))
+	else
+		return iscanonical(seq) ? seq : reverse_complement(seq)
+	end
+end
 
 ###
 ### Old Mer specific specializations of src/biosequence/transformations.jl

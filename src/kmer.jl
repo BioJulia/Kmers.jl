@@ -350,25 +350,25 @@ end
 const DNAKmer{K,N} = Kmer{DNAAlphabet{2},K,N}
 
 "Shortcut for the type `DNAKmer{27,1}`"
-const DNAKmer27 = DNAKmer{27,1}
+const DNA27mer = DNAKmer{27,1}
 
 "Shortcut for the type `DNAKmer{31,1}`"
-const DNAKmer31 = DNAKmer{31,1}
+const DNA31mer = DNAKmer{31,1}
 
 "Shortcut for the type `DNAKmer{63,2}`"
-const DNAKmer63 = DNAKmer{63,2}
+const DNA63mer = DNAKmer{63,2}
 
 "Shortcut for the type `Kmer{RNAAlphabet{2},K,N}`"
 const RNAKmer{K,N} = Kmer{RNAAlphabet{2},K,N}
 
 "Shortcut for the type `RNAKmer{27,1}`"
-const RNAKmer27 = RNAKmer{27,1}
+const RNA27mer = RNAKmer{27,1}
 
 "Shortcut for the type `RNAKmer{31,1}`"
-const RNAKmer31 = RNAKmer{31,1}
+const RNA31mer = RNAKmer{31,1}
 
 "Shortcut for the type `RNAKmer{63,2}`"
-const RNAKmer63 = RNAKmer{63,2}
+const RNA63mer = RNAKmer{63,2}
 
 "Shortcut for the type `Kmer{AminoAcidAlphabet,K,N}`"
 const AAKmer{K,N} = Kmer{AminoAcidAlphabet,K,N}
@@ -493,7 +493,6 @@ BioSequences.LongSequence(x::Kmer{A,K,N}) where {A,K,N} = LongSequence{A}(x)
 include("predicates.jl")
 include("counting.jl")
 include("transformations.jl")
-include("kmer_iteration.jl")
 
 ###
 ### Kmer de-bruijn neighbors

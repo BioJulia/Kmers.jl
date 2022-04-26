@@ -25,13 +25,13 @@ The following aliases are also defined:
 
 ```@docs
 DNAKmer
-DNAKmer27
-DNAKmer31
-DNAKmer63
+DNA27mer
+DNA31mer
+DNA63mer
 RNAKmer
-RNAKmer27
-RNAKmer31
-RNAKmer63
+RNA27mer
+RNA31mer
+RNA63mer
 ```
 
 

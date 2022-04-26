@@ -97,18 +97,19 @@ export
     # Type & aliases
     Kmer,
     DNAKmer,
-    DNAKmer27,
-    DNAKmer31,
-    DNAKmer63,
+    DNA27mer,
+    DNA31mer,
+    DNA63mer,
     RNAKmer,
-    RNAKmer27,
-    RNAKmer31,
-    RNAKmer63,
+    RNA27mer,
+    RNA31mer,
+    RNA63mer,
     AAKmer,
     DNACodon,
     RNACodon,
 
     # Iteration
+    EveryKmer,
     fw_neighbors,
     bw_neighbors,
     
@@ -129,5 +130,8 @@ ispermitted(::AminoAcidAlphabet, aa::AminoAcid) = reinterpret(UInt8, aa) <= rein
 ispermitted(::AminoAcidAlphabet, data::UInt) = data <= 0x1b
 
 include("kmer.jl")
+
+include("kmer_iteration/AbstractKmerIterator.jl")
+include("kmer_iteration/EveryKmer.jl")
 
 end # module

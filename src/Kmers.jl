@@ -110,6 +110,7 @@ export
 
     # Iteration
     EveryKmer,
+    SpacedKmers,
     fw_neighbors,
     bw_neighbors,
     
@@ -133,5 +134,6 @@ include("kmer.jl")
 
 include("kmer_iteration/AbstractKmerIterator.jl")
 include("kmer_iteration/EveryKmer.jl")
+include("kmer_iteration/SpacedKmers.jl")
 
 end # module

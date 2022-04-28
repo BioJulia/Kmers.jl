@@ -38,7 +38,8 @@ struct Kmer{A<:Alphabet,K,N} <: BioSequence{A}
         # TODO: Decide on whether this method should always mask the (64N - 2K)
         # MSBs of the input tuple, as we do that in quite a few cases before
         # calling this constructor: see the typemin, typemax, rand, and transformations.jl
-        return new(_cliphead(n_unused(Kmer{A,K,N}) * BioSequences.bits_per_symbol(A()), data...))
+        x = n_unused(Kmer{A,K,N}) * BioSequences.bits_per_symbol(A()) 
+        return new(_cliphead(x, data...))
     end
 end
 
@@ -379,10 +380,10 @@ const DNACodon = DNAKmer{3,1}
 "Shorthand for `RNAKmer{3,1}`"
 const RNACodon = RNAKmer{3,1}
 
+
 ###
 ### Base Functions
 ###
-
 
 @inline ksize(::Type{Kmer{A,K,N}}) where {A,K,N} = K
 @inline nsize(::Type{Kmer{A,K,N}}) where {A,K,N} = N

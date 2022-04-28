@@ -1,10 +1,10 @@
 
 # Bit-parallel element nucleotide complementation
-@inline function _complement_bitpar(a::A, head::UInt64, tail...) where {A<:NucleicAcidAlphabet{2}}
-    return (~head, _complement_bitpar(a, tail...)...)
+@inline function _complement_bitpar(a::A, head::UInt64, tail...) where {A<:NucleicAcidAlphabet}
+    return (BioSequences.complement_bitpar(head, A()), _complement_bitpar(a, tail...)...)
 end
 
-@inline _complement_bitpar(a::A) where {A<:NucleicAcidAlphabet{2}} = ()
+@inline _complement_bitpar(a::A) where {A<:NucleicAcidAlphabet} = ()
 
 @inline function pushfirst(x::Kmer{A,K,N}, nt) where {A,K,N}
     ntbits = UInt64(BioSequences.encode(A(), nt)) << (62 - (64N - 2K))
@@ -55,9 +55,10 @@ CGATT
 ```
 """
 @inline function Base.reverse(seq::Kmer{A,K,N}) where {A,K,N}
-#    rdata = _reverse(identity, BioSequences.BitsPerSymbol(seq), seq.data...)
     rdata = _reverse(BioSequences.BitsPerSymbol(seq), seq.data...)
-    return Kmer{A,K,N}(rightshift_carry(rdata, 64N - 2K))
+	# rshift should constant-fold.
+	rshift = n_unused(Kmer{A,K,N}) * BioSequences.bits_per_symbol(A())
+    return Kmer{A,K,N}(rightshift_carry(rdata, rshift)) # based on only 2 bit alphabet.
 end
 
 """
@@ -86,7 +87,7 @@ end
 =#
 
 """
-    canonical(seq::Kmer{A,K,N}) where {A,K,N}
+    BioSequences.canonical(seq::Kmer{A,K,N}) where {A,K,N}
 
 Return the canonical sequence of `seq`.
 

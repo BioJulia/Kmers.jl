@@ -14,7 +14,7 @@ struct EveryKmer{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
 end
 
 """
-    everykmer(::Val{K}, seq::BioSequence) where {K}
+    EveryKmer(::Val{K}, seq::BioSequence) where {K}
 
 Initialize an iterator over all overlapping k-mers in a sequence `seq` skipping
 ambiguous nucleotides without changing the reading frame.

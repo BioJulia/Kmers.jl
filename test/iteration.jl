@@ -61,3 +61,67 @@ end
         @test length(SpacedKmers(s, Val{201}(), 50)) == length(SpacedKmers(s2, Val{201}(), 50)) == 6
     end
 end
+
+@testset "EveryCanonicalKmer" begin
+    @testset "EveryCanonicalKmer DNA" begin
+        s = randdnaseq(500)
+        s2 = LongDNA{2}(s)
+        
+        # Iterator generates expected results...
+        ## 2-Bit DNA
+        @test [(x[1], canonical(x[2])) for x in EveryKmer(s2, Val{31}())] ==
+            collect(EveryCanonicalKmer(s2, Val{31}()))
+        
+        @test [(x[1], canonical(x[2])) for x in EveryKmer(s2, Val{201}())] ==
+            collect(EveryCanonicalKmer(s2, Val{201}()))
+        
+        ## 4-Bit DNA
+        @test [(x[1], canonical(x[2])) for x in EveryKmer(s, Val{31}())] ==
+            collect(EveryCanonicalKmer(s, Val{31}()))
+            
+        @test [(x[1], canonical(x[2])) for x in EveryKmer(s, Val{201}())] ==
+            collect(EveryCanonicalKmer(s, Val{201}()))
+        
+        # Test equivalency between different levels of bit compression...
+        @test [x[2] for x in EveryCanonicalKmer(s, Val{31}())] ==
+            [x[2] for x in EveryCanonicalKmer(s2, Val{31}())]
+        @test all(iscanonical.([x[2] for x in EveryCanonicalKmer(s, Val{31}())])) &&
+            all(iscanonical.([x[2] for x in EveryCanonicalKmer(s2, Val{31}())]))
+        
+        @test [x[2] for x in EveryCanonicalKmer(s, Val{201}())] ==
+            [x[2] for x in EveryCanonicalKmer(s2, Val{201}())]
+        @test all(iscanonical.([x[2] for x in EveryCanonicalKmer(s, Val{201}())])) &&
+            all(iscanonical.([x[2] for x in EveryCanonicalKmer(s2, Val{201}())]))
+    end
+    
+    @testset "EveryCanonicalKmer RNA" begin
+        s = randrnaseq(500)
+        s2 = LongRNA{2}(s)
+        
+        # Iterator generates expected results...
+        ## 2-Bit DNA
+        @test [(x[1], canonical(x[2])) for x in EveryKmer(s2, Val{31}())] ==
+            collect(EveryCanonicalKmer(s2, Val{31}()))
+        
+        @test [(x[1], canonical(x[2])) for x in EveryKmer(s2, Val{201}())] ==
+            collect(EveryCanonicalKmer(s2, Val{201}()))
+        
+        ## 4-Bit DNA
+        @test [(x[1], canonical(x[2])) for x in EveryKmer(s, Val{31}())] ==
+            collect(EveryCanonicalKmer(s, Val{31}()))
+            
+        @test [(x[1], canonical(x[2])) for x in EveryKmer(s, Val{201}())] ==
+            collect(EveryCanonicalKmer(s, Val{201}()))
+        
+        # Test equivalency between different levels of bit compression...
+        @test [x[2] for x in EveryCanonicalKmer(s, Val{31}())] ==
+            [x[2] for x in EveryCanonicalKmer(s2, Val{31}())]
+        @test all(iscanonical.([x[2] for x in EveryCanonicalKmer(s, Val{31}())])) &&
+            all(iscanonical.([x[2] for x in EveryCanonicalKmer(s2, Val{31}())]))
+        
+        @test [x[2] for x in EveryCanonicalKmer(s, Val{201}())] ==
+            [x[2] for x in EveryCanonicalKmer(s2, Val{201}())]
+        @test all(iscanonical.([x[2] for x in EveryCanonicalKmer(s, Val{201}())])) &&
+            all(iscanonical.([x[2] for x in EveryCanonicalKmer(s2, Val{201}())]))
+    end
+end

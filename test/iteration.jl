@@ -7,6 +7,12 @@
         
         @test collect(EveryKmer(s, Val{201}())) == collect(EveryKmer(s2, Val{201}()))
         @test length(EveryKmer(s, Val{201}())) == length(EveryKmer(s2, Val{201}())) == 300
+        
+        s3 = dna"AC-TGAG--TGC"
+        @test collect(EveryKmer(DNACodon, s3)) ==
+            [(UInt64(4), Kmer(DNA_T, DNA_G, DNA_A)),
+             (UInt64(5), Kmer(DNA_G, DNA_A, DNA_G)),
+             (UInt64(10), Kmer(DNA_T, DNA_G, DNA_C))]
     end
     
     @testset "EveryKmer RNA" begin
@@ -17,6 +23,12 @@
         
         @test collect(EveryKmer(s, Val{201}())) == collect(EveryKmer(s2, Val{201}()))
         @test length(EveryKmer(s, Val{201}())) == length(EveryKmer(s2, Val{201}())) == 300
+        
+        s3 = rna"AC-UGAG--UGC"
+        @test collect(EveryKmer(RNACodon, s3)) ==
+            [(UInt64(4), Kmer(RNA_U, RNA_G, RNA_A)),
+             (UInt64(5), Kmer(RNA_G, RNA_A, RNA_G)),
+             (UInt64(10), Kmer(RNA_U, RNA_G, RNA_C))]
     end
     
     @testset "EveryKmer AA" begin

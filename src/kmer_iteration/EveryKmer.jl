@@ -13,6 +13,10 @@ struct EveryKmer{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
     stop::Int
 end
 
+function EveryKmer(::Type{T}, seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+    return EveryKmer{T,S}(seq, start, stop)
+end
+
 """
     EveryKmer(::Val{K}, seq::BioSequence) where {K}
 
@@ -39,6 +43,8 @@ Base.step(x::EveryKmer) = 1
     end
 end
 
+
+
 @inline function Base.iterate(it::EveryKmer{Kmer{A,K,N},LongSequence{A}}, state) where {A,K,N}
     i, fwkmer = state
     i += 1
@@ -51,4 +57,35 @@ end
         pos = i - K + 1
         return (pos, Kmer{A,K,N}(kmer)), (i, kmer)
     end
+end
+
+## Special case where iterating over 2-Bit encoded kmers in a 4-Bit encoded sequence,
+## behaviour is to produce kmers by skipping over the ambiguous sites.
+
+const kmerbits = (UInt64(0xff), UInt64(0x00), UInt64(0x01), UInt64(0xff),
+                  UInt64(0x02), UInt64(0xff), UInt64(0xff), UInt64(0xff),
+                  UInt64(0x03), UInt64(0xff), UInt64(0xff), UInt64(0xff),
+                  UInt64(0xff), UInt64(0xff), UInt64(0xff), UInt64(0xff))
+
+@inline Base.IteratorSize(::Type{<:EveryKmer{Kmer{A,N,K},S}}) where {A<:NucleicAcidAlphabet{2},N,K,B<:NucleicAcidAlphabet{4},S<:BioSequence{B}} = Base.SizeUnknown()
+
+@inline function Base.iterate(it::EveryKmer{Kmer{A,K,N},S},
+                              state = (it.start - 1, 1, blank_ntuple(Kmer{A,K,N}))
+                              ) where {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4},S<:BioSequence{B},K,N}
+    
+    i, filled, fwkmer = state
+    i += 1
+    filled -= 1
+
+    while i ≤ it.stop
+        @inbounds nt = reinterpret(UInt8, it.seq[i])
+        @inbounds fbits = kmerbits[nt + 1]
+        fwkmer = leftshift_carry(fwkmer, 2, fbits)
+        filled = ifelse(fbits == UInt64(0xff), 0, filled + 1)
+        if filled == K
+            return (i - K + 1, Kmer{A,K,N}(fwkmer)), (i, filled, fwkmer)
+        end
+        i += 1
+    end
+    return nothing
 end

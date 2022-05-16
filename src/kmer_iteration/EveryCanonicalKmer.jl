@@ -5,6 +5,10 @@ struct EveryCanonicalKmer{T<:Kmer,S<:BioSequence{<:NucleicAcidAlphabet}} <: Abst
     stop::Int
 end
 
+function EveryCanonicalKmer(::Type{T}, seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+    return EveryCanonicalKmer{T,S}(seq, start, stop)
+end
+
 """
     EveryCanonicalKmer(seq::BioSequence{A}, ::Val{K}) where {A<:NucleicAcidAlphabet,K}
 
@@ -51,4 +55,32 @@ end
         return (pos, min(Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer))), (i, fwkmer, rvkmer)
         #return (pos, Kmer{A,K,N}(min(fwkmer, rvkmer))), (i, fwkmer, rvkmer)
     end
+end
+
+@inline Base.IteratorSize(::Type{<:EveryCanonicalKmer{Kmer{A,N,K},LongSequence{B}}}) where {A<:NucleicAcidAlphabet{2},N,K,B<:NucleicAcidAlphabet{4}} = Base.SizeUnknown()
+
+@inline function Base.iterate(it::EveryCanonicalKmer{Kmer{A,K,N},LongSequence{B}},
+                              state = (it.start - 1, 1, blank_ntuple(Kmer{A,K,N}), blank_ntuple(Kmer{A,K,N}))
+                              ) where {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4},K,N}
+    
+    i, filled, fwkmer, rvkmer = state
+    i += 1
+    filled -= 1
+
+    rshift = (64 - (n_unused(Kmer{A,K,N}) + 1) * 2) # Based on type info, should constant fold.
+    mask = (one(UInt64) << 2) - one(UInt64) # Based on type info, should constant fold.
+
+    while i ≤ it.stop
+        @inbounds nt = reinterpret(UInt8, it.seq[i])
+        @inbounds fbits = kmerbits[nt + 1]
+        rbits = (BioSequences.complement_bitpar(fbits, A()) & mask) << rshift
+        fwkmer = leftshift_carry(fwkmer, 2, fbits)
+        rvkmer = rightshift_carry(rvkmer, 2, rbits)
+        filled = ifelse(fbits == UInt64(0xff), 0, filled + 1)
+        if filled == K
+            return (i - K + 1, min(Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer))), (i, filled, fwkmer, rvkmer)
+        end
+        i += 1
+    end
+    return nothing
 end

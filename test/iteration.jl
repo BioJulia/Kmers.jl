@@ -104,6 +104,12 @@ end
             [x[2] for x in EveryCanonicalKmer(s2, Val{201}())]
         @test all(iscanonical.([x[2] for x in EveryCanonicalKmer(s, Val{201}())])) &&
             all(iscanonical.([x[2] for x in EveryCanonicalKmer(s2, Val{201}())]))
+        
+        s3 = dna"AC-TGAG--TGC"
+        @test collect(EveryCanonicalKmer(DNACodon, s3)) ==
+            [(UInt64(4), canonical(Kmer(DNA_T, DNA_G, DNA_A))),
+             (UInt64(5), canonical(Kmer(DNA_G, DNA_A, DNA_G))),
+             (UInt64(10), canonical(Kmer(DNA_T, DNA_G, DNA_C)))]
     end
     
     @testset "EveryCanonicalKmer RNA" begin
@@ -135,5 +141,11 @@ end
             [x[2] for x in EveryCanonicalKmer(s2, Val{201}())]
         @test all(iscanonical.([x[2] for x in EveryCanonicalKmer(s, Val{201}())])) &&
             all(iscanonical.([x[2] for x in EveryCanonicalKmer(s2, Val{201}())]))
+        
+        s3 = rna"AC-UGAG--UGC"
+        @test collect(EveryCanonicalKmer(RNACodon, s3)) ==
+            [(UInt64(4), canonical(Kmer(RNA_U, RNA_G, RNA_A))),
+             (UInt64(5), canonical(Kmer(RNA_G, RNA_A, RNA_G))),
+             (UInt64(10), canonical(Kmer(RNA_U, RNA_G, RNA_C)))]
     end
 end

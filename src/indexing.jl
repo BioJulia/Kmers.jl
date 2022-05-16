@@ -7,7 +7,6 @@ end
 
 @inline Base.copy(seq::Kmer) = typeof(seq)(seq.data)
 
-
 @inline encoded_data(x::Kmer) = x.data
 
 @inline BioSequences.bitindex(seq::Kmer, i::Integer) = BioSequences.bitindex(BioSequences.BitsPerSymbol(seq), BioSequences.encoded_data_eltype(typeof(seq)), i + n_unused(seq))

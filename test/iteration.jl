@@ -2,12 +2,14 @@
     @testset "EveryKmer DNA" begin
         s = randdnaseq(500)
         s2 = LongDNA{2}(s)
+        # Kmer and sequence Alphabets match.
         @test collect(EveryKmer(s, Val{31}())) == collect(EveryKmer(s2, Val{31}()))
         @test length(EveryKmer(s, Val{31}())) == length(EveryKmer(s2, Val{31}())) == 470
         
         @test collect(EveryKmer(s, Val{201}())) == collect(EveryKmer(s2, Val{201}()))
         @test length(EveryKmer(s, Val{201}())) == length(EveryKmer(s2, Val{201}())) == 300
         
+        # Kmer and sequence Alphabets mismatch.
         s3 = dna"AC-TGAG--TGC"
         @test collect(EveryKmer(DNACodon, s3)) ==
             [(UInt64(4), Kmer(DNA_T, DNA_G, DNA_A)),
@@ -18,12 +20,14 @@
     @testset "EveryKmer RNA" begin
         s = randrnaseq(500)
         s2 = LongRNA{2}(s)
+        # Kmer and sequence Alphabets match.
         @test collect(EveryKmer(s, Val{31}())) == collect(EveryKmer(s2, Val{31}()))
         @test length(EveryKmer(s, Val{31}())) == length(EveryKmer(s2, Val{31}())) == 470
         
         @test collect(EveryKmer(s, Val{201}())) == collect(EveryKmer(s2, Val{201}()))
         @test length(EveryKmer(s, Val{201}())) == length(EveryKmer(s2, Val{201}())) == 300
         
+        # Kmer and sequence Alphabets mismatch.
         s3 = rna"AC-UGAG--UGC"
         @test collect(EveryKmer(RNACodon, s3)) ==
             [(UInt64(4), Kmer(RNA_U, RNA_G, RNA_A)),
@@ -105,6 +109,7 @@ end
         @test all(iscanonical.([x[2] for x in EveryCanonicalKmer(s, Val{201}())])) &&
             all(iscanonical.([x[2] for x in EveryCanonicalKmer(s2, Val{201}())]))
         
+        # Kmer and sequence Alphabets mismatch.
         s3 = dna"AC-TGAG--TGC"
         @test collect(EveryCanonicalKmer(DNACodon, s3)) ==
             [(UInt64(4), canonical(Kmer(DNA_T, DNA_G, DNA_A))),
@@ -147,5 +152,43 @@ end
             [(UInt64(4), canonical(Kmer(RNA_U, RNA_G, RNA_A))),
              (UInt64(5), canonical(Kmer(RNA_G, RNA_A, RNA_G))),
              (UInt64(10), canonical(Kmer(RNA_U, RNA_G, RNA_C)))]
+    end
+end
+
+@testset "SpacedCanonicalKmers" begin
+    @testset "SpacedCanonicalKmers DNA" begin
+        s = randdnaseq(500)
+        s2 = LongDNA{2}(s)
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s, Val{31}(), 50)] == collect(SpacedCanonicalKmers(s, Val{31}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{31}(), 50)] == collect(SpacedCanonicalKmers(s2, Val{31}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s, Val{31}(), 50)] == collect(SpacedCanonicalKmers(s2, Val{31}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{31}(), 50)] == collect(SpacedCanonicalKmers(s, Val{31}(), 50))
+        @test collect(SpacedCanonicalKmers(s, Val{31}(), 50)) == collect(SpacedCanonicalKmers(s2, Val{31}(), 50))
+        @test length(SpacedCanonicalKmers(s, Val{31}(), 50)) == length(SpacedCanonicalKmers(s2, Val{31}(), 50)) == 10
+        
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s, Val{201}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s2, Val{201}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s2, Val{201}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s, Val{201}(), 50))
+        @test collect(SpacedCanonicalKmers(s, Val{201}(), 50)) == collect(SpacedCanonicalKmers(s2, Val{201}(), 50))
+        @test length(SpacedCanonicalKmers(s, Val{201}(), 50)) == length(SpacedCanonicalKmers(s2, Val{201}(), 50)) == 6
+    end
+    
+    @testset "SpacedCanonicalKmers RNA" begin
+        s = randrnaseq(500)
+        s2 = LongRNA{2}(s)
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s, Val{31}(), 50)] == collect(SpacedCanonicalKmers(s, Val{31}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{31}(), 50)] == collect(SpacedCanonicalKmers(s2, Val{31}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s, Val{31}(), 50)] == collect(SpacedCanonicalKmers(s2, Val{31}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{31}(), 50)] == collect(SpacedCanonicalKmers(s, Val{31}(), 50))
+        @test collect(SpacedCanonicalKmers(s, Val{31}(), 50)) == collect(SpacedCanonicalKmers(s2, Val{31}(), 50))
+        @test length(SpacedCanonicalKmers(s, Val{31}(), 50)) == length(SpacedCanonicalKmers(s2, Val{31}(), 50)) == 10
+        
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s, Val{201}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s2, Val{201}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s2, Val{201}(), 50))
+        @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s, Val{201}(), 50))
+        @test collect(SpacedCanonicalKmers(s, Val{201}(), 50)) == collect(SpacedCanonicalKmers(s2, Val{201}(), 50))
+        @test length(SpacedCanonicalKmers(s, Val{201}(), 50)) == length(SpacedCanonicalKmers(s2, Val{201}(), 50)) == 6
     end
 end

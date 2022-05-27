@@ -6,13 +6,30 @@
 ### This file is a part of BioJulia.
 ### License is MIT: https://github.com/BioJulia/BioSequences.jl/blob/master/LICENSE.md
 
+"""
+An iterator over every valid overlapping T<:Kmer in a given longer BioSequence.
 
+!!! note
+    Typically, the alphabet of the Kmer type must match the alphabet of the input
+    BioSequence.
+    
+    However, in the specific case of iterating over kmers in a DNA or RNA sequence, if you
+    are iterating over a Kmers where the alphabet is a NucleicAcidAlphabet{2}, but
+    BioSequence has a NucleicAcidAlphabet{4}, then the iterator will skip over positions
+    in the BioSequence with characters that are not supported by the Kmer type's
+    NucleicAcidAlphabet{2}.
+"""
 struct EveryKmer{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
     seq::S
     start::Int
     stop::Int
 end
 
+"""
+    EveryKmer(::Type{T}, seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+
+Construct an iterator over every valid T<:Kmer in a given sequence between `start` & `stop`.
+"""
 function EveryKmer(::Type{T}, seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
     return EveryKmer{T,S}(seq, start, stop)
 end
@@ -20,8 +37,7 @@ end
 """
     EveryKmer(::Val{K}, seq::BioSequence) where {K}
 
-Initialize an iterator over all overlapping k-mers in a sequence `seq` skipping
-ambiguous nucleotides without changing the reading frame.
+Initialize an iterator over all overlapping k-mers in a sequence `seq`.
 """
 function EveryKmer(seq::BioSequence{A}, ::Val{K}) where {A,K}
     T′ = kmertype(Kmer{A,K})
@@ -37,13 +53,9 @@ Base.step(x::EveryKmer) = 1
     if isnothing(kmer)
         return nothing
     else
-        # Get the reverse.
-        alph = Alphabet(Kmer{A,K,N})
         return (1, Kmer{A,K,N}(kmer)), (K, kmer)
     end
 end
-
-
 
 @inline function Base.iterate(it::EveryKmer{Kmer{A,K,N},LongSequence{A}}, state) where {A,K,N}
     i, fwkmer = state

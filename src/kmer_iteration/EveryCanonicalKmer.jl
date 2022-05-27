@@ -1,4 +1,6 @@
-
+"""
+An iterator over every canonical valid overlapping T<:Kmer in a given longer BioSequence.
+"""
 struct EveryCanonicalKmer{T<:Kmer,S<:BioSequence{<:NucleicAcidAlphabet}} <: AbstractKmerIterator{T,S}
     seq::S
     start::Int
@@ -12,8 +14,7 @@ end
 """
     EveryCanonicalKmer(seq::BioSequence{A}, ::Val{K}) where {A<:NucleicAcidAlphabet,K}
 
-Initialize an iterator over all overlapping k-mers in a sequence `seq` skipping
-ambiguous nucleotides without changing the reading frame.
+Initialize an iterator over all overlapping k-mers in a sequence `seq`.
 """
 function EveryCanonicalKmer(seq::BioSequence{A}, ::Val{K}) where {A<:NucleicAcidAlphabet,K}
     T′ = kmertype(Kmer{A,K})
@@ -53,7 +54,6 @@ end
         rvkmer = rightshift_carry(rvkmer, bps, rbits)
         pos = i - K + 1
         return (pos, min(Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer))), (i, fwkmer, rvkmer)
-        #return (pos, Kmer{A,K,N}(min(fwkmer, rvkmer))), (i, fwkmer, rvkmer)
     end
 end
 

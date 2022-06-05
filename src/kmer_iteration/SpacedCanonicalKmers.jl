@@ -9,6 +9,17 @@ struct SpacedCanonicalKmers{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
     increment::Int # This is cached for speed
 end
 
+function SpacedCanonicalKmers(::Type{T}, seq::S, step::Integer) where {T<:Kmer,S<:BioSequence}
+    T′ = kmertype(T)
+    checkmer(T′) # Should inline and constant fold.
+    if step <= 1
+        throw(ArgumentError("step size must be greater than 1"))
+    end
+    filled = max(0, ksize(T′) - step)
+    increment = max(1, step - ksize(T′) + 1)
+    return SpacedCanonicalKmers{T′,typeof(seq)}(seq, 1, step, lastindex(seq), filled, increment)
+end
+
 """
     SpacedCanonicalKmers(seq::BioSequence, ::Val{K}, step::Integer) where {K}
 
@@ -16,14 +27,7 @@ Initialize an iterator over k-mers separated by a `step` parameter, in a
 sequence `seq` skipping ambiguous nucleotides without changing the reading frame.
 """
 function SpacedCanonicalKmers(seq::BioSequence{A}, ::Val{K}, step::Integer) where {A,K}
-    T′ = kmertype(Kmer{A,K})
-    checkmer(T′) # Should inline and constant fold.
-    if step <= 1
-        throw(ArgumentError("step size must be greater than 1"))
-    end
-    filled = max(0, K - step)
-    increment = max(1, step - K + 1)
-    return SpacedCanonicalKmers{T′,typeof(seq)}(seq, 1, step, lastindex(seq), filled, increment)
+    return SpacedCanonicalKmers(Kmer{A,K}, seq, step)
 end
 
 Base.step(x::SpacedCanonicalKmers) = x.step
@@ -61,9 +65,9 @@ end
     pos = i - K + 1
     return (pos, min(Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer))), (i, fwkmer, rvkmer)
 end
-#=
-@inline function Base.iterate(it::SpacedCanonicalKmers{Kmer{A,K,N},LongSequence{A}}, state = (it.start - it.increment, 1, 0, blank_ntuple(Kmer{A,K,N}), blank_ntuple(Kmer{A,K,N}))
-    ) where {A,K,N}
+
+@inline function Base.iterate(it::SpacedCanonicalKmers{Kmer{A,K,N},LongSequence{B}}, state = (it.start - it.increment, 1, 0, blank_ntuple(Kmer{A,K,N}), blank_ntuple(Kmer{A,K,N}))
+    ) where {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4},K,N}
     i, pos, filled, fwkmer, rvkmer = state
     i += it.increment
 
@@ -83,10 +87,9 @@ end
         end
         if filled == K
             state = (i, i - K + 1 + it.step, it.filled, fwkmer, rvkmer)
-            return KmerAt(pos, Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer)), state
+            return (pos, min(Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer))), state
         end
         i += 1
     end
     return nothing
 end
-=#

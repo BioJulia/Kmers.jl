@@ -12,7 +12,6 @@ abstract type AbstractKmerIterator{T<:Kmer,S<:BioSequence} end
 
 @inline Base.eltype(::Type{<:AbstractKmerIterator{T,S}}) where {T,S} = Tuple{UInt64,T}
 
-#@inline Base.IteratorSize(::Type{<:AbstractKmerIterator{T,S}}) where {T,S} = Base.HasLength()
 @inline Base.IteratorSize(::Type{<:AbstractKmerIterator{Kmer{A,K,N},S}}) where {A,S<:BioSequence{A},K,N} = Base.HasLength()
 @inline Base.IteratorSize(::Type{<:AbstractKmerIterator{Kmer{A,K,N},S}}) where {A,B,S<:BioSequence{B},K,N} = Base.SizeUnknown()
 

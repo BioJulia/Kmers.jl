@@ -172,6 +172,11 @@ end
         @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s, Val{201}(), 50))
         @test collect(SpacedCanonicalKmers(s, Val{201}(), 50)) == collect(SpacedCanonicalKmers(s2, Val{201}(), 50))
         @test length(SpacedCanonicalKmers(s, Val{201}(), 50)) == length(SpacedCanonicalKmers(s2, Val{201}(), 50)) == 6
+        
+        s3 = dna"AC-TGAG--TGC"
+        @test collect(SpacedCanonicalKmers(DNACodon, s3, 3)) ==
+            [(UInt64(4), canonical(Kmer(DNA_T, DNA_C, DNA_A))),
+             (UInt64(10), canonical(Kmer(DNA_T, DNA_G, DNA_C)))]
     end
     
     @testset "SpacedCanonicalKmers RNA" begin
@@ -190,5 +195,10 @@ end
         @test [(x[1], canonical(x[2])) for x in SpacedKmers(s2, Val{201}(), 50)] == collect(SpacedCanonicalKmers(s, Val{201}(), 50))
         @test collect(SpacedCanonicalKmers(s, Val{201}(), 50)) == collect(SpacedCanonicalKmers(s2, Val{201}(), 50))
         @test length(SpacedCanonicalKmers(s, Val{201}(), 50)) == length(SpacedCanonicalKmers(s2, Val{201}(), 50)) == 6
+        
+        s3 = rna"AC-UGAG--UGC"
+        @test collect(SpacedCanonicalKmers(RNACodon, s3, 3)) ==
+            [(UInt64(4), canonical(Kmer(RNA_U, RNA_C, RNA_A))),
+             (UInt64(10), canonical(Kmer(RNA_U, RNA_G, RNA_C)))]
     end
 end

@@ -55,6 +55,11 @@ end
         
         @test collect(SpacedKmers(s, Val{201}(), 50)) == collect(SpacedKmers(s2, Val{201}(), 50))
         @test length(SpacedKmers(s, Val{201}(), 50)) == length(SpacedKmers(s2, Val{201}(), 50)) == 6
+        
+        s3 = dna"AC-TGAG--TGC"
+        @test collect(SpacedKmers(DNACodon, s3, 3)) ==
+            [(UInt64(4), Kmer(DNA_T, DNA_G, DNA_A)),
+             (UInt64(10), Kmer(DNA_T, DNA_G, DNA_C))]
     end
     
     @testset "SpacedKmers RNA" begin
@@ -65,6 +70,11 @@ end
         
         @test collect(SpacedKmers(s, Val{201}(), 50)) == collect(SpacedKmers(s2, Val{201}(), 50))
         @test length(SpacedKmers(s, Val{201}(), 50)) == length(SpacedKmers(s2, Val{201}(), 50)) == 6
+        
+        s3 = rna"AC-UGAG--UGC"
+        @test collect(SpacedKmers(RNACodon, s3, 3)) ==
+            [(UInt64(4), Kmer(RNA_U, RNA_G, RNA_A)),
+             (UInt64(10), Kmer(RNA_U, RNA_G, RNA_C))]
     end
     
     @testset "SpacedKmers AA" begin

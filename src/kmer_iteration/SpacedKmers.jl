@@ -9,6 +9,17 @@ struct SpacedKmers{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
     increment::Int # This is cached for speed
 end
 
+function SpacedKmers(::Type{T}, seq::S, step::Integer) where {T<:Kmer,S<:BioSequence}
+    T′ = kmertype(T)
+    checkmer(T′) # Should inline and constant fold.
+    if step <= 1
+        throw(ArgumentError("step size must be greater than 1"))
+    end
+    filled = max(0, ksize(T′) - step)
+    increment = max(1, step - ksize(T′) + 1)
+    return SpacedKmers{T′,typeof(seq)}(seq, 1, step, lastindex(seq), filled, increment)
+end
+
 """
     SpacedKmers(seq::BioSequence, ::Val{K}, step::Integer) where {K}
 
@@ -57,32 +68,29 @@ end
     pos = i - K + 1
     return (pos, Kmer{A,K,N}(kmer)), (i, kmer)
 end
-#=
-@inline function Base.iterate(it::SpacedKmers{Kmer{A,K,N},LongSequence{A}}, state = (it.start - it.increment, 1, 0, blank_ntuple(Kmer{A,K,N}), blank_ntuple(Kmer{A,K,N}))
-    ) where {A,K,N}
-    i, pos, filled, fwkmer, rvkmer = state
+
+@inline function Base.iterate(it::SpacedKmers{Kmer{A,K,N},LongSequence{B}}, state = (it.start - it.increment, 1, 0, blank_ntuple(Kmer{A,K,N}))
+    ) where {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4},K,N}
+    i, pos, filled, kmer = state
     i += it.increment
 
     while i ≤ it.stop
         nt = reinterpret(UInt8, @inbounds getindex(it.seq, i))
-        @inbounds fbits = UInt64(kmerbits[nt + 1])
-        rbits = ~fbits & typeof(fbits)(0x03)
-        if fbits == 0xff # ambiguous
+        @inbounds bits = UInt64(kmerbits[nt + 1])
+        if bits == 0xff # ambiguous
             filled = 0
             # Find the beginning of next possible kmer after i
             pos = i + it.step - Core.Intrinsics.urem_int(i - pos, it.step)
             i = pos - 1
         else
             filled += 1
-            fwkmer = leftshift_carry(fwkmer, 2, fbits)
-            rvkmer = rightshift_carry(rvkmer, 2, UInt64(rbits) << (62 - (64N - 2K)))
+            kmer = leftshift_carry(kmer, 2, bits)
         end
         if filled == K
-            state = (i, i - K + 1 + it.step, it.filled, fwkmer, rvkmer)
-            return KmerAt(pos, Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer)), state
+            state = (i, i - K + 1 + it.step, it.filled, kmer)
+            return (pos, Kmer{A,K,N}(kmer)), state
         end
         i += 1
     end
     return nothing
 end
-=#

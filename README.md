@@ -52,32 +52,6 @@ Take a look at the [contributing files](https://github.com/BioJulia/Contributing
 detailed contributor and maintainer guidelines, and code of conduct.
 
 
-
-### Financial contributions
-
-We also welcome financial contributions in full transparency on our
-[open collective](https://opencollective.com/biojulia).
-Anyone can file an expense. If the expense makes sense for the development
-of the community, it will be "merged" in the ledger of our open collective by
-the core contributors and the person who filed the expense will be reimbursed.
-
-
-## Backers & Sponsors
-
-Thank you to all our backers and sponsors!
-
-[![](https://opencollective.com/biojulia/sponsor/0/avatar.svg)](https://opencollective.com/biojulia/sponsor/0/website)
-[![](https://opencollective.com/biojulia/sponsor/1/avatar.svg)](https://opencollective.com/biojulia/sponsor/1/website)
-[![](https://opencollective.com/biojulia/sponsor/2/avatar.svg)](https://opencollective.com/biojulia/sponsor/2/website)
-[![](https://opencollective.com/biojulia/sponsor/3/avatar.svg)](https://opencollective.com/biojulia/sponsor/3/website)
-[![](https://opencollective.com/biojulia/sponsor/4/avatar.svg)](https://opencollective.com/biojulia/sponsor/4/website)
-[![](https://opencollective.com/biojulia/sponsor/5/avatar.svg)](https://opencollective.com/biojulia/sponsor/5/website)
-[![](https://opencollective.com/biojulia/sponsor/6/avatar.svg)](https://opencollective.com/biojulia/sponsor/6/website)
-[![](https://opencollective.com/biojulia/sponsor/7/avatar.svg)](https://opencollective.com/biojulia/sponsor/7/website)
-[![](https://opencollective.com/biojulia/sponsor/8/avatar.svg)](https://opencollective.com/biojulia/sponsor/8/website)
-[![](https://opencollective.com/biojulia/sponsor/9/avatar.svg)](https://opencollective.com/biojulia/sponsor/9/website)
-
-
 ## Questions?
 
 If you have a question about contributing or using BioJulia software, come

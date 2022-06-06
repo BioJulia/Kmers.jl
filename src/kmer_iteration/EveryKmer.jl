@@ -10,14 +10,20 @@
 An iterator over every valid overlapping T<:Kmer in a given longer BioSequence.
 
 !!! note
-    Typically, the alphabet of the Kmer type must match the alphabet of the input
-    BioSequence.
+    Typically, the alphabet of the Kmer type matches the alphabet of the input
+    BioSequence. In these cases, the iterator will have `Base.IteratorSize` of
+    `Base.HasLength`, and successive kmers produced by the iterator will overlap
+    by K - 1 bases.
     
-    However, in the specific case of iterating over kmers in a DNA or RNA sequence, if you
-    are iterating over a Kmers where the alphabet is a NucleicAcidAlphabet{2}, but
-    BioSequence has a NucleicAcidAlphabet{4}, then the iterator will skip over positions
-    in the BioSequence with characters that are not supported by the Kmer type's
-    NucleicAcidAlphabet{2}.
+    However, in the specific case of iterating over kmers in a DNA or RNA sequence, you
+    may iterate over a Kmers where the alphabet is a NucleicAcidAlphabet{2}, but
+    the input BioSequence has a NucleicAcidAlphabet{4}.
+    
+    In this case then the iterator will skip over positions in the BioSequence
+    with characters that are not supported by the Kmer type's NucleicAcidAlphabet{2}.
+    
+    As a result, the overlap between successive kmers may not reliably be K - 1,
+    and the iterator will have `Base.IteratorSize` of `Base.SizeUnknown`.
 """
 struct EveryKmer{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
     seq::S

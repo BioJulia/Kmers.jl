@@ -1,7 +1,7 @@
 
 """
 An iterator over every valid `T<:Kmer` separated by a `step` parameter, in a given
-longer `BioSequence`.
+longer `BioSequence`, between a `start` and `stop` position.
 
 !!! note
     Typically, the alphabet of the Kmer type matches the alphabet of the input

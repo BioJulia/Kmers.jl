@@ -1,5 +1,6 @@
 """
-An iterator over every canonical valid overlapping `T<:Kmer` in a given longer `BioSequence`.
+An iterator over every canonical valid overlapping `T<:Kmer` in a given longer 
+`BioSequence`, between a `start` and `stop` position.
 
 !!! note
     Typically, the alphabet of the Kmer type matches the alphabet of the input

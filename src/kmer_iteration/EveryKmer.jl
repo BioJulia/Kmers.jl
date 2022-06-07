@@ -8,7 +8,7 @@
 
 """
 An iterator over every valid overlapping `T<:Kmer` in a given longer
-`BioSequence` between `start` and `stop`.
+`BioSequence` between a `start` and `stop` position. 
 
 !!! note
     Typically, the alphabet of the Kmer type matches the alphabet of the input

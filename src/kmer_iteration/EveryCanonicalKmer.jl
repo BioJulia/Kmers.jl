@@ -1,5 +1,5 @@
 """
-An iterator over every canonical valid overlapping T<:Kmer in a given longer BioSequence.
+An iterator over every canonical valid overlapping `T<:Kmer` in a given longer `BioSequence`.
 
 !!! note
     Typically, the alphabet of the Kmer type matches the alphabet of the input
@@ -21,21 +21,38 @@ struct EveryCanonicalKmer{T<:Kmer,S<:BioSequence{<:NucleicAcidAlphabet}} <: Abst
     seq::S
     start::Int
     stop::Int
+    
+    function EveryCanonicalKmer{T,S}(seq::S, start::Int = firstindex(seq), stop::Int = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+        T′ = kmertype(T)
+        checkmer(T′) # Should inline and constant fold.
+        return new{T′,S}(seq, start, stop)
+    end
 end
 
-function EveryCanonicalKmer(::Type{T}, seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+"""
+    EveryCanonicalKmer{T}(seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+
+Convenience outer constructor so you don't have to specify `S` along with `T`.
+
+E.g. Instead of `EveryCanonicalKmer{DNACodon,typeof(s)}(s)`, you can just use `EveryCanonicalKmer{DNACodon}(s)`
+"""
+function EveryCanonicalKmer{T}(seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
     return EveryCanonicalKmer{T,S}(seq, start, stop)
 end
 
 """
-    EveryCanonicalKmer(seq::BioSequence{A}, ::Val{K}) where {A<:NucleicAcidAlphabet,K}
+    EveryCanonicalKmer(seq::BioSequence{A}, ::Val{K}, start = firstindex(seq), stop = lastindex(seq)) where {A,K}
 
-Initialize an iterator over all overlapping k-mers in a sequence `seq`.
+Convenience outer constructor so yyou don't have to specify full `Kmer` typing.
+
+In order to deduce `Kmer{A,K,N}`, `A` is taken from the input `seq` type, `K` is
+taken from `::Val{K}`, and `N` is deduced using `A` and `K`.
+
+E.g. Instead of `EveryCanonicalKmer{DNAKmer{3,1}}(s)`, or `EveryCanonicalKmer{DNACodon}(s)`,
+you can use `EveryCanonicalKmer(s, Val(3))`
 """
-function EveryCanonicalKmer(seq::BioSequence{A}, ::Val{K}) where {A<:NucleicAcidAlphabet,K}
-    T′ = kmertype(Kmer{A,K})
-    checkmer(T′) # Should inline and constant fold.
-    return EveryCanonicalKmer{T′,typeof(seq)}(seq, 1, lastindex(seq))
+function EveryCanonicalKmer(seq::BioSequence{A}, ::Val{K}, start = firstindex(seq), stop = lastindex(seq)) where {A,K}
+    return EveryCanonicalKmer{Kmer{A,K}}(seq, start, stop)
 end
 
 Base.step(x::EveryCanonicalKmer) = 1

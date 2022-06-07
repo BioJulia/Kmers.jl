@@ -7,7 +7,8 @@
 ### License is MIT: https://github.com/BioJulia/BioSequences.jl/blob/master/LICENSE.md
 
 """
-An iterator over every valid overlapping T<:Kmer in a given longer BioSequence.
+An iterator over every valid overlapping `T<:Kmer` in a given longer
+`BioSequence` between `start` and `stop`.
 
 !!! note
     Typically, the alphabet of the Kmer type matches the alphabet of the input
@@ -29,26 +30,38 @@ struct EveryKmer{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
     seq::S
     start::Int
     stop::Int
+    
+    function EveryKmer{T,S}(seq::S, start::Int = firstindex(seq), stop::Int = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+        T′ = kmertype(T)
+        checkmer(T′) # Should inline and constant fold.
+        return new{T′,S}(seq, start, stop)
+    end
 end
 
 """
-    EveryKmer(::Type{T}, seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+    EveryKmer{T}(seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
 
-Construct an iterator over every valid T<:Kmer in a given sequence between `start` & `stop`.
+Convenience outer constructor so you don't have to specify `S` along with `T`.
+
+E.g. Instead of `EveryKmer{DNACodon,typeof(s)}(s)`, you can just use `EveryKmer{DNACodon}(s)`
 """
-function EveryKmer(::Type{T}, seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+function EveryKmer{T}(seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
     return EveryKmer{T,S}(seq, start, stop)
 end
 
 """
-    EveryKmer(::Val{K}, seq::BioSequence) where {K}
+    EveryKmer(seq::BioSequence{A}, ::Val{K}, start = firstindex(seq), stop = lastindex(seq)) where {A,K}
 
-Initialize an iterator over all overlapping k-mers in a sequence `seq`.
+Convenience outer constructor so yyou don't have to specify full `Kmer` typing.
+
+In order to deduce `Kmer{A,K,N}`, `A` is taken from the input `seq` type, `K` is
+taken from `::Val{K}`, and `N` is deduced using `A` and `K`.
+
+E.g. Instead of `EveryKmer{DNAKmer{3,1}}(s)`, or `EveryKmer{DNACodon}(s)`,
+you can use `EveryKmer(s, Val(3))`
 """
-function EveryKmer(seq::BioSequence{A}, ::Val{K}) where {A,K}
-    T′ = kmertype(Kmer{A,K})
-    checkmer(T′) # Should inline and constant fold.
-    return EveryKmer{T′,typeof(seq)}(seq, 1, lastindex(seq))
+function EveryKmer(seq::BioSequence{A}, ::Val{K}, start = firstindex(seq), stop = lastindex(seq)) where {A,K}
+    return EveryKmer{Kmer{A,K}}(seq, start, stop)
 end
 
 Base.step(x::EveryKmer) = 1

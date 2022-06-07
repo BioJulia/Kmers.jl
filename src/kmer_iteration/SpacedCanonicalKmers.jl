@@ -1,5 +1,25 @@
 
+"""
+An iterator over every valid `T<:Kmer` separated by a `step` parameter, in a given
+longer `BioSequence`.
 
+!!! note
+    Typically, the alphabet of the Kmer type matches the alphabet of the input
+    BioSequence. In these cases, the iterator will have `Base.IteratorSize` of
+    `Base.HasLength`, and successive kmers produced by the iterator will overlap
+    by `max(0, K - step)` bases.
+    
+    However, in the specific case of iterating over kmers in a DNA or RNA sequence, you
+    may iterate over a Kmers where the alphabet is a NucleicAcidAlphabet{2}, but
+    the input BioSequence has a NucleicAcidAlphabet{4}.
+    
+    In this case then the iterator will skip over positions in the BioSequence
+    with characters that are not supported by the Kmer type's NucleicAcidAlphabet{2}.
+    
+    As a result, the overlap between successive kmers may not consistent, but the
+    reading frame will be preserved.
+    In addition, the iterator will have `Base.IteratorSize` of `Base.SizeUnknown`.
+"""
 struct SpacedCanonicalKmers{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
     seq::S
     start::Int
@@ -7,27 +27,43 @@ struct SpacedCanonicalKmers{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
     stop::Int
     filled::Int # This is cached for speed
     increment::Int # This is cached for speed
-end
-
-function SpacedCanonicalKmers(::Type{T}, seq::S, step::Integer) where {T<:Kmer,S<:BioSequence}
-    T′ = kmertype(T)
-    checkmer(T′) # Should inline and constant fold.
-    if step <= 1
-        throw(ArgumentError("step size must be greater than 1"))
+    
+    function SpacedCanonicalKmers{T,S}(seq::S, step::Int, start::Int, stop::Int) where {T<:Kmer,S<:BioSequence}
+        T′ = kmertype(T)
+        checkmer(T′) # Should inline and constant fold.
+        if step <= 1
+            throw(ArgumentError("step size must be greater than 1"))
+        end
+        filled = max(0, ksize(T′) - step)
+        increment = max(1, step - ksize(T′) + 1)
+        return new{T′,S}(seq, start, step, stop, filled, increment)
     end
-    filled = max(0, ksize(T′) - step)
-    increment = max(1, step - ksize(T′) + 1)
-    return SpacedCanonicalKmers{T′,typeof(seq)}(seq, 1, step, lastindex(seq), filled, increment)
 end
 
 """
-    SpacedCanonicalKmers(seq::BioSequence, ::Val{K}, step::Integer) where {K}
+    SpacedCanonicalKmers{T}(seq::S, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
 
-Initialize an iterator over k-mers separated by a `step` parameter, in a
-sequence `seq` skipping ambiguous nucleotides without changing the reading frame.
+Convenience outer constructor so you don't have to specify `S` along with `T`.
+
+E.g. Instead of `SpacedCanonicalKmers{DNACodon,typeof(s)}(s, 3)`, you can just use `SpacedCanonicalKmers{DNACodon}(s, 3)`
 """
-function SpacedCanonicalKmers(seq::BioSequence{A}, ::Val{K}, step::Integer) where {A,K}
-    return SpacedCanonicalKmers(Kmer{A,K}, seq, step)
+function SpacedCanonicalKmers{T}(seq::S, step::Int, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+    return SpacedCanonicalKmers{T,S}(seq, step, start, stop)
+end
+
+"""
+    SpacedCanonicalKmers(seq::BioSequence{A}, ::Val{K}, step::Int, start = firstindex(seq), stop = lastindex(seq)) where {A,K}
+
+Convenience outer constructor so yyou don't have to specify full `Kmer` typing.
+
+In order to deduce `Kmer{A,K,N}`, `A` is taken from the input `seq` type, `K` is
+taken from `::Val{K}`, and `N` is deduced using `A` and `K`.
+
+E.g. Instead of `SpacedCanonicalKmers{DNAKmer{3,1}}(s, 3)`, or `SpacedCanonicalKmers{DNACodon}(s, 3)`,
+you can use `SpacedCanonicalKmers(s, Val(3), 3)`
+"""
+function SpacedCanonicalKmers(seq::BioSequence{A}, ::Val{K}, step::Int, start = firstindex(seq), stop = lastindex(seq)) where {A,K}
+    return SpacedCanonicalKmers{Kmer{A,K}}(seq, step, start, stop)
 end
 
 Base.step(x::SpacedCanonicalKmers) = x.step

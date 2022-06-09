@@ -11,3 +11,18 @@ end
 
 @inline BioSequences.bitindex(seq::Kmer, i::Integer) = BioSequences.bitindex(BioSequences.BitsPerSymbol(seq), BioSequences.encoded_data_eltype(typeof(seq)), i + n_unused(seq))
 
+"""
+    Base.getindex(seq::Kmer, i::UnitRange)
+
+Slice a Kmer by a UnitRange.
+
+!!! warning
+    Using this function will introduce performance penalties in your code if
+    you pass values of `i` that are not constants that can be propagated.
+"""
+@inline function Base.getindex(seq::Kmer, i::UnitRange)
+    A = Alphabet(seq)
+    T = kmertype(Kmer{typeof(A),length(i)})
+    rshift = (length(seq) - last(i)) * BioSequences.bits_per_symbol(A)
+    return T(rightshift_carry(seq.data, rshift))
+end

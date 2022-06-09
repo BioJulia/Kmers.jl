@@ -23,7 +23,7 @@ expected from a concrete `BioSequence` type, and non-mutating transformations
 of the type are still defined.
 
 !!! warning
-    Given their immutability, `setindex` and mutating sequence transformations
+    Given their immutability, `setindex!` and mutating sequence transformations
     are not implemented for Kmers e.g. `reverse_complement!`. 
 !!! tip
     Note that some sequence transformations that are not mutating are

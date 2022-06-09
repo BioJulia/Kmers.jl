@@ -1,7 +1,7 @@
 name = "Kmers"
 uuid = "445028e4-d31f-4f27-89ad-17affd83fc22"
 authors = ["Sabrina Jaye Ward <sabrinajward@protonmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"

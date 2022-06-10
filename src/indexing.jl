@@ -22,6 +22,7 @@ Slice a Kmer by a UnitRange.
     you pass values of `i` that are not constants that can be propagated.
 """
 @inline function Base.getindex(seq::Kmer{A}, i::UnitRange) where A
+    @boundscheck Base.checkbounds(seq, i)
     ind(s, i) = BioSequences.index(BioSequences.bitindex(s, i))
     off(s, i) = BioSequences.offset(BioSequences.bitindex(s, i))
     isempty(i) && return Kmer{A, 0, 0}(())

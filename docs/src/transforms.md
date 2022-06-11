@@ -20,8 +20,21 @@ julia> seq[3]
 DNA_A
 ```
 
-Currently, indexing Kmers using arbitrary ranges is not implemented because it
-is not possible to do in a type-stable way.
+You can also slice Kmers using UnitRanges:
+
+```jldoctest
+julia> seq = Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C)
+DNA 5-mer:
+TTAGC
+
+julia> seq[1:3]
+DNA 3-mer:
+TTA
+```
+
+!!! warning
+    Using slicing will introduce performance penalties in your code if
+    you pass values of `i` that are not constants that can be propagated.
 
 ## Modifying sequences
 

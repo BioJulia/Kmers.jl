@@ -43,8 +43,8 @@
         @test rna_kmer[3] == RNA_U
         @test rna_kmer[4] == RNA_G
         
-        @test rna_kmer[1:3] == mer"ACU"dna
-        @test rna_kmer[2:4] == mer"CUG"dna
+        @test rna_kmer[1:3] == mer"ACU"rna
+        @test rna_kmer[2:4] == mer"CUG"rna
 
         # Access indexes out of bounds
         @test_throws BoundsError rna_kmer[-1]

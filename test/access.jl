@@ -8,6 +8,9 @@
         @test dna_kmer[2] == DNA_C
         @test dna_kmer[3] == DNA_T
         @test dna_kmer[4] == DNA_G
+        
+        @test dna_kmer[1:3] == mer"ACT"dna
+        @test dna_kmer[2:4] == mer"CTG"dna
 
         # Access indexes out of bounds
         @test_throws BoundsError dna_kmer[-1]
@@ -16,6 +19,7 @@
         @test_throws BoundsError getindex(dna_kmer,-1)
         @test_throws BoundsError getindex(dna_kmer, 0)
         @test_throws BoundsError getindex(dna_kmer, 5)
+        @test_throws BoundsError dna_kmer[3:7]
     end
 
     @testset "Iteration through DNA Kmer" begin
@@ -38,6 +42,9 @@
         @test rna_kmer[2] == RNA_C
         @test rna_kmer[3] == RNA_U
         @test rna_kmer[4] == RNA_G
+        
+        @test rna_kmer[1:3] == mer"ACU"dna
+        @test rna_kmer[2:4] == mer"CUG"dna
 
         # Access indexes out of bounds
         @test_throws BoundsError rna_kmer[-1]
@@ -46,6 +53,7 @@
         @test_throws BoundsError getindex(rna_kmer, -1)
         @test_throws BoundsError getindex(rna_kmer, 0)
         @test_throws BoundsError getindex(rna_kmer, 5)
+        @test_throws BoundsError rna_kmer[3:7]
     end
 
     @testset "Iteration through RNA Kmer" begin
@@ -71,6 +79,9 @@
         @test aa_kmer[3] == AA_X
         @test aa_kmer[4] == AA_N
 
+        @test aa_kmer[1:3] == mer"MVX"aa
+        @test aa_kmer[2:4] == mer"VXN"aa
+
         # Access indexes out of bounds
         @test_throws BoundsError aa_kmer[-1]
         @test_throws BoundsError aa_kmer[0]
@@ -78,5 +89,6 @@
         @test_throws BoundsError getindex(aa_kmer,-1)
         @test_throws BoundsError getindex(aa_kmer, 0)
         @test_throws BoundsError getindex(aa_kmer, 5)
+        @test_throws BoundsError aa_kmer[3:7]
     end
 end

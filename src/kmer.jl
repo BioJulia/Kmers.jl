@@ -552,7 +552,7 @@ macro mer_str(seq, flag)
 end
 
 macro mer_str(seq)
-    seq′ = remove_newlines(seq)
+    seq′ = BioSequences.remove_newlines(seq)
     T = kmertype(DNAKmer{length(seq′)})
     return T(seq′)
 end

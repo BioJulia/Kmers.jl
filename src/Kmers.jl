@@ -122,7 +122,7 @@ export
 using BioSequences
 
 ispermitted(::DNAAlphabet{2}, nt::DNA) = count_ones(nt) == 1 && isvalid(nt)
-ispermitted(::DNAAlphabet{2}, data::UInt) = x < UInt(4)
+ispermitted(::DNAAlphabet{2}, data::UInt) = data < UInt(4)
 ispermitted(::DNAAlphabet{4}, nt::DNA) = isvalid(nt)
 ispermitted(::DNAAlphabet{4}, data::UInt) = isvalid(DNA, data)
 ispermitted(::AminoAcidAlphabet, aa::AminoAcid) = reinterpret(UInt8, aa) <= reinterpret(UInt8, AA_Gap)

@@ -172,7 +172,7 @@ end
         nt = reinterpret(UInt8, @inbounds it.seq[i])
         # Do this rather than `encode` or decode to avoid throwing an exception,
         # and instead just skip over those bases.
-        fbits = UInt64(@inbounds twobitnucs[nt + 0x01])
+        fbits = UInt64(@inbounds BioSequences.twobitnucs[nt + 0x01])
         rbits = (~fbits & UInt64(0x03)) << rshift
         fkmer = leftshift_carry(fkmer, 2, fbits)
         rkmer = rightshift_carry(rkmer, 2, )

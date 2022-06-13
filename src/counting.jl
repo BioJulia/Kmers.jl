@@ -12,7 +12,7 @@ for i in [(:_count_a, :a_bitcount), (:_count_c, :c_bitcount), (:_count_g, :g_bit
 end
 
 @inline function _count_gc(alph::A, head::UInt64, tail...) where {A<:NucleicAcidAlphabet}
-    return gc_bitcount(head, alph) + _count_gc(alph, tail...)
+    return BioSequences.gc_bitcount(head, alph) + _count_gc(alph, tail...)
 end
 @inline _count_gc(::A) where {A<:NucleicAcidAlphabet} = 0
 

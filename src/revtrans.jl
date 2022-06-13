@@ -2,6 +2,33 @@ struct Unsafe end
 
 const N_AA = length(AminoAcidAlphabet())
 
+"""
+    CodonSet <: AbstractSet{RNACodon}
+
+A small, immutable set of `RNACodon`.
+
+Create an empty set using `CodonSet()`, or from an iterable of `RNACodon`
+using `CodonSet(itr)`.
+Because `CodonSet` is immutable, use `push` instead of `push!`, and use
+the non-mutating set operations `union`, `setdiff`, etc.
+
+# Examples
+```jldoctest
+julia> v = (mer"UAG"r, mer"GGA"r, mer"UUU"r);
+
+julia> Set(CodonSet(v)) == Set(v)
+true
+
+julia> union(CodonSet(v), CodonSet([mer"GAG"r]))
+Kmers.CodonSet with 4 elements:
+  GAG
+  GGA
+  UAG
+  UUU
+```
+
+See also: `push`
+"""
 struct CodonSet <: AbstractSet{RNACodon}
     x::UInt64
 
@@ -32,6 +59,36 @@ for (name, f) in [(:union, |), (:intersect, &), (:symdiff, ⊻)]
     end
 end
 
+"""
+    ReverseGeneticCode <: AbstractDict{AminoAcid, CodonSet}
+
+A mapping from an amino acid `aa` to the `CodonSet` of all codons that
+translate to `aa`. Conceptually, the inverse of a `BioSequences.GeneticCode`.
+Used by `reverse_translate`.
+
+`AA_Gap` cannot be translated. Ambiguous amino acids translate to the union
+of what their constituent amino acids translate to.
+Pyrrolysine and selenocysteine translate to `CodonSet` containing `UAG` and `UGA`,
+respectively, whereas they are not translated to in most forward genetic codes.
+For these reasons, a the mapping through `ReverseGeneticCode` is not exactly
+inverse of the mapping through `GeneticCode`
+
+# Examples
+```jldoctest
+julia> code = ReverseGeneticCode(BioSequences.candidate_division_sr1_genetic_code);
+
+julia> code[AA_E]
+Kmers.CodonSet with 2 elements:
+  GAA
+  GAG
+
+julia> code[AA_Gap]
+ERROR: Cannot reverse translate element: -
+[...]
+```
+
+See also: [`reverse_translate`](@ref)
+"""
 struct ReverseGeneticCode <: AbstractDict{AminoAcid, CodonSet}
     name::String
     sets::NTuple{N_AA-1, CodonSet}
@@ -84,8 +141,13 @@ function Base.iterate(c::ReverseGeneticCode, s=1)
     return (reinterpret(AminoAcid, (s-1)%UInt8) => c.sets[s], s+1)
 end
 
-reverse_translate(aa::AminoAcid, code=rev_standard_genetic_code) = code[aa]
+"""
+    reverse_translate!(v::Vector{CodonSet}, s::AASeq code=rev_standard_genetic_code)
 
+Reverse-translates `s` under the reverse genetic code `code`, putting the result in `v`.
+
+See also: [`reverse_translate`](@ref)
+"""
 function reverse_translate!(
     v::Vector{CodonSet},
     seq::AASeq,
@@ -98,6 +160,39 @@ function reverse_translate!(
     v
 end
 
+"""
+    reverse_translate(s::Union{AminoAcid, AASeq}, code=rev_standard_genetic_code)
+
+Reverse-translates sequence or amino acid `s` under `code::ReverseGeneticCode`
+If `s` is an `AminoAcid`, return a `CodonSet`.
+If `s` is an `AASeq`, return `Vector{CodonSet}`.
+
+# Examples
+```jldoctest
+julia> reverse_translate(AA_W)
+Kmers.CodonSet with 1 element:
+  UGG
+
+julia> v = reverse_translate(aa"MMLVQ");
+
+julia> typeof(v)
+Vector{Kmers.CodonSet}
+
+julia> v[4]
+Kmers.CodonSet with 4 elements:
+  GUA
+  GUC
+  GUG
+  GUU
+[...]
+```
+
+See also: [`reverse_translate!`](@ref), [`ReverseGeneticCode`](@ref)
+"""
+function reverse_translate end
+
 function reverse_translate(seq::AASeq, code=rev_standard_genetic_code)
     reverse_translate!(Vector{CodonSet}(undef, length(seq)), seq, code)
 end
+
+reverse_translate(aa::AminoAcid, code=rev_standard_genetic_code) = code[aa]

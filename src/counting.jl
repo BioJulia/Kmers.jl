@@ -5,14 +5,14 @@
 for i in [(:_count_a, :a_bitcount), (:_count_c, :c_bitcount), (:_count_g, :g_bitcount), (:_count_t, :t_bitcount)]
     @eval begin
         @inline function $(i[1])(alph::A, head::UInt64, tail...) where {A<:NucleicAcidAlphabet}
-            return $(i[2])(head, alph) + $(i[1])(alph, tail...)
+            return $BioSequences.$(i[2])(head, alph) + $(i[1])(alph, tail...)
         end
         @inline $(i[1])(alph::A) where {A<:NucleicAcidAlphabet} = 0
     end
 end
 
 @inline function _count_gc(alph::A, head::UInt64, tail...) where {A<:NucleicAcidAlphabet}
-    return gc_bitcount(head, alph) + _count_gc(alph, tail...)
+    return BioSequences.gc_bitcount(head, alph) + _count_gc(alph, tail...)
 end
 @inline _count_gc(::A) where {A<:NucleicAcidAlphabet} = 0
 

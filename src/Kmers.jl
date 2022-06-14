@@ -119,6 +119,7 @@ export
 
     # Immutable operators
     push,
+    delete,
 
     # Translation
     reverse_translate,

@@ -96,11 +96,22 @@ end
 end
 
 @testset "Modifying" begin
+    # Push
     s1 = CodonSet([mer"GGA"r, mer"UGU"r])
     s2 = push(s1, mer"GGA"r)
     @test s1 == s2
     s3 = push(s2, mer"GAG"r)
     @test Set(s3) == Set([mer"GGA"r, mer"UGU"r, mer"GGA"r, mer"GAG"r])
+
+    # Delete
+    s4 = delete(s3, mer"GAG"r)
+    @test s2 == s4
+    s5 = delete(s4, mer"UGU"r)
+    @test only(s5) == mer"GGA"r
+    s6 = delete(s5, mer"UUU"r)
+    @test s5 == s6
+    s7 = delete(s6, mer"GGA"r)
+    @test isempty(s7)
 end
 
 @testset "Set operations" begin
@@ -141,6 +152,10 @@ end # CodonSet
             aa in (AA_Gap,) && continue
             observed[aa] = only(reverse_translate(LongAA([aa]), rvcode))
         end
+
+        # Length and iteration of ReverseGeneticCode
+        @test length(rvcode) == length(symbols(AminoAcidAlphabet())) - 1 # all but AA_Gap
+        @test sort!(collect(rvcode), by=first) == sort!(collect(observed), by=first)
 
         flipped = Dict(v => k for (k, v) in observed)
         for (codonset, aa) in flipped

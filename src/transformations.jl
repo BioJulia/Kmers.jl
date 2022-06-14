@@ -138,3 +138,60 @@ function Random.shuffle(x::T) where {T<:AbstractMer}
     return x
 end
 =#
+
+throw_translate_err(K) = error("Cannot translate Kmer of size $K not divisible by 3")
+
+@inline function setup_translate(seq::Kmer{<:RNAAlphabet, K}) where K
+    naa, rem = divrem(K, 3)
+    iszero(rem) || throw_translate_err(K)
+    kmertype(AAKmer{naa})
+end
+
+function BioSequences.translate(
+    seq::RNAKmer;
+    code=BioSequences.standard_genetic_code,
+    allow_ambiguous_codons::Bool = true, # a noop for this method
+)   
+    T = setup_translate(seq)
+    data = blank_ntuple(T)
+    for i in 1:ksize(T)
+        a = seq[3*i - 2]
+        b = seq[3*i - 1]
+        c = seq[3*i - 0]
+        codon = BioSequences.unambiguous_codon(a, b, c)
+        aa = code[codon]
+        enc_data = BioSequences.encode(AminoAcidAlphabet(), aa)
+        data = leftshift_carry(data, 8, enc_data)
+    end
+    return T(data)
+end
+
+function BioSequences.translate(
+    seq::Kmer{<:RNAAlphabet};
+    code=BioSequences.standard_genetic_code,
+    allow_ambiguous_codons::Bool = true,
+)    
+    T = setup_translate(seq)
+    data = blank_ntuple(T)
+    for i in 1:ksize(T)
+        a = seq[3*i - 2]
+        b = seq[3*i - 1]
+        c = seq[3*i - 0]
+        aa = if BioSequences.isambiguous(a) | BioSequences.isambiguous(b) | BioSequences.isambiguous(c)
+            aa_ = BioSequences.try_translate_ambiguous_codon(code, a, b, c)
+            if aa_ === nothing
+                if allow_ambiguous_codons
+                    aa_ = AA_X
+                else
+                    error("codon ", a, b, c, " cannot be unambiguously translated")
+                end
+            end
+            aa_
+        else
+            code[BioSequences.unambiguous_codon(a, b, c)]
+        end
+        enc_data = BioSequences.encode(AminoAcidAlphabet(), aa)
+        data = leftshift_carry(data, 8, enc_data)
+    end
+    return T(data)
+end

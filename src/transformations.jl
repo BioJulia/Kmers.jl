@@ -158,7 +158,7 @@ end
 end
 
 function BioSequences.translate(
-    seq::Union{RNAKmer, DNAKmer},
+    seq::Union{RNAKmer, DNAKmer};
     code=BioSequences.standard_genetic_code,
     allow_ambiguous_codons::Bool = true, # a noop for this method
     alternative_start::Bool = false
@@ -171,17 +171,23 @@ function BioSequences.translate(
         c = seq[3*i - 0]
         codon = BioSequences.unambiguous_codon(a, b, c)
         aa = code[codon]
-        enc_data = BioSequences.encode(AminoAcidAlphabet(), aa)
+        # Next line is equivalent to encode, but without checking.
+        # We assume genetic codes do not code to invalid data.
+        enc_data = reinterpret(UInt8, aa) % UInt64
         data = leftshift_carry(data, 8, enc_data)
     end
+    # This is probably not needed for kmers, but kept for compatibility.
+    # It does slightly slow down translation, even when not taken.
     if alternative_start && !iszero(ksize(T))
         data = set_methionine_data(data, Val(ksize(T)))
     end
     return T(data)
 end
 
+# See the function above for comments, or the equivalent function
+# in BioSequences
 function BioSequences.translate(
-    seq::Kmer{<:NucleicAcidAlphabet},
+    seq::Kmer{<:NucleicAcidAlphabet};
     code=BioSequences.standard_genetic_code,
     allow_ambiguous_codons::Bool = true,
     alternative_start::Bool = false
@@ -205,7 +211,7 @@ function BioSequences.translate(
         else
             code[BioSequences.unambiguous_codon(a, b, c)]
         end
-        enc_data = BioSequences.encode(AminoAcidAlphabet(), aa)
+        enc_data = reinterpret(UInt8, aa) % UInt64
         data = leftshift_carry(data, 8, enc_data)
     end
     if alternative_start && !iszero(ksize(T))

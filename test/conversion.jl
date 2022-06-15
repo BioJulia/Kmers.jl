@@ -4,6 +4,9 @@ global reps = 10
     @test Kmer(DNA_A, DNA_G, DNA_T) === Kmer("AGT")
     @test Kmer(RNA_A, RNA_G, RNA_U) === Kmer("AGU")
     #@test Kmer(AA_R, AA_D, AA_C, AA_B) === Kmer("RDCB")
+
+    @test DNAKmer(DNA_G, DNA_C, DNA_T) == Kmer("GCT")
+    @test RNAKmer(RNA_G, RNA_U, RNA_C, RNA_U) == Kmer("GUCU")
     
     # Check that kmers in strings survive round trip conversion:
     #   String → Kmer → String
@@ -67,6 +70,12 @@ global reps = 10
             @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{2},len}, LongRNA{4}(random_rna_kmer(len))) for _ in 1:reps])
             @test all(Bool[check_longsequence_construction(AAKmer{len},              LongAA(random_aa(len)))    for _ in 1:reps])
             
+            # Check Kmer{A1}(::BioSequence{A2}) for compatible A1 and A2
+            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{4}}, LongRNA{2}(random_rna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{2}}, LongDNA{4}(random_dna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{RNAAlphabet{4}}, LongDNA{4}(random_dna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer{DNAAlphabet{2}}, LongRNA{4}(random_rna_kmer(len))) for _ in 1:reps])
+
             # BioSequence Construction
             #   Check that kmers can be constructed from a BioSequence
             #   BioSequence → Kmer → BioSequence
@@ -79,7 +88,12 @@ global reps = 10
             @test all(Bool[check_biosequence_construction(Kmer{RNAAlphabet{2},len}, LongSequence{RNAAlphabet{4}}(random_rna_kmer(len))) for _ in 1:reps])
             @test all(Bool[check_biosequence_construction(Kmer{RNAAlphabet{4},len}, LongSequence{RNAAlphabet{2}}(random_rna_kmer(len))) for _ in 1:reps])
             @test all(Bool[check_biosequence_construction(AAKmer{len},              LongSequence{AminoAcidAlphabet}(random_aa(len)))    for _ in 1:reps])
-            
+
+            # Check Kmer(::BioSequence) construction
+            @test all(Bool[check_longsequence_construction(Kmer,                     LongRNA{4}(random_rna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer,                     LongDNA{2}(random_dna_kmer(len))) for _ in 1:reps])
+            @test all(Bool[check_longsequence_construction(Kmer,                     LongAA(random_rna_kmer(len))) for _ in 1:reps])
+
             # Construction from element arrays
             #   Check that kmers can be constructed from an array of elements
             #   Vector{T} → Kmer{A,K,N} → Vector{T}

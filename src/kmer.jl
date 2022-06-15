@@ -242,7 +242,7 @@ Construct a `Kmer{A,K,N}` from an iterable.
 This is a convenience method which will work out the correct `N` parameter, for
 your given choice of `A` & `K`.
 """
-function Kmer{A,K}(itr) where {A,K}
+@inline function Kmer{A,K}(itr) where {A,K}
     T = kmertype(Kmer{A,K})
     return T(itr)
 end
@@ -258,7 +258,16 @@ the correct `N` parameter, for your given choice of `A` & `K`.
 !!! warning
     Since this gets K from runtime values, this is gonna be slow!
 """
-Kmer{A}(itr) where {A} = Kmer{A,length(itr)}(itr)
+@inline Kmer{A}(itr) where {A} = Kmer{A,length(itr)}(itr)
+@inline Kmer(seq::BioSequence{A}) where A = Kmer{A}(seq)
+
+function Kmer{A1}(seq::BioSequence{A2}) where {A1 <: NucleicAcidAlphabet, A2 <: NucleicAcidAlphabet}
+    kmertype(Kmer{A1, length(seq)})(seq)
+end
+
+@inline function Kmer{A}(nts::Vararg{Union{DNA, RNA}, K}) where {A <: NucleicAcidAlphabet, K}
+    return kmertype(Kmer{A, K})(nts)
+end
 
 """
     Kmer(nts::Vararg{DNA,K}) where {K}
@@ -273,10 +282,7 @@ DNA 5-mer:
 TTAGC
 ```
 """
-@inline function Kmer(nts::Vararg{DNA,K}) where {K}
-    T = kmertype(DNAKmer{K})
-    return T(nts)
-end
+@inline Kmer(nts::Vararg{DNA}) = DNAKmer(nts)
 
 """
     Kmer(nts::Vararg{RNA,K}) where {K}
@@ -291,10 +297,7 @@ DNA 5-mer:
 UUAGC
 ```
 """
-@inline function Kmer(nts::Vararg{RNA,K}) where {K}
-    T = kmertype(RNAKmer{K})
-    return T(nts)
-end
+@inline Kmer(nts::Vararg{RNA}) = RNAKmer(nts)
 
 """
     Kmer(seq::String)

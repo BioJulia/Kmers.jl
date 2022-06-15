@@ -147,10 +147,21 @@ throw_translate_err(K) = error("Cannot translate Kmer of size $K not divisible b
     kmertype(AAKmer{naa})
 end
 
+# This sets the first amino acid to methionine, returning the data tuple
+@inline function set_methionine_data(data::Tuple{Vararg{UInt64}}, ::Val{K}) where K
+    offset = ((K - 1) * 8) & 63
+    mask = ~(UInt64(0xff) << offset) # mask off existing AA in pos 1
+    addition = UInt64(0x0c) << offset # 0x0c is encoded methionine
+    chunk, rest... = data
+    chunk = (chunk & mask) | addition
+    return (chunk, rest...)
+end
+
 function BioSequences.translate(
-    seq::Union{RNAKmer, DNAKmer};
+    seq::Union{RNAKmer, DNAKmer},
     code=BioSequences.standard_genetic_code,
     allow_ambiguous_codons::Bool = true, # a noop for this method
+    alternative_start::Bool = false
 )   
     T = setup_translate(seq)
     data = blank_ntuple(T)
@@ -163,13 +174,17 @@ function BioSequences.translate(
         enc_data = BioSequences.encode(AminoAcidAlphabet(), aa)
         data = leftshift_carry(data, 8, enc_data)
     end
+    if alternative_start && !iszero(ksize(T))
+        data = set_methionine_data(data, Val(ksize(T)))
+    end
     return T(data)
 end
 
 function BioSequences.translate(
-    seq::Kmer{<:NucleicAcidAlphabet};
+    seq::Kmer{<:NucleicAcidAlphabet},
     code=BioSequences.standard_genetic_code,
     allow_ambiguous_codons::Bool = true,
+    alternative_start::Bool = false
 )    
     T = setup_translate(seq)
     data = blank_ntuple(T)
@@ -192,6 +207,9 @@ function BioSequences.translate(
         end
         enc_data = BioSequences.encode(AminoAcidAlphabet(), aa)
         data = leftshift_carry(data, 8, enc_data)
+    end
+    if alternative_start && !iszero(ksize(T))
+        data = set_methionine_data(data, Val(ksize(T)))
     end
     return T(data)
 end

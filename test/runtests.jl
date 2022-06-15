@@ -21,6 +21,7 @@ if GROUP == "BioSequences" || GROUP == "All"
     include("mismatches.jl")
     include("debruijn_neighbors.jl")
     include("iteration.jl")
+    include("translation.jl")
     #include("shuffle.jl")
 end
 

@@ -141,14 +141,14 @@ end
 
 throw_translate_err(K) = error("Cannot translate Kmer of size $K not divisible by 3")
 
-@inline function setup_translate(seq::Kmer{<:RNAAlphabet, K}) where K
+@inline function setup_translate(seq::Kmer{<:NucleicAcidAlphabet, K}) where K
     naa, rem = divrem(K, 3)
     iszero(rem) || throw_translate_err(K)
     kmertype(AAKmer{naa})
 end
 
 function BioSequences.translate(
-    seq::RNAKmer;
+    seq::Union{RNAKmer, DNAKmer};
     code=BioSequences.standard_genetic_code,
     allow_ambiguous_codons::Bool = true, # a noop for this method
 )   
@@ -167,16 +167,16 @@ function BioSequences.translate(
 end
 
 function BioSequences.translate(
-    seq::Kmer{<:RNAAlphabet};
+    seq::Kmer{<:NucleicAcidAlphabet};
     code=BioSequences.standard_genetic_code,
     allow_ambiguous_codons::Bool = true,
 )    
     T = setup_translate(seq)
     data = blank_ntuple(T)
     for i in 1:ksize(T)
-        a = seq[3*i - 2]
-        b = seq[3*i - 1]
-        c = seq[3*i - 0]
+        a = reinterpret(RNA, seq[3*i - 2])
+        b = reinterpret(RNA, seq[3*i - 1])
+        c = reinterpret(RNA, seq[3*i - 0])
         aa = if BioSequences.isambiguous(a) | BioSequences.isambiguous(b) | BioSequences.isambiguous(c)
             aa_ = BioSequences.try_translate_ambiguous_codon(code, a, b, c)
             if aa_ === nothing

@@ -10,7 +10,8 @@ makedocs(
         "Indexing & modifying kmers"     => "transforms.md",
         "Predicates"                     => "predicates.md",
         "Random kmers"                   => "random.md",
-        "Iterating over Kmers"           => "iteration.md"
+        "Iterating over Kmers"           => "iteration.md",
+        "Translation"                    => "translate.md",
         #"Pattern matching and searching" => "sequence_search.md",
         #"Iteration"                      => "iteration.md",
         #"Counting"                       => "counting.md",

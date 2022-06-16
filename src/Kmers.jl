@@ -88,6 +88,7 @@ export
     AminoAcidAlphabet,
     DNAAlphabet,
     RNAAlphabet,
+    translate,
     
     
     ###

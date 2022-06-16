@@ -138,3 +138,84 @@ function Random.shuffle(x::T) where {T<:AbstractMer}
     return x
 end
 =#
+
+throw_translate_err(K) = error("Cannot translate Kmer of size $K not divisible by 3")
+
+@inline function setup_translate(seq::Kmer{<:NucleicAcidAlphabet, K}) where K
+    naa, rem = divrem(K, 3)
+    iszero(rem) || throw_translate_err(K)
+    kmertype(AAKmer{naa})
+end
+
+# This sets the first amino acid to methionine, returning the data tuple
+@inline function set_methionine_data(data::Tuple{Vararg{UInt64}}, ::Val{K}) where K
+    offset = ((K - 1) * 8) & 63
+    mask = ~(UInt64(0xff) << offset) # mask off existing AA in pos 1
+    addition = UInt64(0x0c) << offset # 0x0c is encoded methionine
+    chunk, rest... = data
+    chunk = (chunk & mask) | addition
+    return (chunk, rest...)
+end
+
+function BioSequences.translate(
+    seq::Union{RNAKmer, DNAKmer};
+    code=BioSequences.standard_genetic_code,
+    allow_ambiguous_codons::Bool = true, # a noop for this method
+    alternative_start::Bool = false
+)   
+    T = setup_translate(seq)
+    data = blank_ntuple(T)
+    for i in 1:ksize(T)
+        a = seq[3*i - 2]
+        b = seq[3*i - 1]
+        c = seq[3*i - 0]
+        codon = BioSequences.unambiguous_codon(a, b, c)
+        aa = code[codon]
+        # Next line is equivalent to encode, but without checking.
+        # We assume genetic codes do not code to invalid data.
+        enc_data = reinterpret(UInt8, aa) % UInt64
+        data = leftshift_carry(data, 8, enc_data)
+    end
+    # This is probably not needed for kmers, but kept for compatibility.
+    # It does slightly slow down translation, even when not taken.
+    if alternative_start && !iszero(ksize(T))
+        data = set_methionine_data(data, Val(ksize(T)))
+    end
+    return T(data)
+end
+
+# See the function above for comments, or the equivalent function
+# in BioSequences
+function BioSequences.translate(
+    seq::Kmer{<:NucleicAcidAlphabet};
+    code=BioSequences.standard_genetic_code,
+    allow_ambiguous_codons::Bool = true,
+    alternative_start::Bool = false
+)    
+    T = setup_translate(seq)
+    data = blank_ntuple(T)
+    for i in 1:ksize(T)
+        a = reinterpret(RNA, seq[3*i - 2])
+        b = reinterpret(RNA, seq[3*i - 1])
+        c = reinterpret(RNA, seq[3*i - 0])
+        aa = if BioSequences.isambiguous(a) | BioSequences.isambiguous(b) | BioSequences.isambiguous(c)
+            aa_ = BioSequences.try_translate_ambiguous_codon(code, a, b, c)
+            if aa_ === nothing
+                if allow_ambiguous_codons
+                    aa_ = AA_X
+                else
+                    error("codon ", a, b, c, " cannot be unambiguously translated")
+                end
+            end
+            aa_
+        else
+            code[BioSequences.unambiguous_codon(a, b, c)]
+        end
+        enc_data = reinterpret(UInt8, aa) % UInt64
+        data = leftshift_carry(data, 8, enc_data)
+    end
+    if alternative_start && !iszero(ksize(T))
+        data = set_methionine_data(data, Val(ksize(T)))
+    end
+    return T(data)
+end

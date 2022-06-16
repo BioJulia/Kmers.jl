@@ -299,6 +299,7 @@ UUAGC
 """
 @inline Kmer(nt::RNA, nts::Vararg{RNA}) = RNAKmer((nt, nts...))
 
+
 """
     Kmer(seq::String)
 

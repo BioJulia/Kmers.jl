@@ -282,7 +282,7 @@ DNA 5-mer:
 TTAGC
 ```
 """
-@inline Kmer(nts::Vararg{DNA}) = DNAKmer(nts)
+@inline Kmer(nt::DNA, nts::Vararg{DNA}) = DNAKmer((nt, nts...))
 
 """
     Kmer(nts::Vararg{RNA,K}) where {K}
@@ -297,7 +297,8 @@ DNA 5-mer:
 UUAGC
 ```
 """
-@inline Kmer(nts::Vararg{RNA}) = RNAKmer(nts)
+@inline Kmer(nt::RNA, nts::Vararg{RNA}) = RNAKmer((nt, nts...))
+
 
 """
     Kmer(seq::String)

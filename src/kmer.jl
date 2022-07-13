@@ -7,6 +7,15 @@
 include("tuple_bitflipping.jl")
 
 """
+    Kmers.Unsafe
+
+Trait object used to access unsafe methods of functions.
+`unsafe` is the singleton of `Unsafe`.
+"""
+struct Unsafe end
+const unsafe = Unsafe()
+
+"""
     Kmer{A<:Alphabet,K,N} <: BioSequence{A}
 
 A parametric, immutable, bitstype for representing Kmers - short sequences.
@@ -33,11 +42,11 @@ of the type are still defined.
 struct Kmer{A<:Alphabet,K,N} <: BioSequence{A}
     data::NTuple{N,UInt64}
     
+    # This unsafe method do not clip the head
+    Kmer{A,K,N}(::Unsafe, data::NTuple{N,UInt64}) where {A<:Alphabet,K,N} = new{A,K,N}(data)
+
     function Kmer{A,K,N}(data::NTuple{N,UInt64}) where {A<:Alphabet,K,N}
         checkmer(Kmer{A,K,N})
-        # TODO: Decide on whether this method should always mask the (64N - 2K)
-        # MSBs of the input tuple, as we do that in quite a few cases before
-        # calling this constructor: see the typemin, typemax, rand, and transformations.jl
         x = n_unused(Kmer{A,K,N}) * BioSequences.bits_per_symbol(A()) 
         return new(_cliphead(x, data...))
     end
@@ -429,7 +438,7 @@ end
 @inline Base.summary(x::Kmer{A,K,N}) where {A,K,N} = string(eltype(x), ' ', K, "-mer")
 
 function Base.typemin(::Type{Kmer{A,K,N}}) where {A,K,N}
-    return Kmer{A,K,N}(ntuple(i -> zero(UInt64), N))
+    return Kmer{A,K,N}(unsafe, ntuple(i -> zero(UInt64), N))
 end
 
 function Base.typemax(::Type{Kmer{A,K,N}}) where {A,K,N}

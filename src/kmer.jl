@@ -569,3 +569,5 @@ macro mer_str(seq)
     T = kmertype(DNAKmer{length(seq′)})
     return T(seq′)
 end
+
+include("revtrans.jl")

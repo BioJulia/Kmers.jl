@@ -116,6 +116,15 @@ export
     SpacedCanonicalKmers,
     fw_neighbors,
     bw_neighbors,
+
+    # Immutable operators
+    push,
+    delete,
+
+    # Translation
+    reverse_translate,
+    reverse_translate!,
+    ReverseGeneticCode,
     
     ###
     ### Sequence literals

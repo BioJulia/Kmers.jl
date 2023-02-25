@@ -56,7 +56,7 @@ Kmers.CodonSet with 2 elements:
 
 ```@docs
 Kmers.CodonSet
-Kmers.ReverseGeneticCoTranslatingde
+Kmers.ReverseGeneticCode
 reverse_translate
 reverse_translate!
 ```

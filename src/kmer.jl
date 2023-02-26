@@ -481,8 +481,8 @@ end
 Create a random kmer of a specified alphabet and length
 
 # Examples
-```jldoctest
-julia> import Random; Random.seed!(1); rand(Kmer{DNAAlphabet{2}, 3})
+```julia
+julia> rand(Kmer{DNAAlphabet{2}, 3})
 BioSymbols.DNA 3-mer:
 ACT
 

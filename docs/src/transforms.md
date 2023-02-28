@@ -12,22 +12,22 @@ end
 As `BioSequence` concrete subtypes, kmers can be indexed using integers
 
 ```jldoctest
-julia> seq = Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C)
+julia> kmer = Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C)
 DNA 5-mer:
 TTAGC
 
-julia> seq[3]
+julia> kmer[3]
 DNA_A
 ```
 
 You can also slice Kmers using UnitRanges:
 
 ```jldoctest
-julia> seq = Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C)
+julia> kmer = Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C)
 DNA 5-mer:
 TTAGC
 
-julia> seq[1:3]
+julia> kmer[1:3]
 DNA 3-mer:
 TTA
 ```

@@ -32,6 +32,9 @@ RNAKmer
 RNA27mer
 RNA31mer
 RNA63mer
+AAKmer
+DNACodon
+RNACodon
 ```
 
 

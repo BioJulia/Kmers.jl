@@ -1,5 +1,7 @@
 
 """
+    SpacedCanonicalKmers{T,S}(seq::S, step::Int, start::Int, stop::Int) where {T<:Kmer,S<:BioSequence}
+
 An iterator over every valid `T<:Kmer` separated by a `step` parameter, in a given
 longer `BioSequence`, between a `start` and `stop` position.
 

@@ -7,6 +7,8 @@
 ### License is MIT: https://github.com/BioJulia/BioSequences.jl/blob/master/LICENSE.md
 
 """
+    EveryKmer{T,S}(seq::S, start::Int = firstindex(seq), stop::Int = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+
 An iterator over every valid overlapping `T<:Kmer` in a given longer
 `BioSequence` between a `start` and `stop` position. 
 

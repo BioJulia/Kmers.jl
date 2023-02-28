@@ -473,6 +473,21 @@ end
     return (head, tail...)
 end
 
+
+"""
+    Base.rand(::Type{Kmer{A,K,N}}) where {A,K,N}
+    Base.rand(::Type{Kmer{A,K}}) where {A,K}
+
+Create a random kmer of a specified alphabet and length
+
+# Examples
+```julia
+julia> rand(Kmer{DNAAlphabet{2}, 3})
+BioSymbols.DNA 3-mer:
+ACT
+
+```
+"""
 @inline function Base.rand(::Type{Kmer{A,K,N}}) where {A,K,N}
     checkmer(Kmer{A,K,N})
     return Kmer{A,K,N}(rand_kmer_data(Kmer{A,K,N}, BioSequences.iscomplete(A())))

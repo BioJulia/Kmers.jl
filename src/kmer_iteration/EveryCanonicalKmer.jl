@@ -1,4 +1,6 @@
 """
+    EveryCanonicalKmer{T,S}(seq::S, start::Int = firstindex(seq), stop::Int = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
+
 An iterator over every canonical valid overlapping `T<:Kmer` in a given longer 
 `BioSequence`, between a `start` and `stop` position.
 

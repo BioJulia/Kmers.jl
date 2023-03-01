@@ -10,7 +10,7 @@ include("utils.jl")
 
 if GROUP == "BioSequences" || GROUP == "All"
     include("biosequences_interface.jl")
-    include("conversion.jl")
+    include("construction_and_conversion.jl")
     include("comparisons.jl")
     include("length.jl")
     include("access.jl")

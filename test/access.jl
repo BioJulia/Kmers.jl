@@ -31,7 +31,7 @@
         @test iterate(DNAKmer("ACTG"), 1)  !== nothing
         @test iterate(DNAKmer("ACTG"), 4)  !== nothing
         @test iterate(DNAKmer("ACTG"), 5)  === nothing
-        @test iterate(DNAKmer("ACTG"), -1) === nothing
+        @test isnothing(iterate(DNAKmer("ACTG"), -1))
         @test iterate(DNAKmer("ACTG"), 0) === nothing
 
         dna_vec = [DNA_A, DNA_C, DNA_T, DNA_G]

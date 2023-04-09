@@ -54,14 +54,104 @@ decoding can be skipped, and the problem is mostly one of shunting bits around.
     return (head, tail...)
 end
 
+function _construct_from_iterable(::Type{Kmer{A,K,N}}, iter, isize::Base.SizeUnknown) where {A,K,N}
+    ## All based on alphabet type of Kmer, so should constant fold.
+    checkmer(Kmer{A,K,N})
+    ET = eltype(Kmer{A,K,N})
+    bits_per_sym = BioSequences.bits_per_symbol(A())
+    n_head = elements_in_head(Kmer{A,K,N})
+    n_per_chunk = per_word_capacity(Kmer{A,K,N})
+
+    stateful = Iterators.Stateful(iter)
+    head_filled = 0
+
+    # Construct the head.
+    head = zero(UInt64)
+    next = Ref{Union{Tuple{ET,Nothing},Nothing}}(iterate(stateful))
+    while next[] !== nothing && head_filled < n_head
+        el, _ = next[]
+        sym = convert(ET, el)
+        # Encode will throw if it cant encode an element.
+        head = (head << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
+        head_filled += 1
+        next[] = iterate(stateful)
+    end
+
+    if head_filled != n_head
+        error("Iterator did not yield enough elements to construct $K-mer")
+    end
+
+    tail = ntuple(Val{N - 1}()) do i
+        Base.@_inline_meta
+        chunk_filled = 0
+        body = zero(UInt64)
+        while next[] !== nothing && chunk_filled < n_per_chunk
+            el, _ = next[]
+            sym = convert(ET, el)
+            # Encode will throw  if it cant encode an element.
+            body = (body << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
+            chunk_filled += 1
+            next[] = iterate(stateful)
+        end
+
+        if chunk_filled != n_per_chunk
+            error("Iterator did not yield enough elements to construct $K-mer")
+        end
+
+        return body
+    end
+    
+    data = (head, tail...)
+    
+    return Kmer{A,K,N}(data)
+end
+
+function _construct_from_iterable(::Type{Kmer{A,K,N}}, iter, isize::Base.HasLength) where {A,K,N}
+    ## All based on alphabet type of Kmer, so should constant fold.
+    checkmer(Kmer{A,K,N})
+    ET = eltype(Kmer{A,K,N})
+    bits_per_sym = BioSequences.bits_per_symbol(A())
+    n_head = elements_in_head(Kmer{A,K,N})
+    n_per_chunk = per_word_capacity(Kmer{A,K,N})
+
+    ilen = length(iter)
+    if ilen != K
+        throw(ArgumentError("seq is not the correct length ($ilen ≠ $K)"))
+    end
+    
+    # Construct the head.
+    head = zero(UInt64)
+    @inbounds for i in firstindex(iter):(firstindex(iter) + n_head - 1)
+        sym = convert(ET, iter[i])
+        head = (head << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
+    end
+    
+    # And the rest of the sequence
+    idx = Ref(firstindex(iter) + n_head)
+    tail = ntuple(Val{N - 1}()) do _
+        Base.@_inline_meta
+        body = zero(UInt64)
+        @inbounds for _ in 1:n_per_chunk
+            sym = convert(ET, iter[i])
+            body = (body << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
+            idx[] += 1
+        end
+        return body
+    end
+    
+    data = (head, tail...)
+    
+    return Kmer{A,K,N}(data)
+end
+
+
 """
     Kmer{A,K,N}(itr) where {A,K,N}
 
 Construct a `Kmer{A,K,N}` from an iterable.
 
-The most generic constructor.
-
-Currently the iterable must have `length` & support `getindex` with integers.
+The most generic constructor of a Kmer from any iterable type
+that implements the bare minimum Iterator interface.
 
 # Examples
 
@@ -76,44 +166,13 @@ TTAGC
 ```
 """
 function Kmer{A,K,N}(itr) where {A,K,N}
-    checkmer(Kmer{A,K,N})
-    
-    seqlen = length(itr)
-    if seqlen != K
-        throw(ArgumentError("itr does not contain enough elements ($seqlen ≠ $K)"))
-    end
-    
-    ## All based on alphabet type of Kmer, so should constant fold.
-    bits_per_sym = BioSequences.bits_per_symbol(A())
-    n_head = elements_in_head(Kmer{A,K,N})
-    n_per_chunk = per_word_capacity(Kmer{A,K,N})
-    
-    # Construct the head.
-    head = zero(UInt64)
-    @inbounds for i in 1:n_head
-        sym = convert(eltype(Kmer{A,K,N}), itr[i])
-        # Encode will throw if it cant encode an element.
-        head = (head << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
-    end
-    
-    # And the rest of the sequence
-    idx = Ref(n_head + 1)
-    tail = ntuple(Val{N - 1}()) do i
-        Base.@_inline_meta
-        body = zero(UInt64)
-        @inbounds for i in 1:n_per_chunk
-            sym = convert(eltype(Kmer{A,K,N}), itr[idx[]])
-            # Encode will throw  if it cant encode an element.
-            body = (body << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
-            idx[] += 1
-        end
-        return body
-    end
-    
-    data = (head, tail...)
-    
-    return Kmer{A,K,N}(data)
+    return _construct_from_iterable(Kmer{A,K,N}, itr, Base.IteratorSize(typeof(itr)))
 end
+
+
+
+
+
 
 """
     Kmer{A,K,N}(seq::BioSequence{A})

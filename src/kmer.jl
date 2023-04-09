@@ -146,9 +146,6 @@ checked at compile time, and the branches / error throws eliminated when the
 parameterisation of the Kmer type is good. 
 """
 @inline function checkmer(::Type{Kmer{A,K,N}}) where {A,K,N}
-    if K < 1
-        throw(ArgumentError("Bad kmer parameterisation. K must be greater than 0."))
-    end
     n = BioSequences.seq_data_len(A, K)
     if n !== N
         # This has been significantly changed conceptually from before. Now we

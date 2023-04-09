@@ -1,4 +1,3 @@
-struct Unsafe end
 
 const N_AA = length(AminoAcidAlphabet())
 

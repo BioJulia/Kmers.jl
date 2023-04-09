@@ -25,6 +25,25 @@ Notably it's used when constructing a Kmer from an existing NTuple of UInt64
     return (head & (typemax(UInt64) >> by), tail...)
 end
 
+
+"""
+    _drophead(x::NTuple{N,UInt64}, drop::Val{D}) where {N,D}
+
+A function used to drop the first N elements from an NTuple.
+
+Intended for internal bit-flipping use.
+
+Notably used in cases where expanding a 2-bit encoding to
+a 4-bit encoding results in an unused element at the head
+of the tuple. 
+"""
+@inline function _drophead(x::NTuple{N,UInt64}, drop::Val{D}) where {N,D}
+    ntuple(Val{N - D}()) do i
+        Base.@_inline_meta
+        return @inbounds x[D + i]
+    end
+end
+
 #=
 rightshift_carry & leftshift_carry
 
@@ -70,3 +89,56 @@ end
 
 @inline _reverse(f::F, ::BioSequences.BitsPerSymbol{N}) where {N,F<:Function} = ()
 =#
+
+const transcode_2_to_4_nucs = (function ()
+
+    @info "Computing 2 -> 4 bit translation table..."
+
+    fourbitnucs = (UInt32(1), UInt32(2), UInt32(4), UInt32(8))
+
+    fn(bits, lshift) = fourbitnucs[((bits >> lshift) & 0x03) + 1] << (2 * lshift) 
+
+    function translate2to4bits(bits::UInt16)
+        fn(bits, 0)  |
+        fn(bits, 2)  |
+        fn(bits, 4)  |
+        fn(bits, 6)  |
+        fn(bits, 8)  |
+        fn(bits, 10) |
+        fn(bits, 12) |
+        fn(bits, 14) 
+    end
+
+    ntuple((x) -> translate2to4bits(UInt16(x - 1)), 65536)
+end)()
+
+@inline function transcode_kernel(bits::UInt64, from::A, to::B) where
+    {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4}}
+
+    @inbounds begin
+        b = UInt64(transcode_2_to_4_nucs[((bits >>  0) & 0xFFFF) + 1]) <<  0 |
+            UInt64(transcode_2_to_4_nucs[((bits >> 16) & 0xFFFF) + 1]) << 32
+
+        a = UInt64(transcode_2_to_4_nucs[((bits >> 32) & 0xFFFF) + 1]) <<  0 |
+            UInt64(transcode_2_to_4_nucs[((bits >> 48) & 0xFFFF) + 1]) << 32
+    end
+    return (a, b)
+end
+
+@inline function transcode_bits(x::NTuple{N,UInt64}, from::A, to::B) where
+    {N,A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4}}
+
+    return _transcode_bits(from, to, x...)
+end
+
+@inline function _transcode_bits(from::A, to::B, head::UInt64, tail...) where
+    {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4}}
+
+    return (transcode_kernel(head, from, to)..., _transcode_bits(from, to, tail...)...)
+end
+
+@inline function _transcode_bits(from::A, to::B, head::UInt64) where
+    {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4}}
+
+    return transcode_kernel(head, from, to)
+end

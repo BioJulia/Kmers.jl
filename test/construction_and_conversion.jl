@@ -8,6 +8,9 @@ global reps = 10
     @test DNAKmer(DNA_G, DNA_C, DNA_T) == Kmer("GCT")
     @test RNAKmer(RNA_G, RNA_U, RNA_C, RNA_U) == Kmer("GUCU")
     
+    # creation from iterator
+    @test Kmers.kmertype(Kmer{DNAAlphabet{2},31})((i for i in rand(ACGT, 31))) isa Kmers.kmertype(Kmer{DNAAlphabet{2},31})
+    
     # Check that kmers in strings survive round trip conversion:
     #   String → Kmer → String
     function check_string_construction(::Type{T}, seq::AbstractString) where {T<:Kmer}

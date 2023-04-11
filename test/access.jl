@@ -31,7 +31,8 @@
         @test iterate(DNAKmer("ACTG"), 1)  !== nothing
         @test iterate(DNAKmer("ACTG"), 4)  !== nothing
         @test iterate(DNAKmer("ACTG"), 5)  === nothing
-        @test_throws BoundsError iterate(DNAKmer("ACTG"), -1)
+        @test isnothing(iterate(DNAKmer("ACTG"), -1))
+        @test iterate(DNAKmer("ACTG"), 0) === nothing
 
         dna_vec = [DNA_A, DNA_C, DNA_T, DNA_G]
         @test all([nt === dna_vec[i] for (i, nt) in enumerate(dna_kmer)])
@@ -64,10 +65,11 @@
         @test iterate(RNAKmer("ACUG"), 4) == (RNA_G, 5)
         
 
-        @test iterate(RNAKmer("ACUG"), 1)  !== nothing
+        @test iterate(RNAKmer("ACUG"), 1) !== nothing
         @test iterate(RNAKmer("ACUG"), 4)  !== nothing
         @test iterate(RNAKmer("ACUG"), 5)  === nothing
-        @test_throws BoundsError iterate(RNAKmer("ACUG"), -1)
+        @test iterate(RNAKmer("ACUG"), -1) === nothing
+        @test iterate(RNAKmer("ACUG"), 0) === nothing
 
         rna_vec = [RNA_A, RNA_C, RNA_U, RNA_G]
         @test all([nt === rna_vec[i] for (i, nt) in enumerate(rna_kmer)])

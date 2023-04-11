@@ -156,7 +156,8 @@ function Kmer{A,K,N}(itr) where {A,K,N}
     # Construct the head.
     head = zero(UInt64)
     @inbounds for i in 1:n_head
-        sym = convert(eltype(Kmer{A,K,N}), itr[i])
+        (x, next_i) = iterate(itr, i)
+        sym = convert(eltype(Kmer{A,K,N}), x)
         # Encode will throw if it cant encode an element.
         head = (head << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
     end
@@ -167,7 +168,8 @@ function Kmer{A,K,N}(itr) where {A,K,N}
         Base.@_inline_meta
         body = zero(UInt64)
         @inbounds for i in 1:n_per_chunk
-            sym = convert(eltype(Kmer{A,K,N}), itr[idx[]])
+            (x, next_idx) = iterate(itr, idx[])
+            sym = convert(eltype(Kmer{A,K,N}), x)
             # Encode will throw  if it cant encode an element.
             body = (body << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
             idx[] += 1

@@ -65,7 +65,7 @@
         @test iterate(RNAKmer("ACUG"), 4) == (RNA_G, 5)
         
 
-        @test !isnothing(iterate(RNAKmer("ACUG"), 1))
+        @test iterate(RNAKmer("ACUG"), 1) !== nothing
         @test iterate(RNAKmer("ACUG"), 4)  !== nothing
         @test iterate(RNAKmer("ACUG"), 5)  === nothing
         @test iterate(RNAKmer("ACUG"), -1) === nothing

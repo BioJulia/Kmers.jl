@@ -1,5 +1,5 @@
 # Return a random DNA/RNA sequence of the given length.
-function random_seq(n::Integer, nts, probs, outtype = String)
+function random_seq(n::Integer, nts, probs, outtype=String)
     cumprobs = cumsum(probs)
     x = Vector{Char}(undef, n)
     for i in 1:n
@@ -8,7 +8,7 @@ function random_seq(n::Integer, nts, probs, outtype = String)
     return outtype(x)
 end
 
-function random_seq(::Type{A}, n::Integer) where {A<:Alphabet}
+function random_seq(::Type{A}, n::Integer) where {A <: Alphabet}
     # TODO: Resolve the use of symbols(A()).
     nts = symbols(A())
     probs = Vector{Float64}(undef, length(nts))
@@ -25,10 +25,33 @@ function random_rna(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
 end
 
 function random_aa(len)
-    return random_seq(len,
-        ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I',
-         'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X' ],
-        push!(fill(0.049, 20), 0.02))
+    return random_seq(
+        len,
+        [
+            'A',
+            'R',
+            'N',
+            'D',
+            'C',
+            'Q',
+            'E',
+            'G',
+            'H',
+            'I',
+            'L',
+            'K',
+            'M',
+            'F',
+            'P',
+            'S',
+            'T',
+            'W',
+            'Y',
+            'V',
+            'X',
+        ],
+        push!(fill(0.049, 20), 0.02),
+    )
 end
 
 function random_dna_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
@@ -44,8 +67,34 @@ function random_rna_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
 end
 
 function random_aa_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
-    return random_seq(n, ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I',
-     'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X' ], probs, Vector{AminoAcid})
+    return random_seq(
+        n,
+        [
+            'A',
+            'R',
+            'N',
+            'D',
+            'C',
+            'Q',
+            'E',
+            'G',
+            'H',
+            'I',
+            'L',
+            'K',
+            'M',
+            'F',
+            'P',
+            'S',
+            'T',
+            'W',
+            'Y',
+            'V',
+            'X',
+        ],
+        probs,
+        Vector{AminoAcid},
+    )
 end
 
 function random_dna_kmer(len)

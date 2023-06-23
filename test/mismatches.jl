@@ -12,12 +12,12 @@
         b = random_dna_kmer(len)
         test_mismatches(DNAKmer(a), DNAKmer(b))
         test_mismatches(Kmer{DNAAlphabet{4}}(a), Kmer{DNAAlphabet{4}}(b))
-        
+
         a = random_rna_kmer(len)
         b = random_rna_kmer(len)
         test_mismatches(RNAKmer(a), RNAKmer(b))
         test_mismatches(Kmer{RNAAlphabet{4}}(a), Kmer{RNAAlphabet{4}}(b))
-        
+
         a = AAKmer(random_aa(len))
         b = AAKmer(random_aa(len))
         test_mismatches(a, b)
@@ -38,12 +38,12 @@ end
         b = random_dna_kmer(len)
         test_matches(DNAKmer(a), DNAKmer(b))
         test_matches(Kmer{DNAAlphabet{4}}(a), Kmer{DNAAlphabet{4}}(b))
-        
+
         a = random_rna_kmer(len)
         b = random_rna_kmer(len)
         test_matches(RNAKmer(a), RNAKmer(b))
         test_matches(Kmer{RNAAlphabet{4}}(a), Kmer{RNAAlphabet{4}}(b))
-        
+
         a = AAKmer(random_aa(len))
         b = AAKmer(random_aa(len))
         test_matches(a, b)

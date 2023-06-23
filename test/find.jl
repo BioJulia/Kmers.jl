@@ -23,9 +23,9 @@
     @test findfirst(DNA_G, kmer) == 3
     @test findlast(DNA_A, kmer) == 4
     @test findlast(DNA_G, kmer) == 5
-    
+
     kmer = AAKmer("AMVKFPSMT")
-    
+
     @test findnext(AA_A, kmer, 1) == 1
     @test findnext(AA_M, kmer, 1) == 2
     @test findnext(AA_V, kmer, 1) == 3
@@ -35,12 +35,12 @@
     @test findnext(AA_S, kmer, 1) == 7
     @test findnext(AA_M, kmer, 1) == 2
     @test findnext(AA_T, kmer, 1) == 9
-    
+
     @test findnext(AA_F, kmer, 4) == 5
     @test findprev(AA_F, kmer, 4) == nothing
     @test findnext(AA_A, kmer, 7) == nothing
     @test findnext(AA_M, kmer, 5) == 8
-    
+
     @test findfirst(AA_M, kmer) == 2
     @test findlast(AA_M, kmer) == 8
 end

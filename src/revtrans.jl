@@ -33,11 +33,11 @@ struct CodonSet <: AbstractSet{RNACodon}
     CodonSet(x::UInt64, ::Unsafe) = new(x)
 end
 CodonSet() = CodonSet(UInt64(0), Unsafe())
-CodonSet(itr) = foldl(push, itr, init=CodonSet())
+CodonSet(itr) = foldl(push, itr; init=CodonSet())
 
 function Base.iterate(x::CodonSet, s::UInt64=x.x)
     codon = RNACodon((trailing_zeros(s) % UInt64,))
-    iszero(s) ? nothing : (codon, s & (s-1))
+    iszero(s) ? nothing : (codon, s & (s - 1))
 end
 
 function push(s::CodonSet, x::RNACodon)
@@ -52,8 +52,8 @@ Base.filter(f, s::CodonSet) = CodonSet(Iterators.filter(f, s))
 Base.setdiff(a::CodonSet, b::Vararg{CodonSet}) = CodonSet(a.x & ~(union(b...).x), Unsafe())
 
 for (name, f) in [(:union, |), (:intersect, &), (:symdiff, ⊻)]
-    @eval function Base.$(name)(a::CodonSet, b::Vararg{CodonSet}) 
-        CodonSet(mapreduce(i -> i.x, $f, b, init=a.x), Unsafe())
+    @eval function Base.$(name)(a::CodonSet, b::Vararg{CodonSet})
+        CodonSet(mapreduce(i -> i.x, $f, b; init=a.x), Unsafe())
     end
 end
 
@@ -89,13 +89,13 @@ See also: [`reverse_translate`](@ref)
 """
 struct ReverseGeneticCode <: AbstractDict{AminoAcid, CodonSet}
     name::String
-    sets::NTuple{N_AA-1, CodonSet}
+    sets::NTuple{N_AA - 1, CodonSet}
 end
 
 function ReverseGeneticCode(x::BioSequences.GeneticCode)
     ind(aa::AminoAcid) = reinterpret(UInt8, aa) + 1
 
-    sets = fill(CodonSet(), N_AA-1)
+    sets = fill(CodonSet(), N_AA - 1)
     x_set = CodonSet()
     for i in Int64(0):Int64(63)
         aa = x.tbl[i + 1]
@@ -122,9 +122,7 @@ function ReverseGeneticCode(x::BioSequences.GeneticCode)
     ReverseGeneticCode(x.name, Tuple(sets))
 end
 
-const rev_standard_genetic_code = ReverseGeneticCode(
-    BioSequences.standard_genetic_code
-)
+const rev_standard_genetic_code = ReverseGeneticCode(BioSequences.standard_genetic_code)
 
 function Base.getindex(s::ReverseGeneticCode, a::AminoAcid)
     if reinterpret(UInt8, a) > (N_AA - 2) # cannot translate gap
@@ -136,7 +134,7 @@ end
 Base.length(c::ReverseGeneticCode) = length(c.sets)
 function Base.iterate(c::ReverseGeneticCode, s=1)
     s > length(c.sets) && return nothing
-    return (reinterpret(AminoAcid, (s-1)%UInt8) => c.sets[s], s+1)
+    return (reinterpret(AminoAcid, (s - 1) % UInt8) => c.sets[s], s + 1)
 end
 
 """
@@ -146,11 +144,7 @@ Reverse-translates `s` under the reverse genetic code `code`, putting the result
 
 See also: [`reverse_translate`](@ref)
 """
-function reverse_translate!(
-    v::Vector{CodonSet},
-    seq::AASeq,
-    code=rev_standard_genetic_code
-)
+function reverse_translate!(v::Vector{CodonSet}, seq::AASeq, code=rev_standard_genetic_code)
     resize!(v, length(seq))
     @inbounds for i in eachindex(v)
         v[i] = code[seq[i]]

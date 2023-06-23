@@ -22,15 +22,20 @@ longer `BioSequence`, between a `start` and `stop` position.
     reading frame will be preserved.
     In addition, the iterator will have `Base.IteratorSize` of `Base.SizeUnknown`.
 """
-struct SpacedKmers{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
+struct SpacedKmers{T <: Kmer, S <: BioSequence} <: AbstractKmerIterator{T, S}
     seq::S
     start::Int
     step::Int
     stop::Int
     filled::Int # This is cached for speed
     increment::Int # This is cached for speed
-    
-    function SpacedKmers{T,S}(seq::S, step::Int, start::Int, stop::Int) where {T<:Kmer,S<:BioSequence}
+
+    function SpacedKmers{T, S}(
+        seq::S,
+        step::Int,
+        start::Int,
+        stop::Int,
+    ) where {T <: Kmer, S <: BioSequence}
         T′ = kmertype(T)
         checkmer(T′) # Should inline and constant fold.
         if step <= 1
@@ -38,7 +43,7 @@ struct SpacedKmers{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
         end
         filled = max(0, ksize(T′) - step)
         increment = max(1, step - ksize(T′) + 1)
-        return new{T′,S}(seq, start, step, stop, filled, increment)
+        return new{T′, S}(seq, start, step, stop, filled, increment)
     end
 end
 
@@ -49,8 +54,13 @@ Convenience outer constructor so you don't have to specify `S` along with `T`.
 
 E.g. Instead of `SpacedKmers{DNACodon,typeof(s)}(s, 3)`, you can just use `SpacedKmers{DNACodon}(s, 3)`
 """
-function SpacedKmers{T}(seq::S, step::Int, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
-    return SpacedKmers{T,S}(seq, step, start, stop)
+function SpacedKmers{T}(
+    seq::S,
+    step::Int,
+    start=firstindex(seq),
+    stop=lastindex(seq),
+) where {T <: Kmer, S <: BioSequence}
+    return SpacedKmers{T, S}(seq, step, start, stop)
 end
 
 """
@@ -64,29 +74,40 @@ taken from `::Val{K}`, and `N` is deduced using `A` and `K`.
 E.g. Instead of `SpacedKmers{DNAKmer{3,1}}(s, 3)`, or `SpacedKmers{DNACodon}(s, 3)`,
 you can use `SpacedKmers(s, Val(3), 3)`
 """
-function SpacedKmers(seq::BioSequence{A}, ::Val{K}, step::Int, start = firstindex(seq), stop = lastindex(seq)) where {A,K}
-    return SpacedKmers{Kmer{A,K}}(seq, step, start, stop)
+function SpacedKmers(
+    seq::BioSequence{A},
+    ::Val{K},
+    step::Int,
+    start=firstindex(seq),
+    stop=lastindex(seq),
+) where {A, K}
+    return SpacedKmers{Kmer{A, K}}(seq, step, start, stop)
 end
 
 Base.step(x::SpacedKmers) = x.step
 
-@inline function Base.iterate(it::SpacedKmers{Kmer{A,K,N},LongSequence{A}}) where {A,K,N}
-    kmer = _build_kmer_data(Kmer{A,K,N}, it.seq, 1)
+@inline function Base.iterate(
+    it::SpacedKmers{Kmer{A, K, N}, LongSequence{A}},
+) where {A, K, N}
+    kmer = _build_kmer_data(Kmer{A, K, N}, it.seq, 1)
     if isnothing(kmer)
         return nothing
     else
         # Get the reverse.
-        alph = Alphabet(Kmer{A,K,N})
-        return (1, Kmer{A,K,N}(kmer)), (K, kmer)
+        alph = Alphabet(Kmer{A, K, N})
+        return (1, Kmer{A, K, N}(kmer)), (K, kmer)
     end
 end
 
-@inline function Base.iterate(it::SpacedKmers{Kmer{A,K,N},LongSequence{A}}, state) where {A,K,N}
+@inline function Base.iterate(
+    it::SpacedKmers{Kmer{A, K, N}, LongSequence{A}},
+    state,
+) where {A, K, N}
     i, kmer = state
     filled = it.filled
     i += it.increment
-    
-    for _ in filled:K-1
+
+    for _ in filled:(K - 1)
         if i > it.stop
             return nothing
         else
@@ -97,11 +118,13 @@ end
         end
     end
     pos = i - K + 1
-    return (pos, Kmer{A,K,N}(kmer)), (i, kmer)
+    return (pos, Kmer{A, K, N}(kmer)), (i, kmer)
 end
 
-@inline function Base.iterate(it::SpacedKmers{Kmer{A,K,N},LongSequence{B}}, state = (it.start - it.increment, 1, 0, blank_ntuple(Kmer{A,K,N}))
-    ) where {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4},K,N}
+@inline function Base.iterate(
+    it::SpacedKmers{Kmer{A, K, N}, LongSequence{B}},
+    state=(it.start - it.increment, 1, 0, blank_ntuple(Kmer{A, K, N})),
+) where {A <: NucleicAcidAlphabet{2}, B <: NucleicAcidAlphabet{4}, K, N}
     i, pos, filled, kmer = state
     i += it.increment
 
@@ -119,7 +142,7 @@ end
         end
         if filled == K
             state = (i, i - K + 1 + it.step, it.filled, kmer)
-            return (pos, Kmer{A,K,N}(kmer)), state
+            return (pos, Kmer{A, K, N}(kmer)), state
         end
         i += 1
     end

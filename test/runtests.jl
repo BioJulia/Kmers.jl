@@ -1,7 +1,7 @@
 module TestKmers
 
 using Kmers
-using BioSequences 
+using BioSequences
 using Test
 
 const GROUP = get(ENV, "GROUP", "All")

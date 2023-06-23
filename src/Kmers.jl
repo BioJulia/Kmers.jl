@@ -80,7 +80,7 @@ export
     AA_X,
     AA_Term,
     AA_Gap,
-    
+
     # BioSequences re-exports
     Alphabet,
     BioSequence,
@@ -89,8 +89,7 @@ export
     DNAAlphabet,
     RNAAlphabet,
     translate,
-    
-    
+
     ###
     ### Mers
     ###
@@ -125,11 +124,11 @@ export
     reverse_translate,
     reverse_translate!,
     ReverseGeneticCode,
-    
+
     ###
     ### Sequence literals
     ###
-    
+
     @mer_str,
     @bigmer_str
 
@@ -139,7 +138,8 @@ ispermitted(::DNAAlphabet{2}, nt::DNA) = count_ones(nt) == 1 && isvalid(nt)
 ispermitted(::DNAAlphabet{2}, data::UInt) = data < UInt(4)
 ispermitted(::DNAAlphabet{4}, nt::DNA) = isvalid(nt)
 ispermitted(::DNAAlphabet{4}, data::UInt) = isvalid(DNA, data)
-ispermitted(::AminoAcidAlphabet, aa::AminoAcid) = reinterpret(UInt8, aa) <= reinterpret(UInt8, AA_Gap)
+ispermitted(::AminoAcidAlphabet, aa::AminoAcid) =
+    reinterpret(UInt8, aa) <= reinterpret(UInt8, AA_Gap)
 ispermitted(::AminoAcidAlphabet, data::UInt) = data <= 0x1b
 
 include("kmer.jl")

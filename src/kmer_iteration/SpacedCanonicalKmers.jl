@@ -22,15 +22,20 @@ longer `BioSequence`, between a `start` and `stop` position.
     reading frame will be preserved.
     In addition, the iterator will have `Base.IteratorSize` of `Base.SizeUnknown`.
 """
-struct SpacedCanonicalKmers{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
+struct SpacedCanonicalKmers{T <: Kmer, S <: BioSequence} <: AbstractKmerIterator{T, S}
     seq::S
     start::Int
     step::Int
     stop::Int
     filled::Int # This is cached for speed
     increment::Int # This is cached for speed
-    
-    function SpacedCanonicalKmers{T,S}(seq::S, step::Int, start::Int, stop::Int) where {T<:Kmer,S<:BioSequence}
+
+    function SpacedCanonicalKmers{T, S}(
+        seq::S,
+        step::Int,
+        start::Int,
+        stop::Int,
+    ) where {T <: Kmer, S <: BioSequence}
         T′ = kmertype(T)
         checkmer(T′) # Should inline and constant fold.
         if step <= 1
@@ -38,7 +43,7 @@ struct SpacedCanonicalKmers{T<:Kmer,S<:BioSequence} <: AbstractKmerIterator{T,S}
         end
         filled = max(0, ksize(T′) - step)
         increment = max(1, step - ksize(T′) + 1)
-        return new{T′,S}(seq, start, step, stop, filled, increment)
+        return new{T′, S}(seq, start, step, stop, filled, increment)
     end
 end
 
@@ -49,8 +54,13 @@ Convenience outer constructor so you don't have to specify `S` along with `T`.
 
 E.g. Instead of `SpacedCanonicalKmers{DNACodon,typeof(s)}(s, 3)`, you can just use `SpacedCanonicalKmers{DNACodon}(s, 3)`
 """
-function SpacedCanonicalKmers{T}(seq::S, step::Int, start = firstindex(seq), stop = lastindex(seq)) where {T<:Kmer,S<:BioSequence}
-    return SpacedCanonicalKmers{T,S}(seq, step, start, stop)
+function SpacedCanonicalKmers{T}(
+    seq::S,
+    step::Int,
+    start=firstindex(seq),
+    stop=lastindex(seq),
+) where {T <: Kmer, S <: BioSequence}
+    return SpacedCanonicalKmers{T, S}(seq, step, start, stop)
 end
 
 """
@@ -64,34 +74,51 @@ taken from `::Val{K}`, and `N` is deduced using `A` and `K`.
 E.g. Instead of `SpacedCanonicalKmers{DNAKmer{3,1}}(s, 3)`, or `SpacedCanonicalKmers{DNACodon}(s, 3)`,
 you can use `SpacedCanonicalKmers(s, Val(3), 3)`
 """
-function SpacedCanonicalKmers(seq::BioSequence{A}, ::Val{K}, step::Int, start = firstindex(seq), stop = lastindex(seq)) where {A,K}
-    return SpacedCanonicalKmers{Kmer{A,K}}(seq, step, start, stop)
+function SpacedCanonicalKmers(
+    seq::BioSequence{A},
+    ::Val{K},
+    step::Int,
+    start=firstindex(seq),
+    stop=lastindex(seq),
+) where {A, K}
+    return SpacedCanonicalKmers{Kmer{A, K}}(seq, step, start, stop)
 end
 
 Base.step(x::SpacedCanonicalKmers) = x.step
 
-@inline function Base.iterate(it::SpacedCanonicalKmers{Kmer{A,K,N},LongSequence{A}}) where {A,K,N}
-    fwkmer = _build_kmer_data(Kmer{A,K,N}, it.seq, 1)
+@inline function Base.iterate(
+    it::SpacedCanonicalKmers{Kmer{A, K, N}, LongSequence{A}},
+) where {A, K, N}
+    fwkmer = _build_kmer_data(Kmer{A, K, N}, it.seq, 1)
     if isnothing(fwkmer)
         return nothing
     else
-        rshift = n_unused(Kmer{A,K,N}) * BioSequences.bits_per_symbol(A()) # Based on alphabet type, should constant fold.
-        rvkmer = rightshift_carry(_reverse(BioSequences.BitsPerSymbol(A()), _complement_bitpar(A(), fwkmer...)...), rshift)
-        return (1, min(Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer))), (K, fwkmer, rvkmer)
+        rshift = n_unused(Kmer{A, K, N}) * BioSequences.bits_per_symbol(A()) # Based on alphabet type, should constant fold.
+        rvkmer = rightshift_carry(
+            _reverse(
+                BioSequences.BitsPerSymbol(A()),
+                _complement_bitpar(A(), fwkmer...)...,
+            ),
+            rshift,
+        )
+        return (1, min(Kmer{A, K, N}(fwkmer), Kmer{A, K, N}(rvkmer))), (K, fwkmer, rvkmer)
     end
 end
 
-@inline function Base.iterate(it::SpacedCanonicalKmers{Kmer{A,K,N},LongSequence{A}}, state) where {A,K,N}
+@inline function Base.iterate(
+    it::SpacedCanonicalKmers{Kmer{A, K, N}, LongSequence{A}},
+    state,
+) where {A, K, N}
     i, fwkmer, rvkmer = state
     filled = it.filled
     i += it.increment
-    
-    for _ in filled:K-1
+
+    for _ in filled:(K - 1)
         if i > it.stop
             return nothing
         else
             bps = BioSequences.bits_per_symbol(A()) # Based on type info, should constant fold.
-            rshift = (64 - (n_unused(Kmer{A,K,N}) + 1) * bps) # Based on type info, should constant fold.
+            rshift = (64 - (n_unused(Kmer{A, K, N}) + 1) * bps) # Based on type info, should constant fold.
             mask = (one(UInt64) << bps) - one(UInt64) # Based on type info, should constant fold.
             fbits = UInt64(BioSequences.extract_encoded_element(it.seq, i))
             rbits = (BioSequences.complement_bitpar(fbits, A()) & mask) << rshift
@@ -101,11 +128,19 @@ end
         end
     end
     pos = i - K + 1
-    return (pos, min(Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer))), (i, fwkmer, rvkmer)
+    return (pos, min(Kmer{A, K, N}(fwkmer), Kmer{A, K, N}(rvkmer))), (i, fwkmer, rvkmer)
 end
 
-@inline function Base.iterate(it::SpacedCanonicalKmers{Kmer{A,K,N},LongSequence{B}}, state = (it.start - it.increment, 1, 0, blank_ntuple(Kmer{A,K,N}), blank_ntuple(Kmer{A,K,N}))
-    ) where {A<:NucleicAcidAlphabet{2},B<:NucleicAcidAlphabet{4},K,N}
+@inline function Base.iterate(
+    it::SpacedCanonicalKmers{Kmer{A, K, N}, LongSequence{B}},
+    state=(
+        it.start - it.increment,
+        1,
+        0,
+        blank_ntuple(Kmer{A, K, N}),
+        blank_ntuple(Kmer{A, K, N}),
+    ),
+) where {A <: NucleicAcidAlphabet{2}, B <: NucleicAcidAlphabet{4}, K, N}
     i, pos, filled, fwkmer, rvkmer = state
     i += it.increment
 
@@ -125,7 +160,7 @@ end
         end
         if filled == K
             state = (i, i - K + 1 + it.step, it.filled, fwkmer, rvkmer)
-            return (pos, min(Kmer{A,K,N}(fwkmer), Kmer{A,K,N}(rvkmer))), state
+            return (pos, min(Kmer{A, K, N}(fwkmer), Kmer{A, K, N}(rvkmer))), state
         end
         i += 1
     end

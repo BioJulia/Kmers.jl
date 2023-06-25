@@ -6,8 +6,6 @@
 # This file is a part of the Kmers.jl, a package in the BioJulia ecosystem.
 # License is MIT: https://github.com/BioJulia/Kmers.jl/blob/master/LICENSE
 
-__precompile__()
-
 module Kmers
 
 export
@@ -128,22 +126,23 @@ export
     ###
     ### Sequence literals
     ###
-
     @mer_str,
     @bigmer_str
 
 using BioSequences
 
-ispermitted(::DNAAlphabet{2}, nt::DNA) = count_ones(nt) == 1 && isvalid(nt)
-ispermitted(::DNAAlphabet{2}, data::UInt) = data < UInt(4)
-ispermitted(::DNAAlphabet{4}, nt::DNA) = isvalid(nt)
-ispermitted(::DNAAlphabet{4}, data::UInt) = isvalid(DNA, data)
-ispermitted(::AminoAcidAlphabet, aa::AminoAcid) =
-    reinterpret(UInt8, aa) <= reinterpret(UInt8, AA_Gap)
-ispermitted(::AminoAcidAlphabet, data::UInt) = data <= 0x1b
+"""
+    Kmers.Unsafe
 
+Trait object used to access unsafe methods of functions.
+`unsafe` is the singleton of `Unsafe`.
+"""
+struct Unsafe end
+const unsafe = Unsafe()
+
+include("tuple_bitflipping.jl")
 include("kmer.jl")
-
+include("revtrans.jl")
 include("kmer_iteration/AbstractKmerIterator.jl")
 include("kmer_iteration/EveryKmer.jl")
 include("kmer_iteration/SpacedKmers.jl")

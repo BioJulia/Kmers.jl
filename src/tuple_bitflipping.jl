@@ -26,15 +26,13 @@ Notably it's used when constructing a Kmer from an existing NTuple of UInt64
     return (head & (typemax(UInt64) >> by), tail...)
 end
 
-#=
-rightshift_carry & leftshift_carry
+# rightshift_carry & leftshift_carry
 
-These methods are micro-optimised (or should be!!!) for shifting the bits in 
-an NTuple of unsigned integers, carrying the bits "shifted off" one word 
-over to the next word. The carry can also be "seeded" so as other methods like
-pushfirst and pushlast can be efficiently implemented without duplication of code
-or less efficient implementations that first shift and then insert an element.
-=#
+# These methods are micro-optimised (or should be!!!) for shifting the bits in 
+# an NTuple of unsigned integers, carrying the bits "shifted off" one word 
+# over to the next word. The carry can also be "seeded" so as other methods like
+# pushfirst and pushlast can be efficiently implemented without duplication of code
+# or less efficient implementations that first shift and then insert an element.
 
 @inline function rightshift_carry(
     x::NTuple{N, UInt64},
@@ -82,11 +80,3 @@ end
 end
 
 @inline _reverse(::BioSequences.BitsPerSymbol{N}) where {N} = ()
-
-#=
-@inline function _reverse(f::F, bpe::BioSequences.BitsPerSymbol{N}, head::UInt64, tail...) where {N,F<:Function}
-    return (_reverse(f, bpe, tail...)..., f(reversebits(head, bpe)))
-end
-
-@inline _reverse(f::F, ::BioSequences.BitsPerSymbol{N}) where {N,F<:Function} = ()
-=#

@@ -1,75 +1,87 @@
-###
-### Kmer Type definition
-###
-
-# Include some basic tuple bitflipping ops - the secret sauce to efficiently
-# manipping Kmer's static data. 
-include("tuple_bitflipping.jl")
-
-"""
-    Kmers.Unsafe
-
-Trait object used to access unsafe methods of functions.
-`unsafe` is the singleton of `Unsafe`.
-"""
-struct Unsafe end
-const unsafe = Unsafe()
+# Notes about Kmers's representation:
+# Each element is encoded in the same way as a LongSequence, however the order
+# is different. In a Kmer, the elements fill from MSB to LSB, from first to
+# last tuple index. Unused bits are always zeroed.
+# This layout complicates some Kmer construction code, but simplifies comparison
+# operators, and we really want Kmers to be efficient.
 
 """
     Kmer{A<:Alphabet,K,N} <: BioSequence{A}
 
-A parametric, immutable, bitstype for representing Kmers - short sequences.
-Given the number of Kmers generated from raw sequencing reads, avoiding
-repetetive memory allocation and triggering of garbage collection is important,
-as is the ability to effectively pack Kmers into arrays and similar collections.
+A parametric, immutable, bitstype for representing k-mers - short sequences
+of a fixed length K.
 
-In practice that means we an immutable bitstype as the internal representation
-of these sequences. Thankfully, this is not much of a limitation - kmers are
-rarely manipulated and so by and large don't have to be mutable.
-
-Excepting their immutability, they fulfill the rest of the API and behaviours
-expected from a concrete `BioSequence` type, and non-mutating transformations
-of the type are still defined.
-
-!!! warning
-    Given their immutability, `setindex` and mutating sequence transformations
-    are not implemented for Kmers e.g. `reverse_complement!`. 
-!!! tip
-    Note that some sequence transformations that are not mutating are
-    available, since they can return a new kmer value as a result e.g.
-    `reverse_complement`. 
+Since they can be stored directly in registers, `Kmer`s are generally the most
+efficient type of `BioSequence`, when `K` is small and known at compile time.
 """
 struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
-    data::NTuple{N, UInt64}
+    data::NTuple{N, UInt}
 
     # This unsafe method do not clip the head
-    Kmer{A, K, N}(::Unsafe, data::NTuple{N, UInt64}) where {A <: Alphabet, K, N} =
+    function Kmer{A, K, N}(::Unsafe, data::NTuple{N, UInt}) where {A <: Alphabet, K, N}
         new{A, K, N}(data)
+    end
 
-    function Kmer{A, K, N}(data::NTuple{N, UInt64}) where {A <: Alphabet, K, N}
+    function Kmer{A, K, N}(data::NTuple{N, UInt}) where {A <: Alphabet, K, N}
         checkmer(Kmer{A, K, N})
         x = n_unused(Kmer{A, K, N}) * BioSequences.bits_per_symbol(A())
         return new(_cliphead(x, data...))
     end
 end
 
+"""
+    checkmer(::Type{Kmer{A,K,N}}) where {A,K,N}
+
+Internal method - enforces good kmer type parameterisation.
+
+For a given Kmer{A,K,N} of length K, the number of words used to
+represent it (N) should be the minimum needed to contain all K symbols.
+
+This function should compile to a noop in case the parameterization is good.
+"""
+@inline function checkmer(::Type{Kmer{A, K, N}}) where {A, K, N}
+    if !(K isa Int)
+        throw(ArgumentError("K must be an Int"))
+    elseif K < 1
+        throw(ArgumentError("Bad kmer parameterisation. K must be greater than 0."))
+    end
+    n = cld((K * BioSequences.bits_per_symbol(A())) % UInt, (sizeof(UInt) * 8) % UInt) % Int
+    if !(N isa Int)
+        throw(ArgumentError("N must be an Int"))
+    elseif n !== N
+        # This has been significantly changed conceptually from before. Now we
+        # don't just check K, but *enforce* the most appropriate N for K.
+        throw(ArgumentError("Bad kmer parameterisation. For K = $K, N should be $n"))
+    end
+end
+
+function Kmer{A, K, N}(itr) where {A, K, N}
+    Kmer{A, K, N}(Base.IteratorSize(itr), itr)
+end
+
+function Kmer{A, K, N}(::Base.SizeUnknown, itr) where {A, K, N}
+    Kmer{A, K, N}(collect(itr))
+end
+
+function Kmer{A, K, N}(::Union{Base.HasShape, Base.HasLength}, itr) where {A, K, N}
+end
+
 BioSequences.encoded_data(seq::Kmer{A, K, N}) where {A, K, N} = seq.data
 
 # Create a blank ntuple of appropriate length for a given Kmer with N.
-@inline blank_ntuple(::Type{Kmer{A, K, N}}) where {A, K, N} =
+@inline function blank_ntuple(::Type{Kmer{A, K, N}}) where {A, K, N}
     ntuple(x -> zero(UInt64), Val{N}())
+end
 
 ###
 ### _build_kmer_data
 ###
 
-#=
-These are (hopefully!) very optimised kernel functions for building kmer internal
-data from individual elements or from sequences. Kmers themselves are static,
-tuple-based structs, and so I really didn't want these functions to create memory
-allocations or GC activity through use of vectors an such, for what should be
-the creation of a single, rather simple value.
-=#
+# These are (hopefully!) very optimised kernel functions for building kmer internal
+# data from individual elements or from sequences. Kmers themselves are static,
+# tuple-based structs, and so I really didn't want these functions to create memory
+# allocations or GC activity through use of vectors an such, for what should be
+# the creation of a single, rather simple value.
 
 """
     _build_kmer_data(::Type{Kmer{A,K,N}}, seq::LongSequence{A}, from::Int = 1) where {A,K,N}
@@ -400,10 +412,6 @@ const DNACodon = DNAKmer{3, 1}
 "Shorthand for `RNAKmer{3,1}`"
 const RNACodon = RNAKmer{3, 1}
 
-###
-### Base Functions
-###
-
 @inline ksize(::Type{Kmer{A, K, N}}) where {A, K, N} = K
 @inline nsize(::Type{Kmer{A, K, N}}) where {A, K, N} = N
 @inline per_word_capacity(::Type{Kmer{A, K, N}}) where {A, K, N} =
@@ -418,30 +426,7 @@ const RNACodon = RNAKmer{3, 1}
     per_word_capacity(Kmer{A, K, N}) - n_unused(Kmer{A, K, N})
 @inline elements_in_head(seq::Kmer) = elements_in_head(typeof(seq))
 
-"""
-    checkmer(::Type{Kmer{A,K,N}}) where {A,K,N}
 
-Internal method - enforces good kmer type parameterisation.
-
-For a given Kmer{A,K,N} of length K, the number of words used to
-represent it (N) should be the minimum needed to contain all K symbols,
-no larger (wasteful) no smaller (just... wrong).
-
-Because it is used on type parameters / variables, these conditions should be
-checked at compile time, and the branches / error throws eliminated when the
-parameterisation of the Kmer type is good. 
-"""
-@inline function checkmer(::Type{Kmer{A, K, N}}) where {A, K, N}
-    if K < 1
-        throw(ArgumentError("Bad kmer parameterisation. K must be greater than 0."))
-    end
-    n = BioSequences.seq_data_len(A, K)
-    if n !== N
-        # This has been significantly changed conceptually from before. Now we
-        # don't just check K, but *enforce* the most appropriate N for K.
-        throw(ArgumentError("Bad kmer parameterisation. For K = $K, N should be $n"))
-    end
-end
 
 @inline Base.length(x::Kmer{A, K, N}) where {A, K, N} = K
 @inline Base.summary(x::Kmer{A, K, N}) where {A, K, N} = string(eltype(x), ' ', K, "-mer")
@@ -597,4 +582,4 @@ macro mer_str(seq)
     return T(seq′)
 end
 
-include("revtrans.jl")
+

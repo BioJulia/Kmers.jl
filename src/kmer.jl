@@ -15,22 +15,46 @@ Since they can be stored directly in registers, `Kmer`s are generally the most
 efficient type of `BioSequence`, when `K` is small and known at compile time.
 """
 struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
+    # The number of UInt is always exactly the number needed, no less, no more.
+    # The first symbols pack into the first UInts
+    # An UInt with N elements pack into the lowest bits of the UInt, with the
+    # first symbols in the higher parts of the UInt.
+    # Hence, a sequence A-G of 16-bit elements would pack like:
+    # ( ABC, DEFG)
+    #  ^ 16 unused bits, the unused bits are always top bits of first UInt
     data::NTuple{N, UInt}
 
     # This unsafe method do not clip the head
     function Kmer{A, K, N}(::Unsafe, data::NTuple{N, UInt}) where {A <: Alphabet, K, N}
+        check_kmer(Kmer{A, K, N})
         new{A, K, N}(data)
     end
 
     function Kmer{A, K, N}(data::NTuple{N, UInt}) where {A <: Alphabet, K, N}
-        checkmer(Kmer{A, K, N})
+        check_kmer(Kmer{A, K, N})
         x = n_unused(Kmer{A, K, N}) * BioSequences.bits_per_symbol(A())
-        return new(_cliphead(x, data...))
+        return new(cliphead(x, data...))
     end
 end
 
+# Aliases
+"Shortcut for the type `Kmer{DNAAlphabet{2},K,N}`"
+const DNAKmer{K, N} = Kmer{DNAAlphabet{2}, K, N}
+
+"Shortcut for the type `Kmer{RNAAlphabet{2},K,N}`"
+const RNAKmer{K, N} = Kmer{RNAAlphabet{2}, K, N}
+
+"Shortcut for the type `Kmer{AminoAcidAlphabet,K,N}`"
+const AAKmer{K, N} = Kmer{AminoAcidAlphabet, K, N}
+
+"Shorthand for `DNAKmer{3,1}`"
+const DNACodon = DNAKmer{3, 1}
+
+"Shorthand for `RNAKmer{3,1}`"
+const RNACodon = RNAKmer{3, 1}
+
 """
-    checkmer(::Type{Kmer{A,K,N}}) where {A,K,N}
+    check_kmer(::Type{Kmer{A,K,N}}) where {A,K,N}
 
 Internal method - enforces good kmer type parameterisation.
 
@@ -39,7 +63,7 @@ represent it (N) should be the minimum needed to contain all K symbols.
 
 This function should compile to a noop in case the parameterization is good.
 """
-@inline function checkmer(::Type{Kmer{A, K, N}}) where {A, K, N}
+@inline function check_kmer(::Type{Kmer{A, K, N}}) where {A, K, N}
     if !(K isa Int)
         throw(ArgumentError("K must be an Int"))
     elseif K < 1
@@ -55,531 +79,174 @@ This function should compile to a noop in case the parameterization is good.
     end
 end
 
-function Kmer{A, K, N}(itr) where {A, K, N}
-    Kmer{A, K, N}(Base.IteratorSize(itr), itr)
+################################################
+# Compile-time functions computed on Kmer types
+################################################
+
+@inline ksize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = K
+@inline nsize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = N
+@inline n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
+
+@inline function n_coding_elements(::Type{<:Kmer{A, K}}) where {A, K}
+    cld(BioSequences.bits_per_symbol(A()) * K, 8 * sizeof(UInt))
 end
 
-function Kmer{A, K, N}(::Base.SizeUnknown, itr) where {A, K, N}
-    Kmer{A, K, N}(collect(itr))
+@inline function per_word_capacity(::Type{<:Kmer{A}}) where A
+    div(8 * sizeof(UInt), BioSequences.bits_per_symbol(A()))
 end
 
-function Kmer{A, K, N}(::Union{Base.HasShape, Base.HasLength}, itr) where {A, K, N}
-end
-
-BioSequences.encoded_data(seq::Kmer{A, K, N}) where {A, K, N} = seq.data
-
-# Create a blank ntuple of appropriate length for a given Kmer with N.
-@inline function blank_ntuple(::Type{Kmer{A, K, N}}) where {A, K, N}
-    ntuple(x -> zero(UInt64), Val{N}())
-end
-
-###
-### _build_kmer_data
-###
-
-# These are (hopefully!) very optimised kernel functions for building kmer internal
-# data from individual elements or from sequences. Kmers themselves are static,
-# tuple-based structs, and so I really didn't want these functions to create memory
-# allocations or GC activity through use of vectors an such, for what should be
-# the creation of a single, rather simple value.
-
-"""
-    _build_kmer_data(::Type{Kmer{A,K,N}}, seq::LongSequence{A}, from::Int = 1) where {A,K,N}
-
-Construct a ntuple of the bits data for an instance of a Kmer{A,K,N}.
-
-This particular method is specialised for LongSequences, and for when the Kmer
-and LongSequence types used, share the same alphabet, since a lot of encoding /
-decoding can be skipped, and the problem is mostly one of shunting bits around.
-"""
-@inline function _build_kmer_data(
-    ::Type{Kmer{A, K, N}},
-    seq::LongSequence{A},
-    from::Int=1,
-) where {A, K, N}
-    checkmer(Kmer{A, K, N})
-
-    bits_per_sym = BioSequences.bits_per_symbol(A()) # Based on alphabet type, should constant fold.
-    n_head = elements_in_head(Kmer{A, K, N}) # Based on kmer type, should constant fold.
-    n_per_chunk = per_word_capacity(Kmer{A, K, N}) # Based on kmer type, should constant fold.
-
-    if from + K - 1 > length(seq)
-        return nothing
-    end
-
-    # Construct the head.
-    head = zero(UInt64)
-    @inbounds for i in from:(from + n_head - 1)
-        bits = UInt64(BioSequences.extract_encoded_element(seq, i))
-        head = (head << bits_per_sym) | bits
-    end
-
-    # And the rest of the sequence
-    idx = Ref(from + n_head)
-    tail = ntuple(Val{N - 1}()) do i
-        Base.@_inline_meta
-        body = zero(UInt64)
-        @inbounds for _ in 1:n_per_chunk
-            bits = UInt64(BioSequences.extract_encoded_element(seq, idx[]))
-            body = (body << bits_per_sym) | bits
-            idx[] += 1
-        end
-        return body
-    end
-
-    # Put head and tail together
-    return (head, tail...)
-end
-
-###
-### Constructors
-###
-
-"""
-    Kmer{A,K,N}(itr) where {A,K,N}
-
-Construct a `Kmer{A,K,N}` from an iterable.
-
-The most generic constructor.
-
-Currently the iterable must have `length` & support `getindex` with integers.
-
-# Examples
-
-```jldoctest
-julia> ntseq = LongSequence("TTAGC") # 4-bit DNA alphabet
-5nt DNA Sequence:
-TTAGC
-
-julia> DNAKmer{5}(ntseq) # 2-Bit DNA alphabet
-DNA 5-mer:
-TTAGC
-```
-"""
-function Kmer{A, K, N}(itr) where {A, K, N}
-    checkmer(Kmer{A, K, N})
-
-    seqlen = length(itr)
-    if seqlen != K
-        throw(ArgumentError("itr does not contain enough elements ($seqlen ≠ $K)"))
-    end
-
-    ## All based on alphabet type of Kmer, so should constant fold.
-    bits_per_sym = BioSequences.bits_per_symbol(A())
-    n_head = elements_in_head(Kmer{A, K, N})
-    n_per_chunk = per_word_capacity(Kmer{A, K, N})
-
-    # Construct the head.
-    head = zero(UInt64)
-    @inbounds for i in 1:n_head
-        (x, next_i) = iterate(itr, i)
-        sym = convert(eltype(Kmer{A, K, N}), x)
-        # Encode will throw if it cant encode an element.
-        head = (head << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
-    end
-
-    # And the rest of the sequence
-    idx = Ref(n_head + 1)
-    tail = ntuple(Val{N - 1}()) do i
-        Base.@_inline_meta
-        body = zero(UInt64)
-        @inbounds for i in 1:n_per_chunk
-            (x, next_idx) = iterate(itr, idx[])
-            sym = convert(eltype(Kmer{A, K, N}), x)
-            # Encode will throw  if it cant encode an element.
-            body = (body << bits_per_sym) | UInt64(BioSequences.encode(A(), sym))
-            idx[] += 1
-        end
-        return body
-    end
-
-    data = (head, tail...)
-
-    return Kmer{A, K, N}(data)
-end
-
-"""
-    Kmer{A,K,N}(seq::BioSequence{A})
-
-Construct a `Kmer{A,K,N}` from a `BioSequence{A}`.
-
-This particular method is specialised for BioSequences, and for when the Kmer
-and BioSequence types used, share the same alphabet, since a lot of encoding /
-decoding can be skipped, and the problem is mostly one of shunting bits around.
-In the case where the alphabet of the Kmer and the alphabet of the BioSequence
-differ, dispatch to the more generic constructor occurs instead.
-
-# Examples
-
-```jldoctest
-julia> ntseq = LongSequence{DNAAlphabet{2}}("TTAGC") # 2-bit DNA alphabet
-5nt DNA Sequence:
-TTAGC
-
-julia> DNAKmer{5}(ntseq) # 2-Bit DNA alphabet
-DNA 5-mer:
-TTAGC
-```
-"""
-@inline function Kmer{A, K, N}(seq::BioSequence{A}) where {A, K, N}
-    checkmer(Kmer{A, K, N})
-
-    seqlen = length(seq)
-    if seqlen != K
-        throw(ArgumentError("seq is not the correct length ($seqlen ≠ $K)"))
-    end
-
-    ## All based on alphabet type of Kmer, so should constant fold.
-    bits_per_sym = BioSequences.bits_per_symbol(A())
-    n_head = elements_in_head(Kmer{A, K, N})
-    n_per_chunk = per_word_capacity(Kmer{A, K, N})
-
-    # Construct the head.
-    head = zero(UInt64)
-    @inbounds for i in 1:n_head
-        bits = UInt64(BioSequences.extract_encoded_element(seq, i))
-        head = (head << bits_per_sym) | bits
-    end
-
-    # And the rest of the sequence
-    idx = Ref(n_head + 1)
-    tail = ntuple(Val{N - 1}()) do i
-        Base.@_inline_meta
-        body = zero(UInt64)
-        @inbounds for _ in 1:n_per_chunk
-            bits = UInt64(BioSequences.extract_encoded_element(seq, idx[]))
-            body = (body << bits_per_sym) | bits
-            idx[] += 1
-        end
-        return body
-    end
-
-    data = (head, tail...)
-
-    return Kmer{A, K, N}(data)
-end
-
-# Convenience version of function above so you don't have to work out correct N.
-"""
-    Kmer{A,K}(itr) where {A,K}
-
-Construct a `Kmer{A,K,N}` from an iterable.
-
-This is a convenience method which will work out the correct `N` parameter, for
-your given choice of `A` & `K`.
-"""
-@inline function Kmer{A, K}(itr) where {A, K}
-    T = kmertype(Kmer{A, K})
-    return T(itr)
-end
-
-"""
-    Kmer{A}(itr) where {A}
-
-Construct a `Kmer{A,K,N}` from an iterable.
-
-This is a convenience method which will work out K from the length of `itr`, and
-the correct `N` parameter, for your given choice of `A` & `K`.
-
-!!! warning
-    Since this gets K from runtime values, this is gonna be slow!
-"""
-@inline Kmer{A}(itr) where {A} = Kmer{A, length(itr)}(itr)
-@inline Kmer(seq::BioSequence{A}) where {A} = Kmer{A}(seq)
-
-function Kmer{A1}(
-    seq::BioSequence{A2},
-) where {A1 <: NucleicAcidAlphabet, A2 <: NucleicAcidAlphabet}
-    kmertype(Kmer{A1, length(seq)})(seq)
-end
-
-@inline function Kmer{A}(
-    nts::Vararg{Union{DNA, RNA}, K},
-) where {A <: NucleicAcidAlphabet, K}
-    return kmertype(Kmer{A, K})(nts)
-end
-
-"""
-    Kmer(nts::Vararg{DNA,K}) where {K}
-
-Construct a Kmer from a variable number `K` of DNA nucleotides.
-
-# Examples
-
-```jldoctest
-julia> Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C)
-DNA 5-mer:
-TTAGC
-```
-"""
-@inline Kmer(nt::DNA, nts::Vararg{DNA}) = DNAKmer((nt, nts...))
-
-"""
-    Kmer(nts::Vararg{RNA,K}) where {K}
-
-Construct a Kmer from a variable number `K` of RNA nucleotides.
-
-# Examples
-
-```jldoctest
-julia> Kmer(RNA_U, RNA_U, RNA_A, RNA_G, RNA_C)
-DNA 5-mer:
-UUAGC
-```
-"""
-@inline Kmer(nt::RNA, nts::Vararg{RNA}) = RNAKmer((nt, nts...))
-
-"""
-    Kmer(seq::String)
-
-Construct a DNA or RNA kmer from a string.
-
-!!! warning
-    As a convenience method, this derives the `K`, `Alphabet`, and `N` parameters
-    for the `Kmer{A,K,N}` type from the input string.
-
-# Examples
-
-```jldoctest
-julia> Kmer("TTAGC")
-DNA 5-mer:
-TTAGC
-```
-"""
-@inline function Kmer(seq::String)
-    seq′ = BioSequences.remove_newlines(seq)
-    hast = false
-    hasu = false
-    for c in seq′
-        hast |= ((c == 'T') | (c == 't'))
-        hasu |= ((c == 'U') | (c == 'u'))
-    end
-    if (hast & hasu) | (!hast & !hasu)
-        throw(ArgumentError("Can't detect alphabet type from string"))
-    end
-    A = ifelse(hast & !hasu, DNAAlphabet{2}, RNAAlphabet{2})
-    return Kmer{A, length(seq′)}(seq′)
-end
-
-"""
-    kmertype(::Type{Kmer{A,K}}) where {A,K}
-Resolve and incomplete kmer typing, computing the N parameter of
-`Kmer{A,K,N}`, given only `Kmer{A,K}`.
-## Example
-```julia
-julia> DNAKmer{63}
-Kmer{DNAAlphabet{2},63,N} where N
-julia> kmertype(DNAKmer{63})
-Kmer{DNAAlphabet{2},63,2}
-```
-"""
-@inline function kmertype(::Type{Kmer{A, K}}) where {A, K}
-    return Kmer{A, K, BioSequences.seq_data_len(A, K)}
-end
-@inline kmertype(::Type{Kmer{A, K, N}}) where {A, K, N} = Kmer{A, K, N}
-
-# Aliases
-"Shortcut for the type `Kmer{DNAAlphabet{2},K,N}`"
-const DNAKmer{K, N} = Kmer{DNAAlphabet{2}, K, N}
-
-"Shortcut for the type `DNAKmer{27,1}`"
-const DNA27mer = DNAKmer{27, 1}
-
-"Shortcut for the type `DNAKmer{31,1}`"
-const DNA31mer = DNAKmer{31, 1}
-
-"Shortcut for the type `DNAKmer{63,2}`"
-const DNA63mer = DNAKmer{63, 2}
-
-"Shortcut for the type `Kmer{RNAAlphabet{2},K,N}`"
-const RNAKmer{K, N} = Kmer{RNAAlphabet{2}, K, N}
-
-"Shortcut for the type `RNAKmer{27,1}`"
-const RNA27mer = RNAKmer{27, 1}
-
-"Shortcut for the type `RNAKmer{31,1}`"
-const RNA31mer = RNAKmer{31, 1}
-
-"Shortcut for the type `RNAKmer{63,2}`"
-const RNA63mer = RNAKmer{63, 2}
-
-"Shortcut for the type `Kmer{AminoAcidAlphabet,K,N}`"
-const AAKmer{K, N} = Kmer{AminoAcidAlphabet, K, N}
-
-"Shorthand for `DNAKmer{3,1}`"
-const DNACodon = DNAKmer{3, 1}
-
-"Shorthand for `RNAKmer{3,1}`"
-const RNACodon = RNAKmer{3, 1}
-
-@inline ksize(::Type{Kmer{A, K, N}}) where {A, K, N} = K
-@inline nsize(::Type{Kmer{A, K, N}}) where {A, K, N} = N
-@inline per_word_capacity(::Type{Kmer{A, K, N}}) where {A, K, N} =
-    div(64, BioSequences.bits_per_symbol(A()))
-@inline per_word_capacity(seq::Kmer) = per_word_capacity(typeof(seq))
-@inline capacity(::Type{Kmer{A, K, N}}) where {A, K, N} =
+@inline function capacity(::Type{<:Kmer{A, K, N}}) where {A, K, N}
     per_word_capacity(Kmer{A, K, N}) * N
-@inline capacity(seq::Kmer) = capacity(typeof(seq))
-@inline n_unused(::Type{Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
-@inline n_unused(seq::Kmer) = n_unused(typeof(seq))
-@inline elements_in_head(::Type{Kmer{A, K, N}}) where {A, K, N} =
+end
+
+@inline function elements_in_head(::Type{<:Kmer{A, K, N}}) where {A, K, N}
     per_word_capacity(Kmer{A, K, N}) - n_unused(Kmer{A, K, N})
-@inline elements_in_head(seq::Kmer) = elements_in_head(typeof(seq))
-
-
-
-@inline Base.length(x::Kmer{A, K, N}) where {A, K, N} = K
-@inline Base.summary(x::Kmer{A, K, N}) where {A, K, N} = string(eltype(x), ' ', K, "-mer")
-
-function Base.typemin(::Type{Kmer{A, K, N}}) where {A, K, N}
-    return Kmer{A, K, N}(unsafe, ntuple(i -> zero(UInt64), N))
 end
 
-function Base.typemax(::Type{Kmer{A, K, N}}) where {A, K, N}
-    return Kmer{A, K, N}((typemax(UInt64), ntuple(i -> typemax(UInt64), N - 1)...))
-end
+################################################
+# Constructors
+################################################
 
-@inline function rand_kmer_data(::Type{Kmer{A, K, N}}, ::Val{true}) where {A, K, N}
-    return Kmer{A, K, N}(ntuple(i -> rand(UInt64), Val{N}()))
-end
+zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), nsize(T))
 
-@inline function rand_kmer_data(::Type{Kmer{A, K, N}}, ::Val{false}) where {A, K, N}
-    ## All based on alphabet type of Kmer, so should constant fold.
-    bits_per_sym = BioSequences.bits_per_symbol(A())
-    n_head = elements_in_head(Kmer{A, K, N})
-    n_per_chunk = per_word_capacity(Kmer{A, K, N})
-    # Construct the head.
-    head = zero(UInt64)
-    @inbounds for i in 1:n_head
-        bits = UInt64(BioSequences.encode(A(), rand(symbols(A()))))
-        head = (head << bits_per_sym) | bits
+# Generic, unknown size
+@inline function construct_generic(::Base.SizeUnknown, T::Type{<:Kmer{A, K}}, itr) where {A, K}
+    check_kmer(T)
+    data = zero_tuple(T)
+    nbits = BioSequences.bits_per_symbol(A())
+    for (i, element) in enumerate(itr)
+        i > K && error("Length of sequence must be K elements to build Kmer")
+        symbol = convert(eltype(A), element)
+        carry = UInt(BioSequences.encode(A(), symbol))
+        data = leftshift_carry(data, nbits, carry)
     end
-    # And the rest of the sequence
-    tail = ntuple(Val{N - 1}()) do i
-        Base.@_inline_meta
-        body = zero(UInt64)
-        @inbounds for _ in 1:n_per_chunk
-            bits = UInt64(BioSequences.encode(A(), rand(symbols(A()))))
-            body = (body << bits_per_sym) | bits
-        end
-        return body
+    T(unsafe, data)
+end
+
+# Generic, size known
+@inline function construct_generic_unchecked(::Union{Base.HasLength, Base.HasShape}, T::Type{<:Kmer{A}}, itr) where A
+    check_kmer(T)
+    data = zero_tuple(T)
+    nbits = BioSequences.bits_per_symbol(A())
+    for element in itr
+        symbol = convert(eltype(A), element)
+        carry = UInt(BioSequences.encode(A(), symbol))
+        data = leftshift_carry(data, nbits, carry)
     end
-    return (head, tail...)
+    T(unsafe, data)
 end
 
-"""
-    Base.rand(::Type{Kmer{A,K,N}}) where {A,K,N}
-    Base.rand(::Type{Kmer{A,K}}) where {A,K}
-
-Create a random kmer of a specified alphabet and length
-
-# Examples
-```julia
-julia> rand(Kmer{DNAAlphabet{2}, 3})
-BioSymbols.DNA 3-mer:
-ACT
-
-```
-"""
-@inline function Base.rand(::Type{Kmer{A, K, N}}) where {A, K, N}
-    checkmer(Kmer{A, K, N})
-    return Kmer{A, K, N}(rand_kmer_data(Kmer{A, K, N}, BioSequences.iscomplete(A())))
+# Generic, size known but length not checked.
+@inline function construct_generic(iT::Union{Base.HasLength, Base.HasShape}, T::Type{<:Kmer{A, K}}, itr) where {A, K}
+    length(s) == K || error("Length of sequence must be K elements to build Kmer")
+    construct_generic_unchecked(iT, T, itr)
 end
 
-Base.rand(::Type{Kmer{A, K}}) where {A, K} = rand(kmertype(Kmer{A, K}))
-
-function Base.rand(::Type{T}, size::Integer) where {T <: Kmer}
-    return [rand(T) for _ in 1:size]
-end
-
-###
-### Old Mer Base Functions - not transferred to new type.
-###
-#@inline encoded_data_type(::Type{Mer{A,K}}) where {A,K} = UInt64
-#@inline encoded_data_type(::Type{BigMer{A,K}}) where {A,K} = UInt128
-#@inline encoded_data_type(x::AbstractMer) = encoded_data_type(typeof(x))
-#@inline encoded_data(x::AbstractMer) = reinterpret(encoded_data_type(typeof(x)), x)
-#@inline ksize(::Type{T}) where {A,K,T<:AbstractMer{A,K}} = K
-#@inline Base.unsigned(x::AbstractMer) = encoded_data(x)
-#Base.:-(x::AbstractMer, y::Integer) = typeof(x)(encoded_data(x) - y % encoded_data_type(x))
-#Base.:+(x::AbstractMer, y::Integer) = typeof(x)(encoded_data(x) + y % encoded_data_type(x))
-#Base.:+(x::AbstractMer, y::AbstractMer) = y + x
-#Alphabet(::Type{Mer{A,K} where A<:NucleicAcidAlphabet{2}}) where {K} = Any
-
-include("indexing.jl")
-
-#LongSequence{A}(x::Kmer{A,K,N}) where {A,K,N} = LongSequence{A}([nt for nt in x])
-# Convenience method so as don't need to specify A in LongSequence{A}.
-BioSequences.LongSequence(x::Kmer{A, K, N}) where {A, K, N} = LongSequence{A}(x)
-
-include("predicates.jl")
-include("counting.jl")
-include("transformations.jl")
-
-###
-### Kmer de-bruijn neighbors
-###
-
-# TODO: Decide on this vs. old iterator pattern. I like the terseness of the code vs defining an iterator. Neither should allocate.
-fw_neighbors(kmer::Kmer{A, K, N}) where {A <: DNAAlphabet, K, N} =
-    ntuple(i -> pushlast(kmer, ACGT[i]), Val{4}())
-fw_neighbors(kmer::Kmer{A, K, N}) where {A <: RNAAlphabet, K, N} =
-    ntuple(i -> pushlast(kmer, ACGU[i]), Val{4}())
-bw_neighbors(kmer::Kmer{A, K, N}) where {A <: DNAAlphabet, K, N} =
-    ntuple(i -> pushfirst(kmer, ACGT[i]), Val{4}())
-bw_neighbors(kmer::Kmer{A, K, N}) where {A <: RNAAlphabet, K, N} =
-    ntuple(i -> pushfirst(kmer, ACGU[i]), Val{4}())
-
-#=
-# Neighbors on a de Bruijn graph
-struct KmerNeighborIterator{S<:Kmer}
-    x::S
-end
-
-"""
-    neighbors(kmer::S) where {S<:Kmer}
-
-Return an iterator through skip-mers neighboring `skipmer` on a de Bruijn graph.
-"""
-neighbors(kmer::Kmer) = KmerNeighborIterator{typeof(kmer)}(kmer)
-
-Base.length(::KmerNeighborIterator) = 4
-Base.eltype(::Type{KmerNeighborIterator{S}}) where {S<:Kmer} = S
-
-function Base.iterate(it::KmerNeighborIterator{S}, i::UInt64 = 0) where {S<:Kmer}
-    if i == 4
-        return nothing
-    else
-        #return S((encoded_data(it.x) << 2) | i), i + 1
-        return it.x << 1, i + one(UInt64)
+# BioSequences with the same Alphabet and these element types do not need to decode
+# and encode, but can copy the raw bits directly into the kmer
+@inline function construct_unchecked(
+    T::Type{<:Kmer{A}}, s::BioSequence{A}, data_eltype::Type{E}
+) where {A, E <: Union{UInt8, UInt16, UInt32, UInt}}
+    check_kmer(T)
+    data = zero_tuple(T)
+    nbits = BioSequences.bits_per_symbol(A())
+    for i in 1:K
+        data = leftshift_carry(data, nbits, BioSequences.extract_encoded_element(s, i) % UInt)
     end
+    T(unsafe, data)
 end
-=#
 
-###
-### String literals
-###
+# BioSequence with another element type fall back to the generic length constructor
+@inline function construct_unchecked(T::Type{<:Kmer}, s::BioSequence, data_eltype::Type)
+    construct_generic_unchecked(Base.HasLength(), T, s)
+end
+
+# BioSequence must implement length so we don't need to dispatch on that.
+# However, if the encoded data eltype is an unsigned, we can use a specialized method where we don't
+# decode each symbol but simply move the encoded data directly into the tuple
+function Kmer{A, K, N}(s::BioSequence) where {A, K, N}
+    length(s) == K || error("Length of sequence must be K elements to build Kmer")
+    construct_unchecked(T, s, BioSequences.encoded_data_eltype(typeof(s)))
+end
+
+# Generic constructor: Dispatch on the iteratorsize
+function Kmer{A, K, N}(itr) where {A, K, N}
+    construct_generic(Base.IteratorSize(typeof(itr)), Kmer{A, K, N}, itr)
+end
+
+# To avoid having the O(N) length check. TODO: Use optimised method
+function Kmer{A, K, N}(s::Union{String, SubString{String}}) where {A, K, N}
+    construct_generic(Base.SizeUnknown(), Kmer{A, K, N}, s)
+end
+
+################################################
+# Derived constructors
+################################################
+
+# Where the parameters of the kmer is not specified in the constructor
+function Kmer(s::BioSequence{A}) where A
+    K = length(s)
+    N = n_coding_elements(Kmer{A, K})
+    Kmer{A, K, N}(s)
+end
+
+# Where A, but not K is specified
+function Kmer{A}(s::Union{String, SubString{String}}) where A
+    K = length(s)
+    N = n_coding_elements(Kmer{A, K})
+    construct_generic_unchecked(Base.HasLength(), Kmer{A, K, N}, s)
+end
+
+# TODO: Constructor from LongSequence and LongSubSeq
+# where whole coding elements can be copied directly over
+# without extracting individual elements
+
+# TODO: Kmer => LongSequence constructor, same as above but opposite, kinda.
+
+# TODO: Constructor from String that predicts the alphabet?
+# Maybe implement the guessparse function in BioSequences.jl
+# (See related issue), then call it from here.
+
+################################################
+# String literals
+################################################
 
 macro mer_str(seq, flag)
-    seq′ = BioSequences.remove_newlines(seq)
+    trimmed = BioSequences.remove_newlines(seq)
+    # Unlike @dna_str, we default to 2-bit alphabets, because kmers
+    # by convention are usually 2-bit only
     if flag == "dna" || flag == "d"
-        T = kmertype(DNAKmer{length(seq′)})
-        return T(seq′)
+        Kmer{DNAAlphabet{2}}(trimmed)
     elseif flag == "rna" || flag == "r"
-        T = kmertype(RNAKmer{length(seq′)})
-        return T(seq′)
-    elseif flag == "aa" || flag == "a" || flag == "prot" || flag == "p"
-        T = kmertype(AAKmer{length(seq′)})
-        return T(seq′)
+        Kmer{RNAAlphabet{2}}(trimmed)
+    elseif flag == "aa" || flag == "a"
+        Kmer{AminoAcidAlphabet}(trimmed)
     else
         error("Invalid type flag: '$(flag)'")
     end
 end
 
-macro mer_str(seq)
-    seq′ = BioSequences.remove_newlines(seq)
-    T = kmertype(DNAKmer{length(seq′)})
-    return T(seq′)
+##################
+# Various methods
+##################
+
+# BioSequences interface
+Base.length(x::Kmer) = ksize(typeof(x))
+Base.copy(x::Kmer) = x # immutable
+BioSequences.encoded_data_eltype(::Type{<:Kmer}) = UInt
+
+# BioSequences helper methods
+BioSequences.encoded_data(seq::Kmer) = seq.data
+
+# Misc methods
+Base.summary(x::Kmer{A, K, N}) where {A, K, N} = string(eltype(x), ' ', K, "-mer")
+
+function Base.show(io::IO, ::MIME"text/plain", s::Kmer)
+    println(io, summary(s), ':')
+    print(io, s)
 end
 
-
+function Base.print(io::IO, s::Kmer)
+    # TODO: Can be optimised but whatever
+    print(io, LongSequence(s))
+end

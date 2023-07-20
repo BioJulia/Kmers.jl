@@ -1,6 +1,7 @@
 
 # TODO: this should end up in BioSequences.jl?
 
+#=
 "Extract the element stored in a packed bitarray referred to by bidx."
 @inline function BioSequences.extract_encoded_element(
     bidx::BioSequences.BitIndex{N, W},
@@ -80,3 +81,62 @@ end
 end
 
 @inline _reverse(::BioSequences.BitsPerSymbol{N}) where {N} = ()
+=#
+
+
+
+@inline function leftshift_carry(
+    x::NTuple{N, UInt64},
+    nbits::Integer,
+    prevcarry::UInt64=zero(UInt64),
+) where {N}
+    _, newbits = _leftshift_carry(nbits, prevcarry, x...)
+    return newbits
+end
+
+@inline function _leftshift_carry(nbits::Integer, prevcarry::UInt64, head::UInt64, tail...)
+    carry, newtail = _leftshift_carry(nbits, prevcarry, tail...)
+    return head >> (64 - nbits), ((head << nbits) | carry, newtail...)
+end
+
+@inline _leftshift_carry(nbits::Integer, prevcarry::UInt64) = prevcarry, ()
+
+
+
+
+
+@inline function left_shift(x::Unsigned, n::Integer)
+    x << (n & ((sizeof(x) * 8) - 1))
+end
+
+@inline function right_shift(x::Unsigned, n::Integer)
+    x >>> (n & ((sizeof(x) * 8) - 1))
+end
+
+@inline function left_carry(x::Unsigned, n::Integer)
+    right_shift(x, 8 * sizeof(x) - n)
+end
+
+@inline function right_carry(x::Unsigned, n::Integer)
+    left_shift(x, 8 * sizeof(x) - n)
+end
+
+function leftshift_carry(x::Tuple{Vararg{T}}, nbits::Integer, carry::T) where {T <: Unsigned}
+    head, tail... = x
+    new_head = left_shift(head, nbits) | carry
+    tail_carry = left_carry(head, nbits)
+    (new_carry, new_tail) = leftshift_carry(tail, nbits, tail_carry)
+    (new_carry, (new_head, new_tail...))
+end
+
+function rightshift_carry(x::Tuple{Vararg{T}}, nbits::Integer, carry::T) where {T <: Unsigned}
+    head, tail... = x
+    new_head = right_shift(head, nbits) | carry
+    tail_carry = right_carry(head, nbits)
+    (new_carry, new_tail) = rightshift_carry(tail, nbits, tail_carry)
+    (new_carry, (new_head, new_tail...))
+end
+
+leftshift_carry(::Tuple{}, nbits::Integer, carry::Unsigned) = (carry, ())
+rightshift_carry(::Tuple{}, nbits::Integer, carry::Unsigned) = (carry, ())
+

@@ -144,7 +144,7 @@ end
 # and encode, but can copy the raw bits directly into the kmer
 @inline function construct_unchecked(
     T::Type{<:Kmer{A}}, s::BioSequence{A}, data_eltype::Type{E}
-) where {A, E <: Union{UInt8, UInt16, UInt32, UInt}}
+) where {A <: Alphabet, E <: Union{UInt8, UInt16, UInt32, UInt}}
     check_kmer(T)
     data = zero_tuple(T)
     nbits = BioSequences.bits_per_symbol(A())
@@ -155,7 +155,7 @@ end
 end
 
 # BioSequence with another element type fall back to the generic length constructor
-@inline function construct_unchecked(T::Type{<:Kmer{A}}, s::BioSequence{A}, data_eltype::Type) where A
+@inline function construct_unchecked(T::Type{<:Kmer}, s::BioSequence, data_eltype::Type)
     construct_generic_unchecked(Base.HasLength(), T, s)
 end
 

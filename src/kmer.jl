@@ -22,18 +22,13 @@ struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
     # Hence, a sequence A-G of 16-bit elements would pack like:
     # ( ABC, DEFG)
     #  ^ 16 unused bits, the unused bits are always top bits of first UInt
+    # Unused bits are always zero
     data::NTuple{N, UInt}
 
     # This unsafe method do not clip the head
     function Kmer{A, K, N}(::Unsafe, data::NTuple{N, UInt}) where {A <: Alphabet, K, N}
         check_kmer(Kmer{A, K, N})
         new{A, K, N}(data)
-    end
-
-    function Kmer{A, K, N}(data::NTuple{N, UInt}) where {A <: Alphabet, K, N}
-        check_kmer(Kmer{A, K, N})
-        x = n_unused(Kmer{A, K, N}) * BioSequences.bits_per_symbol(A())
-        return new(cliphead(x, data...))
     end
 end
 
@@ -86,6 +81,9 @@ end
 @inline ksize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = K
 @inline nsize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = N
 @inline n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
+@inline bits_unused(T::Type{<:Kmer{A}}) where A = n_unused(T) * BioSequences.bits_per_symbol(A())
+
+@inline BioSequences.Alphabet(::Kmer{A}) where A = A()
 
 @inline function n_coding_elements(::Type{<:Kmer{A, K}}) where {A, K}
     cld(BioSequences.bits_per_symbol(A()) * K, 8 * sizeof(UInt))
@@ -107,7 +105,7 @@ end
 # Constructors
 ################################################
 
-zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), nsize(T))
+zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), Val{nsize(T)}())
 
 # Generic, unknown size
 @inline function construct_generic(::Base.SizeUnknown, T::Type{<:Kmer{A, K}}, itr) where {A, K}
@@ -118,7 +116,7 @@ zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), nsize(T))
         i > K && error("Length of sequence must be K elements to build Kmer")
         symbol = convert(eltype(A), element)
         carry = UInt(BioSequences.encode(A(), symbol))
-        data = leftshift_carry(data, nbits, carry)
+        (_, data) = leftshift_carry(data, nbits, carry)
     end
     T(unsafe, data)
 end
@@ -131,14 +129,14 @@ end
     for element in itr
         symbol = convert(eltype(A), element)
         carry = UInt(BioSequences.encode(A(), symbol))
-        data = leftshift_carry(data, nbits, carry)
+        (_, data) = leftshift_carry(data, nbits, carry)
     end
     T(unsafe, data)
 end
 
 # Generic, size known but length not checked.
 @inline function construct_generic(iT::Union{Base.HasLength, Base.HasShape}, T::Type{<:Kmer{A, K}}, itr) where {A, K}
-    length(s) == K || error("Length of sequence must be K elements to build Kmer")
+    length(itr) == K || error("Length of sequence must be K elements to build Kmer")
     construct_generic_unchecked(iT, T, itr)
 end
 
@@ -150,14 +148,14 @@ end
     check_kmer(T)
     data = zero_tuple(T)
     nbits = BioSequences.bits_per_symbol(A())
-    for i in 1:K
-        data = leftshift_carry(data, nbits, BioSequences.extract_encoded_element(s, i) % UInt)
+    for i in 1:ksize(T)
+        (_, data) = leftshift_carry(data, nbits, BioSequences.extract_encoded_element(s, i) % UInt)
     end
     T(unsafe, data)
 end
 
 # BioSequence with another element type fall back to the generic length constructor
-@inline function construct_unchecked(T::Type{<:Kmer}, s::BioSequence, data_eltype::Type)
+@inline function construct_unchecked(T::Type{<:Kmer{A}}, s::BioSequence{A}, data_eltype::Type) where A
     construct_generic_unchecked(Base.HasLength(), T, s)
 end
 
@@ -166,7 +164,7 @@ end
 # decode each symbol but simply move the encoded data directly into the tuple
 function Kmer{A, K, N}(s::BioSequence) where {A, K, N}
     length(s) == K || error("Length of sequence must be K elements to build Kmer")
-    construct_unchecked(T, s, BioSequences.encoded_data_eltype(typeof(s)))
+    construct_unchecked(Kmer{A, K, N}, s, BioSequences.encoded_data_eltype(typeof(s)))
 end
 
 # Generic constructor: Dispatch on the iteratorsize
@@ -249,4 +247,46 @@ end
 function Base.print(io::IO, s::Kmer)
     # TODO: Can be optimised but whatever
     print(io, LongSequence(s))
+end
+
+Base.cmp(x::T, y::T) where {T <: Kmer} = cmp(x.data, y.data)
+Base.:(==)(x::Kmer{A}, y::Kmer{A}) where A = x.data == y.data
+Base.isless(x::T, y::T) where {T <: Kmer} = isless(x.data, y.data)
+
+# TODO: We need to figure out what to do with hashing first.
+# Per the contract of isequal, isequal(a, b) == (hash(a) == hash(b)).
+# Further, it's imperative that hashing kmers is absolutely optimal.
+# So, what to do?
+Base.isequal(x::Kmer, y::BioSequence) = false
+Base.isequal(x::BioSequence, y::Kmer) = false
+
+# TODO: Ensure this is the right way to go.
+# See https://github.com/BioJulia/BioSequences.jl/pull/121#discussion_r475234270
+Base.hash(x::Kmer{A, K, N}, h::UInt) where {A, K, N} = hash(x.data, h ⊻ K)
+
+function push(kmer::Kmer{A}, s::BioSequences.BioSymbol) where A
+    bps = BioSequences.bits_per_symbol(A())
+    encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
+    (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
+    (head, tail...) = new_data
+    head = head | left_shift(encoding, (elements_in_head(typeof(kmer)) - 1) * bps)
+    typeof(kmer)(unsafe, (head, tail...))
+end
+
+function pushlast(kmer::Kmer{A}, s::BioSequences.BioSymbol) where A
+    bps = BioSequences.bits_per_symbol(A())
+    encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
+    (_, new_data) = leftshift_carry(kmer.data, bps, encoding)
+    (head, tail...) = new_data    
+    typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
+end
+
+########################################
+# Various bit-twiddling useful functions
+########################################
+
+# Get a mask 0x0001111 ... masking away the unused bits of the head element
+# in the UInt tuple
+@inline function get_mask(T::Type{<:Kmer})
+    UInt(1) << bits_unused(T) - 1
 end

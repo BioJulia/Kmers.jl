@@ -143,6 +143,7 @@ const unsafe = Unsafe()
 include("tuple_bitflipping.jl")
 include("kmer.jl")
 include("indexing.jl")
+include("transformations.jl")
 #=
 include("revtrans.jl")
 include("kmer_iteration/AbstractKmerIterator.jl")

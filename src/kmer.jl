@@ -195,6 +195,13 @@ function Kmer{A}(s::Union{String, SubString{String}}) where A
     construct_generic_unchecked(Base.HasLength(), Kmer{A, K, N}, s)
 end
 
+# With a different A
+function Kmer{A}(s::BioSequence) where A
+    K = length(s)
+    N = n_coding_elements(Kmer{A, K})
+    Kmer{A, K, N}(s)
+end
+
 # TODO: Constructor from LongSequence and LongSubSeq
 # where whole coding elements can be copied directly over
 # without extracting individual elements

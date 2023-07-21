@@ -36,7 +36,7 @@ CodonSet() = CodonSet(UInt64(0), Unsafe())
 CodonSet(itr) = foldl(push, itr; init=CodonSet())
 
 function Base.iterate(x::CodonSet, s::UInt64=x.x)
-    codon = RNACodon((trailing_zeros(s) % UInt64,))
+    codon = RNACodon(unsafe, (trailing_zeros(s) % UInt64,))
     iszero(s) ? nothing : (codon, s & (s - 1))
 end
 
@@ -99,7 +99,7 @@ function ReverseGeneticCode(x::BioSequences.GeneticCode)
     x_set = CodonSet()
     for i in Int64(0):Int64(63)
         aa = x.tbl[i + 1]
-        codon = RNACodon((i % UInt64,))
+        codon = RNACodon(unsafe, (i % UInt64,))
         sets[ind(aa)] = push(sets[ind(aa)], codon)
         if aa !== AA_Term
             x_set = push(x_set, codon)

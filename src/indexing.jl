@@ -37,3 +37,24 @@ end
     end
     T(unsafe, data)
 end
+
+@inline function BioSequences.bitindex(kmer::Kmer, i::Unsigned)::Tuple{UInt, UInt}
+    bps = BioSequences.bits_per_symbol(Alphabet(kmer)) % UInt
+    bpe = (8 * sizeof(UInt)) % UInt
+    (i, o) = divrem((UInt(i) - UInt(1) + n_unused(typeof(kmer))) * bps, bpe)
+    o = bpe - o - bps
+    i + 1, o
+end
+
+@inline function setindex(kmer::Kmer, i::Integer, s)
+    @boundscheck checkbounds(kmer, i)
+    bps = BioSequences.bits_per_symbol(Alphabet(kmer))
+    symbol = convert(eltype(kmer), s)
+    encoding = UInt(BioSequences.encode(Alphabet(kmer), symbol))
+    (i, o) = BioSequences.bitindex(kmer, i % UInt)
+    element = @inbounds kmer.data[i]
+    mask = left_shift(UInt(1) << bps - 1, o)
+    element &= ~mask
+    element |= left_shift(encoding, o)
+    typeof(kmer)(unsafe, @inbounds Base.setindex(kmer.data, element, i))
+end

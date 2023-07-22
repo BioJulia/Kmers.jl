@@ -145,6 +145,9 @@ include("kmer.jl")
 include("indexing.jl")
 include("transformations.jl")
 include("revtrans.jl")
+
+include("iterators/common.jl")
+include("iterators/EveryKmer.jl")
 #=
 include("kmer_iteration/AbstractKmerIterator.jl")
 include("kmer_iteration/EveryKmer.jl")

@@ -12,9 +12,7 @@ end
 # Hence, it MUST use @inline
 @inline function Base.getindex(kmer::Kmer{A}, range::AbstractRange{<:Integer}) where A
     @boundscheck checkbounds(kmer, range)
-    K = length(range)
-    N = n_coding_elements(Kmer{A, K})
-    T = Kmer{A, K, N}
+    T = derive_type(Kmer{A, length(range)})
     data = zero_tuple(T)
     nbits = BioSequences.bits_per_symbol(A())
     for i in range

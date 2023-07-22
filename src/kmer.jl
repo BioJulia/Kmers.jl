@@ -1,18 +1,31 @@
-# Notes about Kmers's representation:
-# Each element is encoded in the same way as a LongSequence, however the order
-# is different. In a Kmer, the elements fill from MSB to LSB, from first to
-# last tuple index. Unused bits are always zeroed.
-# This layout complicates some Kmer construction code, but simplifies comparison
-# operators, and we really want Kmers to be efficient.
-
 """
     Kmer{A<:Alphabet,K,N} <: BioSequence{A}
 
 A parametric, immutable, bitstype for representing k-mers - short sequences
-of a fixed length K.
-
+of a fixed length `K`.
 Since they can be stored directly in registers, `Kmer`s are generally the most
 efficient type of `BioSequence`, when `K` is small and known at compile time.
+The `N` parameter is derived from `A` and `K` and is not a free parameter.
+
+# Examples
+```jldoctest
+julia> m = Kmer{DNAAlphabet{4}}("AGCKN") # type-unstable
+DNA 5-mer
+AGCKN
+
+julia> length(m) == 5
+true
+
+julia> DNAKmer(dna"TGCTTA") isa DNAKmer{6}
+true
+
+julia> AAKmer((lowercase(i) for i in "KLWYR")) isa AAKmer{5}
+true
+
+julia> RNAKmer{3}("UA")
+ERROR:
+[ ... ]
+```
 """
 struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
     # The number of UInt is always exactly the number needed, no less, no more.
@@ -23,6 +36,9 @@ struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
     # ( ABC, DEFG)
     #  ^ 16 unused bits, the unused bits are always top bits of first UInt
     # Unused bits are always zero
+
+    # This layout complicates some Kmer construction code, but simplifies comparison
+    # operators, and we really want Kmers to be efficient.
     data::NTuple{N, UInt}
 
     # This unsafe method do not clip the head
@@ -51,10 +67,7 @@ const RNACodon = RNAKmer{3, 1}
 """
     check_kmer(::Type{Kmer{A,K,N}}) where {A,K,N}
 
-Internal method - enforces good kmer type parameterisation.
-
-For a given Kmer{A,K,N} of length K, the number of words used to
-represent it (N) should be the minimum needed to contain all K symbols.
+Internal methods that checks that the type parameters are good.
 
 This function should compile to a noop in case the parameterization is good.
 """
@@ -101,11 +114,19 @@ end
     per_word_capacity(Kmer{A, K, N}) - n_unused(Kmer{A, K, N})
 end
 
+@inline derive_type(::Type{Kmer{A, K}}) where {A, K} = Kmer{A, K, n_coding_elements(Kmer{A, K})}
+
 ################################################
 # Constructors
 ################################################
 
 zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), Val{nsize(T)}())
+
+# TODO: Should this somehow throw a MethodError if N is already parameterized?
+function zero_kmer(T::Type{Kmer{A, K}}) where {A, K}
+    T2 = derive_type(Kmer{A, K})
+    T2(unsafe, zero_tuple(T2))
+end
 
 # Generic, unknown size
 @inline function construct_generic(::Base.SizeUnknown, T::Type{<:Kmer{A, K}}, itr) where {A, K}
@@ -181,25 +202,38 @@ end
 # Derived constructors
 ################################################
 
-# Where the parameters of the kmer is not specified in the constructor
-function Kmer(s::BioSequence{A}) where A
-    K = length(s)
-    N = n_coding_elements(Kmer{A, K})
-    Kmer{A, K, N}(s)
+# BioSequence: Various missing type parameters
+Kmer{A, K}(s::BioSequence) where {A, K} = derive_type(Kmer{A, K})(s)
+Kmer{A}(s::BioSequence) where A = derive_type(Kmer{A, length(s)})(s)
+Kmer(s::BioSequence{A}) where A = derive_type(Kmer{A, length(s)})(s)
+
+# Iterators: Various missing type parameters.
+# It's too impractical to construct a kmer before we know the value of K,
+# so either the iterator must have a known length, or else we need to collect
+# it first
+Kmer{A, K}(itr) where {A, K} = Kmer{A, K}(Base.IteratorSize(itr), itr)
+Kmer{A, K}(::Base.SizeUnknown, itr) where {A, K} = Kmer{A, K}(collect(itr))
+
+function Kmer{A, K}(iT::Union{Base.HasLength, Base.HasShape}, itr) where {A, K}
+    length(itr) == K || error("Length of sequence must be K elements to build Kmer")
+    construct_generic_unchecked(iT, derive_type(Kmer{A, K}), itr)
 end
 
-# Where A, but not K is specified
+Kmer{A}(itr) where A = Kmer{A}(Base.IteratorSize(itr), itr)
+Kmer{A}(::Base.SizeUnknown, itr) where A = Kmer{A}(vec(collect(itr)))
+
+function Kmer{A}(iT::Union{Base.HasLength, Base.HasShape}, itr) where A
+    construct_generic_unchecked(iT, derive_type(Kmer{A, length(itr)}), itr)
+end
+
+# Strings: Various missing type parameters
 function Kmer{A}(s::Union{String, SubString{String}}) where A
-    K = length(s)
-    N = n_coding_elements(Kmer{A, K})
-    construct_generic_unchecked(Base.HasLength(), Kmer{A, K, N}, s)
+    construct_generic_unchecked(Base.HasLength(), derive_type(Kmer{A, length(s)}), s)
 end
 
-# With a different A
-function Kmer{A}(s::BioSequence) where A
-    K = length(s)
-    N = n_coding_elements(Kmer{A, K})
-    Kmer{A, K, N}(s)
+function Kmer{A, K}(s::Union{String, SubString{String}}) where {A, K}
+    length(s) == K || error("Length of sequence must be K elements to build Kmer")
+    construct_generic_unchecked(Base.HasLength(), derive_type(Kmer{A, K}), s)
 end
 
 # TODO: Constructor from LongSequence and LongSubSeq
@@ -288,9 +322,9 @@ function pushlast(kmer::Kmer{A}, s::BioSequences.BioSymbol) where A
     typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
 end
 
-########################################
-# Various bit-twiddling useful functions
-########################################
+#################################################
+# Various bit-twiddling useful functions on kmers
+#################################################
 
 # Get a mask 0x0001111 ... masking away the unused bits of the head element
 # in the UInt tuple

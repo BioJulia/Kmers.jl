@@ -17,7 +17,7 @@ function BioSequences.complement(x::Kmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}
     typeof(x)(unsafe, data)
 end
 
-# For this method we do
+# For this method we do need to mask unused bits, unlike above
 function BioSequences.complement(x::Kmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}})
     isempty(x) && return x
     data = map(i -> BioSequences.complement_bitpar(i, Alphabet(x)), x.data)

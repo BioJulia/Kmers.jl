@@ -71,12 +71,8 @@ function Base.iterate(it::EveryKmer{S, A, K}, state::Tuple{Kmer, Integer}) where
     seq = it.seq
     (kmer, i) = state
     i > length(seq) && return nothing
-    bps = BioSequences.bits_per_symbol(A())
     encoding = UInt(BioSequences.extract_encoded_element(seq, i))
-    # TODO: This shares code with pushlast, might want to refactor that.
-    (_, new_data) = leftshift_carry(kmer.data, bps, encoding)
-    (head, tail...) = new_data
-    new_kmer = typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
+    new_kmer = q_push_encoding(kmer, encoding)
     (new_kmer, (new_kmer, i+1))
 end
 
@@ -101,9 +97,7 @@ function Base.iterate(it::EveryKmer{S, <:FourBit}, state::Tuple{Kmer, Integer}) 
     (kmer, i) = state
     i > length(seq) && return nothing
     encoding = recode(UInt(BioSequences.extract_encoded_element(seq, i)))
-    (_, new_data) = leftshift_carry(kmer.data, 4, encoding)
-    (head, tail...) = new_data
-    new_kmer = typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
+    new_kmer = q_push_encoding(kmer, encoding)
     (new_kmer, (new_kmer, i+1))
 end
 
@@ -113,7 +107,6 @@ function Base.iterate(
     it::EveryKmer{S, A, K}, state=(zero_kmer(Kmer{A, K}), K, 1)
 ) where {A <: TwoBit, S <: BioSequence{<:FourBit}, K}
     (kmer, remaining, i) = state
-    data = kmer.data
     seq = it.seq
     while !iszero(remaining)
         i > length(seq) && return nothing
@@ -122,12 +115,9 @@ function Base.iterate(
         i += 1
         # TODO: Is lookup table faster?
         remaining = ifelse(isone(count_ones(encoding)), remaining - 1, K)
-        (_, new_data) = leftshift_carry(data, 2, trailing_zeros(encoding) % UInt)
-        (head, tail...) = new_data
-        data = (head & get_mask(typeof(kmer)), tail...)
+        kmer = q_push_encoding(kmer, trailing_zeros(encoding) % UInt)
     end
-    new_kmer = typeof(kmer)(unsafe, data)
-    return (new_kmer, (new_kmer, 1, i))
+    return (kmer, (kmer, 1, i))
 end
 
 const BYTE_LUT = let
@@ -149,7 +139,6 @@ function Base.iterate(
     it::EveryKmer{S, A, K}, state=(zero_kmer(Kmer{A, K}), K, 1)
 ) where {A <: TwoBit, S <: AbstractVector{UInt8}, K}
     (kmer, remaining, i) = state
-    data = kmer.data
     seq = it.seq
     Base.require_one_based_indexing(seq)
     while !iszero(remaining)
@@ -159,10 +148,7 @@ function Base.iterate(
         encoding = @inbounds BYTE_LUT[byte + 0x01]
         encoding == 0xff && throw_bad_byte_error(byte)
         remaining = ifelse(encoding == 0xf0, K, remaining - 1)
-        (_, new_data) = leftshift_carry(data, 2, encoding % UInt)
-        (head, tail...) = new_data
-        data = (head & get_mask(typeof(kmer)), tail...)
+        kmer = q_push_encoding(kmer, encoding % UInt)
     end
-    new_kmer = typeof(kmer)(unsafe, data)
-    return (new_kmer, (new_kmer, 1, i))
+    return (kmer, (kmer, 1, i))
 end

@@ -1,6 +1,6 @@
-@inline function BioSequences.extract_encoded_element(seq::Kmer{A}, i::Integer) where A
+@inline function BioSequences.extract_encoded_element(seq::Kmer, i::Integer)
     T = typeof(seq)
-    bps = BioSequences.bits_per_symbol(A()) % UInt
+    bps = BioSequences.bits_per_symbol(seq) % UInt
     index = div((i + n_unused(T) - 1) % UInt, per_word_capacity(T) % UInt) + 1
     offset = mod(((elements_in_head(T) - i) * bps) % UInt, 8 * sizeof(UInt))
     mask = UInt(1) << bps - 1
@@ -37,7 +37,7 @@ end
 end
 
 @inline function BioSequences.bitindex(kmer::Kmer, i::Unsigned)::Tuple{UInt, UInt}
-    bps = BioSequences.bits_per_symbol(Alphabet(kmer)) % UInt
+    bps = BioSequences.bits_per_symbol(kmer) % UInt
     bpe = (8 * sizeof(UInt)) % UInt
     (i, o) = divrem((UInt(i) - UInt(1) + n_unused(typeof(kmer))) * bps, bpe)
     o = bpe - o - bps
@@ -46,7 +46,7 @@ end
 
 @inline function setindex(kmer::Kmer, i::Integer, s)
     @boundscheck checkbounds(kmer, i)
-    bps = BioSequences.bits_per_symbol(Alphabet(kmer))
+    bps = BioSequences.bits_per_symbol(kmer)
     symbol = convert(eltype(kmer), s)
     encoding = UInt(BioSequences.encode(Alphabet(kmer), symbol))
     (i, o) = BioSequences.bitindex(kmer, i % UInt)

@@ -5,11 +5,40 @@
 #
 # This file is a part of the Kmers.jl, a package in the BioJulia ecosystem.
 # License is MIT: https://github.com/BioJulia/Kmers.jl/blob/master/LICENSE
-
 module Kmers
 
 export
-    # BioSymbols re-exports.
+    Kmer,
+
+    DNAKmer,
+    RNAKmer,
+    AAKmer,
+
+    DNACodon,
+    RNACodon,
+
+    ReverseGeneticCode,
+    reverse_translate,
+    reverse_translate!,
+
+    @mer_str,
+
+    # Immutable operations
+    push,
+    pushfirst,
+    q_push,
+    q_pushfirst,
+
+    # Iterators
+    EveryKmer,
+    EveryDNAMer,
+    EveryRNAMer,
+    EveryAAMer,
+
+    ##################
+    # Re-exports
+    ##################
+    # BioSymbols re-exports
     NucleicAcid,
     DNA,
     RNA,
@@ -87,54 +116,17 @@ export
     DNAAlphabet,
     RNAAlphabet,
     translate,
+    complement,
+    reverse_complement
 
-    ###
-    ### Mers
-    ###
-
-    # Type & aliases
-    Kmer,
-    DNAKmer,
-    DNA27mer,
-    DNA31mer,
-    DNA63mer,
-    RNAKmer,
-    RNA27mer,
-    RNA31mer,
-    RNA63mer,
-    AAKmer,
-    DNACodon,
-    RNACodon,
-
-    # Iteration
-    EveryKmer,
-    SpacedKmers,
-    EveryCanonicalKmer,
-    SpacedCanonicalKmers,
-    fw_neighbors,
-    bw_neighbors,
-
-    # Immutable operators
-    push,
-    delete,
-
-    # Translation
-    reverse_translate,
-    reverse_translate!,
-    ReverseGeneticCode,
-
-    ###
-    ### Sequence literals
-    ###
-    @mer_str,
-    @bigmer_str
-
+# Kmers.jl is tightly coupled to BioSequences and relies on much of its internals.
+# Hence, we do not care about carefully importing specific symbols
 using BioSequences
 
 """
     Kmers.Unsafe
 
-Trait object used to access unsafe methods of functions.
+Internal trait object used to access unsafe methods of functions.
 `unsafe` is the singleton of `Unsafe`.
 """
 struct Unsafe end
@@ -148,12 +140,5 @@ include("revtrans.jl")
 
 include("iterators/common.jl")
 include("iterators/EveryKmer.jl")
-#=
-include("kmer_iteration/AbstractKmerIterator.jl")
-include("kmer_iteration/EveryKmer.jl")
-include("kmer_iteration/SpacedKmers.jl")
-include("kmer_iteration/EveryCanonicalKmer.jl")
-include("kmer_iteration/SpacedCanonicalKmers.jl")
-=#
 
 end # module

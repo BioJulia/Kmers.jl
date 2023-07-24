@@ -94,7 +94,7 @@ end
 @inline ksize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = K
 @inline nsize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = N
 @inline n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
-@inline bits_unused(T::Type{<:Kmer{A}}) where A = n_unused(T) * BioSequences.bits_per_symbol(A())
+@inline bits_unused(T::Type{<:Kmer})= n_unused(T) * BioSequences.bits_per_symbol(T)
 
 @inline BioSequences.Alphabet(::Kmer{A}) where A = A()
 
@@ -175,6 +175,17 @@ end
     T(unsafe, data)
 end
 
+# With LongSequence of the same alphabet, entire coding elements can be copied
+# directly.
+# TODO: Test that LongSequence and LongSubSeq encoded_data_eltype is UInt
+@inline function construct_unchecked(T::Type{<:Kmer{A}}, s::LongSequence{A}, data_eltype::Type{UInt}) where {A <: Alphabet}
+    check_kmer(T)
+    Bps = BioSequences.BitsPerSymbol(A())
+    data = ntuple(i -> BioSequences.reversebits(@inbounds(s.data[i]), Bps), Val{nsize(T)}())
+    (_, data) = rightshift_carry(data, bits_unused(T), zero(UInt))
+    T(unsafe, data)
+end
+
 # BioSequence with another element type fall back to the generic length constructor
 @inline function construct_unchecked(T::Type{<:Kmer}, s::BioSequence, data_eltype::Type)
     construct_generic_unchecked(Base.HasLength(), T, s)
@@ -236,7 +247,7 @@ function Kmer{A, K}(s::Union{String, SubString{String}}) where {A, K}
     construct_generic_unchecked(Base.HasLength(), derive_type(Kmer{A, K}), s)
 end
 
-# TODO: Constructor from LongSequence and LongSubSeq
+# TODO: Constructor from LongSubSeq
 # where whole coding elements can be copied directly over
 # without extracting individual elements
 
@@ -305,21 +316,101 @@ Base.isequal(x::BioSequence, y::Kmer) = false
 # See https://github.com/BioJulia/BioSequences.jl/pull/121#discussion_r475234270
 Base.hash(x::Kmer{A, K, N}, h::UInt) where {A, K, N} = hash(x.data, h ⊻ K)
 
-function push(kmer::Kmer{A}, s::BioSequences.BioSymbol) where A
+function push(kmer::Kmer, s)
+    bps = BioSequences.bits_per_symbol(kmer)
+    newT = derive_type(Kmer{A, length(kmer)+1})
+    # If no free space in data, add new tuple
+    new_data = if n_unused(typeof(kmer)) < bps
+        (zero(UInt), kmer.data...)
+    else
+        kmer.data
+    end
+    # leftshift_carry the new encoding in.
+    encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
+    (_, new_data) = leftshift_carry(new_data, bps, encoding)
+    newT(unsafe, new_data)
+end
+
+"""
+    q_push(kmer::kmer, symbol)::typeof(kmer)
+
+Push `symbol` onto the end of `kmer`, and pop the first symbol in `kmer`.
+
+# Examples
+```jldoctest
+julia> q_push(mer"TACC"d, DNA_A)
+DNA 4-mer
+ACCA
+
+julia> q_push(mer"WKYMLPIIRS"aa, AA_F)
+AminoAcid 10-mer
+KYMLPIIRSF
+```
+"""
+function q_push(kmer::Kmer{A}, s) where A
+    encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
+    q_push_encoding(kmer, encoding)
+end
+
+@inline function q_push_encoding(kmer::Kmer, encoding::UInt)
+    bps = BioSequences.bits_per_symbol(kmer)
+    (_, new_data) = leftshift_carry(kmer.data, bps, encoding)
+    (head, tail...) = new_data
+    typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
+end
+
+function pushfirst(kmer::Kmer{A}, s) where A
+    bps = BioSequences.bits_per_symbol(A())
+    newT = derive_type(Kmer{A, length(kmer)+1})
+    # If no free space in data, add new tuple
+    new_data = if n_unused(typeof(kmer)) < bps
+        (zero(UInt), kmer.data...)
+    else
+        kmer.data
+    end
+    (head, tail...) = new_data
+    encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
+    head |= left_shift(encoding, (elements_in_head(newT) - 1) * bps)
+    newT(unsafe, (head, tail...))
+end
+
+"""
+    q_pushfirst(kmer::kmer, symbol)::typeof(kmer)
+
+Push `symbol` onto the start of `kmer`, and pop the last symbol in `kmer`.
+
+# Examples
+```jldoctest
+julia> q_pushfirst(mer"TACC"d, DNA_A)
+DNA 4-mer
+ATAC
+
+julia> q_pushfirst(mer"WKYMLPIIRS"aa, AA_F)
+AminoAcid 10-mer
+FWKYMLPIIR
+```
+"""
+function q_pushfirst(kmer::Kmer{A}, s) where A
     bps = BioSequences.bits_per_symbol(A())
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
-    (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
+    (_, new_data) = rightshift_carry(kmer.data, bps, encoding)
     (head, tail...) = new_data
-    head = head | left_shift(encoding, (elements_in_head(typeof(kmer)) - 1) * bps)
+    head |= left_shift(encoding, (elements_in_head(typeof(kmer)) - 1) * bps)
     typeof(kmer)(unsafe, (head, tail...))
 end
 
-function pushlast(kmer::Kmer{A}, s::BioSequences.BioSymbol) where A
+function pop(kmer::Kmer{A}) where A
+    isempty(kmer) && throw(ArgumentError("Cannot pop 0-mer"))
     bps = BioSequences.bits_per_symbol(A())
-    encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
-    (_, new_data) = leftshift_carry(kmer.data, bps, encoding)
-    (head, tail...) = new_data    
-    typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
+    newT = derive_type(Kmer{A, length(kmer)-1})
+    (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
+    new_data = if elements_in_head(typeof(kmer)) == 1
+        (head, tail...) = new_data
+        tail
+    else
+        new_data
+    end
+    newT(unsafe, new_data)
 end
 
 #################################################
@@ -329,5 +420,5 @@ end
 # Get a mask 0x0001111 ... masking away the unused bits of the head element
 # in the UInt tuple
 @inline function get_mask(T::Type{<:Kmer})
-    UInt(1) << bits_unused(T) - 1
+    UInt(1) << (8*sizeof(UInt) - bits_unused(T)) - 1
 end

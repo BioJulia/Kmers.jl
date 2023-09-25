@@ -1,6 +1,6 @@
 @inline function BioSequences.extract_encoded_element(seq::Kmer, i::Integer)
     T = typeof(seq)
-    bps = BioSequences.bits_per_symbol(seq) % UInt
+    bps = BioSequences.bits_per_symbol(Alphabet(seq)) % UInt
     index = div((i + n_unused(T) - 1) % UInt, per_word_capacity(T) % UInt) + 1
     offset = mod(((elements_in_head(T) - i) * bps) % UInt, 8 * sizeof(UInt))
     mask = UInt(1) << bps - 1

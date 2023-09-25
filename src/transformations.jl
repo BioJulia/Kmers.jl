@@ -42,7 +42,7 @@ end
 
 BioSequences.iscanonical(x::Kmer) = x <= reverse_complement(x)
 
-function translate(
+function BioSequences.translate(
     seq::Kmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}};
     code::BioSequences.GeneticCode = BioSequences.standard_genetic_code,
     allow_ambiguous_codons::Bool = true, # noop in this method
@@ -70,7 +70,7 @@ function translate(
     end
 end
 
-function translate(
+function BioSequences.translate(
     seq::Kmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}};
     code::BioSequences.GeneticCode = BioSequences.standard_genetic_code,
     allow_ambiguous_codons::Bool = true, # noop in this method

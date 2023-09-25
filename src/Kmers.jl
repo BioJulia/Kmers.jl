@@ -26,8 +26,8 @@ export
     # Immutable operations
     push,
     pushfirst,
-    q_push,
-    q_pushfirst,
+    shift,
+    shift_first,
 
     # Iterators
     EveryKmer,
@@ -140,5 +140,6 @@ include("revtrans.jl")
 
 include("iterators/common.jl")
 include("iterators/EveryKmer.jl")
+include("iterators/EveryCanonicalKmer.jl")
 
 end # module

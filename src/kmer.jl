@@ -94,7 +94,7 @@ end
 @inline ksize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = K
 @inline nsize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = N
 @inline n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
-@inline bits_unused(T::Type{<:Kmer})= n_unused(T) * BioSequences.bits_per_symbol(T)
+@inline bits_unused(T::Type{<:Kmer}) = n_unused(T) * BioSequences.bits_per_symbol(T)
 
 @inline BioSequences.Alphabet(::Kmer{A}) where A = A()
 
@@ -332,27 +332,27 @@ function push(kmer::Kmer, s)
 end
 
 """
-    q_push(kmer::kmer, symbol)::typeof(kmer)
+shift(kmer::kmer, symbol)::typeof(kmer)
 
 Push `symbol` onto the end of `kmer`, and pop the first symbol in `kmer`.
 
 # Examples
 ```jldoctest
-julia> q_push(mer"TACC"d, DNA_A)
+julia> shift(mer"TACC"d, DNA_A)
 DNA 4-mer
 ACCA
 
-julia> q_push(mer"WKYMLPIIRS"aa, AA_F)
+julia> shift(mer"WKYMLPIIRS"aa, AA_F)
 AminoAcid 10-mer
 KYMLPIIRSF
 ```
 """
-function q_push(kmer::Kmer{A}, s) where A
+function shift(kmer::Kmer{A}, s) where A
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
-    q_push_encoding(kmer, encoding)
+    shift_encoding(kmer, encoding)
 end
 
-@inline function q_push_encoding(kmer::Kmer, encoding::UInt)
+@inline function shift_encoding(kmer::Kmer, encoding::UInt)
     bps = BioSequences.bits_per_symbol(kmer)
     (_, new_data) = leftshift_carry(kmer.data, bps, encoding)
     (head, tail...) = new_data
@@ -375,25 +375,29 @@ function pushfirst(kmer::Kmer{A}, s) where A
 end
 
 """
-    q_pushfirst(kmer::kmer, symbol)::typeof(kmer)
+    shift_first(kmer::kmer, symbol)::typeof(kmer)
 
 Push `symbol` onto the start of `kmer`, and pop the last symbol in `kmer`.
 
 # Examples
 ```jldoctest
-julia> q_pushfirst(mer"TACC"d, DNA_A)
+julia> shift_first(mer"TACC"d, DNA_A)
 DNA 4-mer
 ATAC
 
-julia> q_pushfirst(mer"WKYMLPIIRS"aa, AA_F)
+julia> shift_first(mer"WKYMLPIIRS"aa, AA_F)
 AminoAcid 10-mer
 FWKYMLPIIR
 ```
 """
-function q_pushfirst(kmer::Kmer{A}, s) where A
-    bps = BioSequences.bits_per_symbol(A())
+function shift_first(kmer::Kmer{A}, s) where A
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
-    (_, new_data) = rightshift_carry(kmer.data, bps, encoding)
+    shift_first_encoding(kmer, encoding)
+end
+
+function shift_first_encoding(kmer::Kmer{A}, encoding::UInt) where A
+    bps = BioSequences.bits_per_symbol(A())
+    (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
     (head, tail...) = new_data
     head |= left_shift(encoding, (elements_in_head(typeof(kmer)) - 1) * bps)
     typeof(kmer)(unsafe, (head, tail...))

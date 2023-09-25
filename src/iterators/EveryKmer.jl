@@ -1,11 +1,13 @@
+# TODO: Lots of code sharing in this file... can we refactor to be more clever?
+
 """
-    EveryKmer{S, A <: Alphabet, K}
+    EveryKmer{A <: Alphabet, K, S}
 
 Iterator of every forward kmer. `S` signifies the type of the underlying sequence,
 and the eltype of the iterator is `Kmer{A, K, N}` with the appropriate `N`.
 
-Can be constructed more conventiently with the constructors `EveryDNAMer{S, K}(s)`
-and `EveryDNAMer{K}(s)`, and similar also for `EveryRNAMer` and `EveryAAMer`.
+Can be constructed more conventiently with the constructors `EveryDNAMer{K}(s)`
+and similar also for `EveryRNAMer` and `EveryAAMer`.
 
 If `A <: Union{DNAAlphabet{2}, RNAAlphabet{2}}` and
 `Alphabet(S) isa Union{DNAAlphabet{4}, RNAAlphabet{4}}`, the iterator skips all
@@ -22,39 +24,92 @@ julia> length(collect(EveryRNAMer{3}(rna"UGDCUGAVC")))
 2
 ```
 """
-struct EveryKmer{S, A <: Alphabet, K} <: AbstractKmerIterator{A, K}
+struct EveryKmer{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
     seq::S
+
+    function EveryKmer{A, K, S}(seq::S) where {A, K, S}
+        K isa Int || error("K must be an Int")
+        K > 0 || error("K must be at least 1")
+        new{A, K, S}(seq)
+    end
 end
 
 # Constructors
-EveryKmer{A, K}(s) where {A <: Alphabet, K} = EveryKmer{typeof(s), A, K}
-const EveryDNAMer{S, K} = EveryKmer{S, DNAAlphabet{2}, K}
-const EveryRNAMer{S, K} = EveryKmer{S, RNAAlphabet{2}, K}
-const EveryAAMer{S, K} = EveryKmer{S, AminoAcidAlphabet, K}
+EveryKmer{A, K}(s) where {A <: Alphabet, K} = EveryKmer{A, K, typeof(s)}
+const EveryDNAMer{K, S} = EveryKmer{DNAAlphabet{2}, K, S}
+const EveryRNAMer{K, S} = EveryKmer{RNAAlphabet{2}, K, S}
+const EveryAAMer{K, S} = EveryKmer{AminoAcidAlphabet, K, S}
 
-EveryDNAMer{K}(s) where K = EveryDNAMer{typeof(s), K}(s)
-EveryRNAMer{K}(s) where K = EveryRNAMer{typeof(s), K}(s)
-EveryAAMer{K}(s) where K = EveryAAMer{typeof(s), K}(s)
+EveryDNAMer{K}(s) where K = EveryDNAMer{K, typeof(s), }(s)
+EveryRNAMer{K}(s) where K = EveryRNAMer{K, typeof(s)}(s)
+EveryAAMer{K}(s) where K = EveryAAMer{K, typeof(s)}(s)
 
-function EveryKmer{S, A, K}(s::S) where {S <: Union{String, SubString{String}}, A <: Alphabet, K}
+function EveryKmer{A, K}(s::S) where {S <: Union{String, SubString{String}}, A <: Alphabet, K}
     s2 = codeunits(s)
-    EveryKmer{typeof(s2), A, K}(s2)
+    EveryKmer{A, K, typeof(s2)}(s2)
 end
 
-const SameEveryKmer{S, A, K} = EveryKmer{S, A} where {A, S <: BioSequence{A}}
-const FourBit = Union{DNAAlphabet{4}, RNAAlphabet{4}}
-const TwoBit = Union{DNAAlphabet{2}, RNAAlphabet{2}}
-
 # Known length if every symbol of the sequence can be represented in the kmer
-Base.IteratorSize(::Type{<:SameEveryKmer}) = Base.HasLength()
-Base.IteratorSize(::Type{<:EveryKmer{<:BioSequence{<:TwoBit}, <:FourBit}}) = Base.HasLength()
+Base.IteratorSize(::Type{<:EveryKmer{A, K, <:BioSequence{A}}}) where {A <: Alphabet, K} = Base.HasLength()
+Base.IteratorSize(::Type{<:EveryKmer{<:FourBit, K, <:BioSequence{<:TwoBit}}}) where K = Base.HasLength()
 
-function Base.length(it::SameEveryKmer{S, A, K}) where {S, A, K}
+function Base.length(it::EveryKmer{A, K, <:BioSequence{A}}) where {A <: Alphabet, K}
     length(it.seq) - K + 1
 end
 
-# These methods can carry the encoding directly over
-function Base.iterate(it::EveryKmer{S, A, K}) where {A, K, S <: BioSequence{A}}
+# Generic fallback
+function Base.iterate(it::EveryKmer{A, K, S}) where {A <: Alphabet, K, S}
+    seq = it.seq
+    length(seq) < K && return nothing
+    data = zero_tuple(eltype(it))
+    bps = BioSequences.bits_per_symbol(A())
+    @inbounds for i in 1:K
+        symbol = seq[i]
+        encoding = UInt(BioSequences.encode(A(), convert(eltype(A), symbol)))
+        (_, data) = leftshift_carry(data, bps, encoding)
+    end
+    kmer = eltype(it)(unsafe, data)
+    (kmer, (kmer, K+1))
+end
+
+function Base.iterate(it::EveryKmer, state::Tuple{Kmer, Integer})
+    seq = it.seq
+    (kmer, i) = state
+    i > length(seq) && return nothing
+    symbol = @inbounds seq[i]
+    new_kmer = shift(kmer, convert(eltype(A), symbol))
+    (new_kmer, (new_kmer, i+1))
+end
+
+# These methods can carry the encoding directly over. We call into the internal method
+# `iterate_copy`, because specifying the precise type constrains (either the same alphabet
+# in the sequence and the iterator, OR both have either TwoBit or FourBit)
+# is quite hard.
+function Base.iterate(it::EveryKmer{A, K, <:BioSequence{A}, }) where {A <: Alphabet, K}
+    iterate_copy(it)
+end
+
+function Base.iterate(it::EveryKmer{<:TwoBit, K, <:BioSequence{<:TwoBit}}) where K
+    iterate_copy(it)
+end
+
+function Base.iterate(it::EveryKmer{<:FourBit, K, <:BioSequence{<:FourBit}}) where K
+    iterate_copy(it)
+end
+
+function Base.iterate(it::EveryKmer{A, K, <:BioSequence{A}}, state::Tuple{Kmer, Integer}) where {A <: Alphabet, K}
+    iterate_copy(it, state)
+end
+
+function Base.iterate(it::EveryKmer{<:TwoBit, K, <:BioSequence{<:TwoBit}}, state::Tuple{Kmer, Integer}) where K
+    iterate_copy(it, state)
+end
+
+function Base.iterate(it::EveryKmer{<:FourBit, K, <:BioSequence{<:FourBit}}, state::Tuple{Kmer, Integer}) where K
+    iterate_copy(it, state)
+end
+
+@inline function iterate_copy(it::EveryKmer{A, K, S}) where {A, K, S}
     seq = it.seq
     length(seq) < K && return nothing
     data = zero_tuple(eltype(it))
@@ -67,45 +122,42 @@ function Base.iterate(it::EveryKmer{S, A, K}) where {A, K, S <: BioSequence{A}}
     (kmer, (kmer, K+1))
 end
 
-function Base.iterate(it::EveryKmer{S, A, K}, state::Tuple{Kmer, Integer}) where {A, K, S <: BioSequence{A}}
+@inline function iterate_copy(it::EveryKmer, state::Tuple{Kmer, Integer})
     seq = it.seq
     (kmer, i) = state
     i > length(seq) && return nothing
     encoding = UInt(BioSequences.extract_encoded_element(seq, i))
-    new_kmer = q_push_encoding(kmer, encoding)
+    new_kmer = shift_encoding(kmer, encoding)
     (new_kmer, (new_kmer, i+1))
 end
 
 # These methods can use special 2 -> 4 bit recoding
-@inline recode(encoding::UInt) = left_shift(UInt(1), encoding)
-
-function Base.iterate(it::EveryKmer{S, <:FourBit, K}) where {S <: BioSequence{<:TwoBit}, K}
+function Base.iterate(it::EveryKmer{<:FourBit, K, S}) where {S <: BioSequence{<:TwoBit}, K}
     seq = it.seq
     length(seq) < K && return nothing
     data = zero_tuple(eltype(it))
     for i in 1:K
-        encoding = recode(UInt(BioSequences.extract_encoded_element(seq, i)))
+        encoding = left_shift(UInt(1), UInt(BioSequences.extract_encoded_element(seq, i)))
         (_, data) = leftshift_carry(data, 4, encoding)
     end
     kmer = eltype(it)(unsafe, data)
     (kmer, (kmer, K+1))
 end
 
-# TODO: Lots of code sharing in this file... can we refactor to be more clever?
-function Base.iterate(it::EveryKmer{S, <:FourBit}, state::Tuple{Kmer, Integer}) where {S <: BioSequence{<:TwoBit}}
+function Base.iterate(it::EveryKmer{<:FourBit, K, S}, state::Tuple{Kmer, Integer}) where {K, S <: BioSequence{<:TwoBit}}
     seq = it.seq
     (kmer, i) = state
     i > length(seq) && return nothing
-    encoding = recode(UInt(BioSequences.extract_encoded_element(seq, i)))
-    new_kmer = q_push_encoding(kmer, encoding)
+    encoding = left_shift(UInt(1), UInt(BioSequences.extract_encoded_element(seq, i)))
+    new_kmer = shift_encoding(kmer, encoding)
     (new_kmer, (new_kmer, i+1))
 end
 
 # This is special because, by convention, we skip every ambiguous kmer
 # instead of erroring.
 function Base.iterate(
-    it::EveryKmer{S, A, K}, state=(zero_kmer(Kmer{A, K}), K, 1)
-) where {A <: TwoBit, S <: BioSequence{<:FourBit}, K}
+    it::EveryKmer{A, K, S}, state=(zero_kmer(Kmer{A, K}), K, 1)
+) where {A <: TwoBit, K, S <: BioSequence{<:FourBit}}
     (kmer, remaining, i) = state
     seq = it.seq
     while !iszero(remaining)
@@ -115,29 +167,14 @@ function Base.iterate(
         i += 1
         # TODO: Is lookup table faster?
         remaining = ifelse(isone(count_ones(encoding)), remaining - 1, K)
-        kmer = q_push_encoding(kmer, trailing_zeros(encoding) % UInt)
+        kmer = shift_encoding(kmer, trailing_zeros(encoding) % UInt)
     end
     return (kmer, (kmer, 1, i))
 end
 
-const BYTE_LUT = let
-    v = fill(0xff, 256)
-    for (i, s) in [(0, "Aa"), (1, "cC"), (2, "gG"), (3, "TtUu")], c in s
-        v[UInt8(c) + 1] = i
-    end
-    for c in "-MRSVWYHKDBN"
-        v[UInt8(c) + 1] = 0xf0
-        v[UInt8(lowercase(c)) + 1] = 0xf0
-    end
-    Tuple(v)
-end
-
-# TODO: Change to lazy_str when new Julia LTS drops after 1.6
-@noinline throw_bad_byte_error(b::UInt8) = error("Cannot interpret byte $(repr(b)) as nucleotide")
-
 function Base.iterate(
-    it::EveryKmer{S, A, K}, state=(zero_kmer(Kmer{A, K}), K, 1)
-) where {A <: TwoBit, S <: AbstractVector{UInt8}, K}
+    it::EveryKmer{A, K}, state=(zero_kmer(Kmer{A, K}), K, 1)
+) where {A <: TwoBit, K}
     (kmer, remaining, i) = state
     seq = it.seq
     Base.require_one_based_indexing(seq)
@@ -148,7 +185,7 @@ function Base.iterate(
         encoding = @inbounds BYTE_LUT[byte + 0x01]
         encoding == 0xff && throw_bad_byte_error(byte)
         remaining = ifelse(encoding == 0xf0, K, remaining - 1)
-        kmer = q_push_encoding(kmer, encoding % UInt)
+        kmer = shift_encoding(kmer, encoding % UInt)
     end
     return (kmer, (kmer, 1, i))
 end

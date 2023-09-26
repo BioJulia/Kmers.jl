@@ -30,10 +30,10 @@ export
     shift_first,
 
     # Iterators
-    EveryKmer,
-    EveryDNAMer,
-    EveryRNAMer,
-    EveryAAMer,
+    FwKmers,
+    FwDNAMers,
+    FwRNAMers,
+    FwAAMers,
 
     ##################
     # Re-exports
@@ -139,7 +139,7 @@ include("transformations.jl")
 include("revtrans.jl")
 
 include("iterators/common.jl")
-include("iterators/EveryKmer.jl")
+include("iterators/FwKmers.jl")
 include("iterators/EveryCanonicalKmer.jl")
 
 end # module

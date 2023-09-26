@@ -1,13 +1,13 @@
 # TODO: Lots of code sharing in this file... can we refactor to be more clever?
 
 """
-    EveryKmer{A <: Alphabet, K, S}
+    FwKmers{A <: Alphabet, K, S}
 
-Iterator of every forward kmer. `S` signifies the type of the underlying sequence,
+Iterator of forward kmers. `S` signifies the type of the underlying sequence,
 and the eltype of the iterator is `Kmer{A, K, N}` with the appropriate `N`.
 
-Can be constructed more conventiently with the constructors `EveryDNAMer{K}(s)`
-and similar also for `EveryRNAMer` and `EveryAAMer`.
+Can be constructed more conventiently with the constructors `FwDNAMers{K}(s)`
+and similar also for `FwRNAMers` and `FwAAMers`.
 
 If `A <: Union{DNAAlphabet{2}, RNAAlphabet{2}}` and
 `Alphabet(S) isa Union{DNAAlphabet{4}, RNAAlphabet{4}}`, the iterator skips all
@@ -24,10 +24,10 @@ julia> length(collect(EveryRNAMer{3}(rna"UGDCUGAVC")))
 2
 ```
 """
-struct EveryKmer{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
+struct FwKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
     seq::S
 
-    function EveryKmer{A, K, S}(seq::S) where {A, K, S}
+    function FwKmers{A, K, S}(seq::S) where {A, K, S}
         K isa Int || error("K must be an Int")
         K > 0 || error("K must be at least 1")
         new{A, K, S}(seq)
@@ -35,30 +35,30 @@ struct EveryKmer{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
 end
 
 # Constructors
-EveryKmer{A, K}(s) where {A <: Alphabet, K} = EveryKmer{A, K, typeof(s)}
-const EveryDNAMer{K, S} = EveryKmer{DNAAlphabet{2}, K, S}
-const EveryRNAMer{K, S} = EveryKmer{RNAAlphabet{2}, K, S}
-const EveryAAMer{K, S} = EveryKmer{AminoAcidAlphabet, K, S}
+FwKmers{A, K}(s) where {A <: Alphabet, K} = FwKmers{A, K, typeof(s)}
+const FwDNAMers{K, S} = FwKmers{DNAAlphabet{2}, K, S}
+const FwRNAMers{K, S} = FwKmers{RNAAlphabet{2}, K, S}
+const FwAAMers{K, S} = FwKmers{AminoAcidAlphabet, K, S}
 
-EveryDNAMer{K}(s) where K = EveryDNAMer{K, typeof(s), }(s)
-EveryRNAMer{K}(s) where K = EveryRNAMer{K, typeof(s)}(s)
-EveryAAMer{K}(s) where K = EveryAAMer{K, typeof(s)}(s)
+FwDNAMers{K}(s) where K = FwDNAMers{K, typeof(s), }(s)
+FwRNAMers{K}(s) where K = FwRNAMers{K, typeof(s)}(s)
+FwAAMers{K}(s) where K = FwAAMers{K, typeof(s)}(s)
 
-function EveryKmer{A, K}(s::S) where {S <: Union{String, SubString{String}}, A <: Alphabet, K}
+function FwKmers{A, K}(s::S) where {S <: Union{String, SubString{String}}, A <: Alphabet, K}
     s2 = codeunits(s)
-    EveryKmer{A, K, typeof(s2)}(s2)
+    FwKmers{A, K, typeof(s2)}(s2)
 end
 
 # Known length if every symbol of the sequence can be represented in the kmer
-Base.IteratorSize(::Type{<:EveryKmer{A, K, <:BioSequence{A}}}) where {A <: Alphabet, K} = Base.HasLength()
-Base.IteratorSize(::Type{<:EveryKmer{<:FourBit, K, <:BioSequence{<:TwoBit}}}) where K = Base.HasLength()
+Base.IteratorSize(::Type{<:FwKmers{A, K, <:BioSequence{A}}}) where {A <: Alphabet, K} = Base.HasLength()
+Base.IteratorSize(::Type{<:FwKmers{<:FourBit, K, <:BioSequence{<:TwoBit}}}) where K = Base.HasLength()
 
-function Base.length(it::EveryKmer{A, K, <:BioSequence{A}}) where {A <: Alphabet, K}
+function Base.length(it::FwKmers{A, K, <:BioSequence{A}}) where {A <: Alphabet, K}
     length(it.seq) - K + 1
 end
 
 # Generic fallback
-function Base.iterate(it::EveryKmer{A, K, S}) where {A <: Alphabet, K, S}
+function Base.iterate(it::FwKmers{A, K, S}) where {A <: Alphabet, K, S}
     seq = it.seq
     length(seq) < K && return nothing
     data = zero_tuple(eltype(it))
@@ -72,7 +72,7 @@ function Base.iterate(it::EveryKmer{A, K, S}) where {A <: Alphabet, K, S}
     (kmer, (kmer, K+1))
 end
 
-function Base.iterate(it::EveryKmer, state::Tuple{Kmer, Integer})
+function Base.iterate(it::FwKmers, state::Tuple{Kmer, Integer})
     seq = it.seq
     (kmer, i) = state
     i > length(seq) && return nothing
@@ -85,31 +85,31 @@ end
 # `iterate_copy`, because specifying the precise type constrains (either the same alphabet
 # in the sequence and the iterator, OR both have either TwoBit or FourBit)
 # is quite hard.
-function Base.iterate(it::EveryKmer{A, K, <:BioSequence{A}, }) where {A <: Alphabet, K}
+function Base.iterate(it::FwKmers{A, K, <:BioSequence{A}, }) where {A <: Alphabet, K}
     iterate_copy(it)
 end
 
-function Base.iterate(it::EveryKmer{<:TwoBit, K, <:BioSequence{<:TwoBit}}) where K
+function Base.iterate(it::FwKmers{<:TwoBit, K, <:BioSequence{<:TwoBit}}) where K
     iterate_copy(it)
 end
 
-function Base.iterate(it::EveryKmer{<:FourBit, K, <:BioSequence{<:FourBit}}) where K
+function Base.iterate(it::FwKmers{<:FourBit, K, <:BioSequence{<:FourBit}}) where K
     iterate_copy(it)
 end
 
-function Base.iterate(it::EveryKmer{A, K, <:BioSequence{A}}, state::Tuple{Kmer, Integer}) where {A <: Alphabet, K}
+function Base.iterate(it::FwKmers{A, K, <:BioSequence{A}}, state::Tuple{Kmer, Integer}) where {A <: Alphabet, K}
     iterate_copy(it, state)
 end
 
-function Base.iterate(it::EveryKmer{<:TwoBit, K, <:BioSequence{<:TwoBit}}, state::Tuple{Kmer, Integer}) where K
+function Base.iterate(it::FwKmers{<:TwoBit, K, <:BioSequence{<:TwoBit}}, state::Tuple{Kmer, Integer}) where K
     iterate_copy(it, state)
 end
 
-function Base.iterate(it::EveryKmer{<:FourBit, K, <:BioSequence{<:FourBit}}, state::Tuple{Kmer, Integer}) where K
+function Base.iterate(it::FwKmers{<:FourBit, K, <:BioSequence{<:FourBit}}, state::Tuple{Kmer, Integer}) where K
     iterate_copy(it, state)
 end
 
-@inline function iterate_copy(it::EveryKmer{A, K, S}) where {A, K, S}
+@inline function iterate_copy(it::FwKmers{A, K, S}) where {A, K, S}
     seq = it.seq
     length(seq) < K && return nothing
     data = zero_tuple(eltype(it))
@@ -122,7 +122,7 @@ end
     (kmer, (kmer, K+1))
 end
 
-@inline function iterate_copy(it::EveryKmer, state::Tuple{Kmer, Integer})
+@inline function iterate_copy(it::FwKmers, state::Tuple{Kmer, Integer})
     seq = it.seq
     (kmer, i) = state
     i > length(seq) && return nothing
@@ -132,7 +132,7 @@ end
 end
 
 # These methods can use special 2 -> 4 bit recoding
-function Base.iterate(it::EveryKmer{<:FourBit, K, S}) where {S <: BioSequence{<:TwoBit}, K}
+function Base.iterate(it::FwKmers{<:FourBit, K, S}) where {S <: BioSequence{<:TwoBit}, K}
     seq = it.seq
     length(seq) < K && return nothing
     data = zero_tuple(eltype(it))
@@ -144,7 +144,7 @@ function Base.iterate(it::EveryKmer{<:FourBit, K, S}) where {S <: BioSequence{<:
     (kmer, (kmer, K+1))
 end
 
-function Base.iterate(it::EveryKmer{<:FourBit, K, S}, state::Tuple{Kmer, Integer}) where {K, S <: BioSequence{<:TwoBit}}
+function Base.iterate(it::FwKmers{<:FourBit, K, S}, state::Tuple{Kmer, Integer}) where {K, S <: BioSequence{<:TwoBit}}
     seq = it.seq
     (kmer, i) = state
     i > length(seq) && return nothing
@@ -156,7 +156,7 @@ end
 # This is special because, by convention, we skip every ambiguous kmer
 # instead of erroring.
 function Base.iterate(
-    it::EveryKmer{A, K, S}, state=(zero_kmer(Kmer{A, K}), K, 1)
+    it::FwKmers{A, K, S}, state=(zero_kmer(Kmer{A, K}), K, 1)
 ) where {A <: TwoBit, K, S <: BioSequence{<:FourBit}}
     (kmer, remaining, i) = state
     seq = it.seq
@@ -173,7 +173,7 @@ function Base.iterate(
 end
 
 function Base.iterate(
-    it::EveryKmer{A, K}, state=(zero_kmer(Kmer{A, K}), K, 1)
+    it::FwKmers{A, K}, state=(zero_kmer(Kmer{A, K}), K, 1)
 ) where {A <: TwoBit, K}
     (kmer, remaining, i) = state
     seq = it.seq

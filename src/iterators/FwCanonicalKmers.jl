@@ -1,34 +1,34 @@
-struct EveryCanonicalKmer{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
-    it::EveryKmer{A, K, S}
+struct FwCanonicalKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
+    it::FwKmers{A, K, S}
 end
 
-const SameEveryCanonicalKmer{A, K, S} = EveryCanonicalKmer{S, A, K} where {A, S <: BioSequence{A}}
+const SameFwCanonicalKmers{A, K, S} = FwCanonicalKmers{S, A, K} where {A, S <: BioSequence{A}}
 
-function EveryCanonicalKmer{K}(s) where K
+function FwCanonicalKmers{K}(s) where K
     S = typeof(s)
     A = typeof(Alphabet(S))
-    it = EveryKmer{S, A, K}(s)
-    EveryCanonicalKmer{S, A, K}(it)
+    it = FwKmers{S, A, K}(s)
+    FwCanonicalKmers{S, A, K}(it)
 end
 
-function EveryCanonicalKmer{A, K}(s::S) where {S <: BioSequence, A <: Alphabet, K}
-    EveryCanonicalKmer{S, A, K}(EveryKmer{A, K}(s))
+function FwCanonicalKmers{A, K}(s::S) where {S <: BioSequence, A <: Alphabet, K}
+    FwCanonicalKmers{S, A, K}(FwKmers{A, K}(s))
 end
 
-function EveryCanonicalKmer{A, K}(s::S) where {S <: Union{String, SubString{String}}, A <: Alphabet, K}
+function FwCanonicalKmers{A, K}(s::S) where {S <: Union{String, SubString{String}}, A <: Alphabet, K}
     s2 = codeunits(s)
-    EveryCanonicalKmer{typeof(s2), A, K}(s2)
+    FwCanonicalKmers{typeof(s2), A, K}(s2)
 end
 
-Base.IteratorSize(::Type{<:SameEveryCanonicalKmer}) = Base.HasLength()
-Base.IteratorSize(::Type{<:EveryCanonicalKmer{<:BioSequence{<:TwoBit}, <:FourBit}}) = Base.HasLength()
-Base.length(it::SameEveryCanonicalKmer) = length(it.it)
+Base.IteratorSize(::Type{<:SameFwCanonicalKmers}) = Base.HasLength()
+Base.IteratorSize(::Type{<:FwCanonicalKmers{<:BioSequence{<:TwoBit}, <:FourBit}}) = Base.HasLength()
+Base.length(it::SameFwCanonicalKmers) = length(it.it)
 
 # Generic iterator for the first element: I think we can do no better than to reverse-complement
 # the entire kmer. However, for the following iterations, it's faster to add a single basepair to
 # the RC'd kmer than to RC it from scratch, hence we need specialized methods for efficient RC'ing
 # of individual bases.
-function Base.iterate(it::EveryCanonicalKmer{S, A, K}) where {S, A, K}
+function Base.iterate(it::FwCanonicalKmers{S, A, K}) where {S, A, K}
     itval = iterate(it.it)
     itval === nothing && return nothing
     fw = first(itval)
@@ -38,7 +38,7 @@ end
 
 # Generic fallback
 function Base.iterate(
-    it::EveryCanonicalKmer{S, A, K},
+    it::FwCanonicalKmers{S, A, K},
     state::Tuple{Kmer, Kmer, Integer}
 ) where {S, A, K}
     seq = it.it.seq
@@ -54,7 +54,7 @@ end
 
 # Special method for 2bit -> 2bit
 function Base.iterate(
-    it::EveryCanonicalKmer{S, A, K},
+    it::FwCanonicalKmers{S, A, K},
     state::Tuple{Kmer, Kmer, Integer}
 ) where {K, A <: TwoBit, S <: BioSequence{A}}
     seq = it.it.seq
@@ -69,7 +69,7 @@ end
 
 # Special method for 2bit -> 4bit
 function Base.iterate(
-    it::EveryCanonicalKmer{S, A, K},
+    it::FwCanonicalKmers{S, A, K},
     state::Tuple{Kmer, Kmer, Integer}
 ) where {K, A <: FourBit, S <: BioSequence{A}}
     seq = it.it.seq

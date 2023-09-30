@@ -140,6 +140,6 @@ include("revtrans.jl")
 
 include("iterators/common.jl")
 include("iterators/FwKmers.jl")
-include("iterators/EveryCanonicalKmer.jl")
+include("iterators/FwCanonicalKmers.jl")
 
 end # module

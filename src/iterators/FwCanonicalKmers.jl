@@ -4,7 +4,7 @@ end
 
 const SameFwCanonicalKmers{A, K, S} = FwCanonicalKmers{S, A, K} where {A, S <: BioSequence{A}}
 
-function FwCanonicalKmers{K}(s) where K
+function FwCanonicalKmers{K}(s::BioSequence) where K
     S = typeof(s)
     A = typeof(Alphabet(S))
     it = FwKmers{S, A, K}(s)

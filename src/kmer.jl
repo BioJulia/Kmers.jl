@@ -91,7 +91,7 @@ end
 # Compile-time functions computed on Kmer types
 ################################################
 
-@inline ksize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = K
+@inline ksize(::Type{<:Kmer{A, K}}) where {A, K} = K
 @inline nsize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = N
 @inline n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
 @inline bits_unused(T::Type{<:Kmer}) = n_unused(T) * BioSequences.bits_per_symbol(T)
@@ -305,15 +305,8 @@ Base.cmp(x::T, y::T) where {T <: Kmer} = cmp(x.data, y.data)
 Base.:(==)(x::Kmer{A}, y::Kmer{A}) where A = x.data == y.data
 Base.isless(x::T, y::T) where {T <: Kmer} = isless(x.data, y.data)
 
-# TODO: We need to figure out what to do with hashing first.
-# Per the contract of isequal, isequal(a, b) == (hash(a) == hash(b)).
-# Further, it's imperative that hashing kmers is absolutely optimal.
-# So, what to do?
 Base.isequal(x::Kmer, y::BioSequence) = false
 Base.isequal(x::BioSequence, y::Kmer) = false
-
-# TODO: Ensure this is the right way to go.
-# See https://github.com/BioJulia/BioSequences.jl/pull/121#discussion_r475234270
 Base.hash(x::Kmer{A, K, N}, h::UInt) where {A, K, N} = hash(x.data, h ⊻ K)
 
 function push(kmer::Kmer, s)
@@ -416,10 +409,6 @@ function pop(kmer::Kmer{A}) where A
     end
     newT(unsafe, new_data)
 end
-
-#################################################
-# Various bit-twiddling useful functions on kmers
-#################################################
 
 # Get a mask 0x0001111 ... masking away the unused bits of the head element
 # in the UInt tuple

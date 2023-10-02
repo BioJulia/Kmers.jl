@@ -1,5 +1,3 @@
-# TODO: Lots of code sharing in this file... can we refactor to be more clever?
-
 """
     FwKmers{A <: Alphabet, K, S}
 
@@ -15,12 +13,12 @@ kmers containing symbols not permitted in the 2-bit nucleotide alphabet.
 
 # Examples:
 ```jldoctest
-julia> v = collect(EveryDNAMer{3}("AGCGTATA"));
+julia> v = collect(FwDNAMers{3}("AGCGTATA"));
 
 julia eltype(v), length(v)
 (Kmer{DNAAlphabet{2}, 3, 1}, 6)
 
-julia> length(collect(EveryRNAMer{3}(rna"UGDCUGAVC")))
+julia> length(collect(FwRNAMers{3}(rna"UGDCUGAVC")))
 2
 ```
 """
@@ -35,6 +33,7 @@ struct FwKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
 end
 
 source_type(::Type{FwKmers{A, K, S}}) where {A, K, S} = S
+load_source(x::FwKmers) = x.seq
 
 # Constructors
 FwKmers{A, K}(s) where {A <: Alphabet, K} = FwKmers{A, K, typeof(s)}
@@ -53,116 +52,63 @@ end
 
 function Base.length(it::FwKmers)
     Base.IteratorSize(typeof(it)) == Base.HasLength() || throw(MethodError(length, (it,)))
-    length(it.seq) - ksize(eltype(it)) + 1
+    length(usable_source(it)) - ksize(eltype(it)) + 1
 end
 
-# Generic fallback
-function Base.iterate(it::FwKmers{A, K, S}) where {A <: Alphabet, K, S}
-    seq = it.seq
-    length(seq) < K && return nothing
-    data = zero_tuple(eltype(it))
-    bps = BioSequences.bits_per_symbol(A())
-    @inbounds for i in 1:K
-        symbol = seq[i]
-        encoding = UInt(BioSequences.encode(A(), convert(eltype(A), symbol)))
-        (_, data) = leftshift_carry(data, bps, encoding)
-    end
-    kmer = eltype(it)(unsafe, data)
-    (kmer, (kmer, K+1))
+function Base.iterate(it::FwKmers, state...)
+    iterate_kmer(RecodingScheme(typeof(it)), it, state...)
 end
 
-function Base.iterate(it::FwKmers, state::Tuple{Kmer, Integer})
-    seq = it.seq
+# For these recoding schemes, no symbols in the source sequence are skipped.
+# Hence, we can forward to just `extract`
+@inline function iterate_kmer(
+    R::Union{GenericAlphabet, Copyable, TwoToFour, AsciiEncode, GenericBytes},
+    it::FwKmers
+)
+    src = usable_source(it)
+    length(src) < ksize(eltype(it)) && return nothing
+    kmer = extract(R, eltype(it), src, 1)
+    (kmer, (kmer, ksize(eltype(it))+1))
+end
+
+@inline function iterate_kmer(::GenericAlphabet, it::FwKmers, state::Tuple{Kmer, Integer})
+    src = usable_source(it)
     (kmer, i) = state
-    i > length(seq) && return nothing
-    symbol = @inbounds seq[i]
-    new_kmer = shift(kmer, convert(eltype(A), symbol))
+    i > length(src) && return nothing
+    symbol = @inbounds src[i]
+    new_kmer = shift(kmer, convert(eltype(kmer), symbol))
     (new_kmer, (new_kmer, i+1))
 end
 
-# These methods can carry the encoding directly over. We call into the internal method
-# `iterate_copy`, because specifying the precise type constrains (either the same alphabet
-# in the sequence and the iterator, OR both have either TwoBit or FourBit)
-# is quite hard.
-function Base.iterate(it::FwKmers{A, K, <:BioSequence{A}, }) where {A <: Alphabet, K}
-    iterate_copy(it)
-end
-
-function Base.iterate(it::FwKmers{<:TwoBit, K, <:BioSequence{<:TwoBit}}) where K
-    iterate_copy(it)
-end
-
-function Base.iterate(it::FwKmers{<:FourBit, K, <:BioSequence{<:FourBit}}) where K
-    iterate_copy(it)
-end
-
-function Base.iterate(it::FwKmers{A, K, <:BioSequence{A}}, state::Tuple{Kmer, Integer}) where {A <: Alphabet, K}
-    iterate_copy(it, state)
-end
-
-function Base.iterate(it::FwKmers{<:TwoBit, K, <:BioSequence{<:TwoBit}}, state::Tuple{Kmer, Integer}) where K
-    iterate_copy(it, state)
-end
-
-function Base.iterate(it::FwKmers{<:FourBit, K, <:BioSequence{<:FourBit}}, state::Tuple{Kmer, Integer}) where K
-    iterate_copy(it, state)
-end
-
-@inline function iterate_copy(it::FwKmers{A, K, S}) where {A, K, S}
-    seq = it.seq
-    length(seq) < K && return nothing
-    data = zero_tuple(eltype(it))
-    bps = BioSequences.bits_per_symbol(A())
-    for i in 1:K
-        encoding = UInt(BioSequences.extract_encoded_element(seq, i))
-        (_, data) = leftshift_carry(data, bps, encoding)
-    end
-    kmer = eltype(it)(unsafe, data)
-    (kmer, (kmer, K+1))
-end
-
-@inline function iterate_copy(it::FwKmers, state::Tuple{Kmer, Integer})
-    seq = it.seq
+@inline function iterate_kmer(::Copyable, it::FwKmers, state::Tuple{Kmer, Integer})
+    src = usable_source(it)
     (kmer, i) = state
-    i > length(seq) && return nothing
-    encoding = UInt(BioSequences.extract_encoded_element(seq, i))
+    i > length(src) && return nothing
+    encoding = UInt(BioSequences.extract_encoded_element(src, i))
     new_kmer = shift_encoding(kmer, encoding)
     (new_kmer, (new_kmer, i+1))
 end
 
-# These methods can use special 2 -> 4 bit recoding
-function Base.iterate(it::FwKmers{<:FourBit, K, S}) where {S <: BioSequence{<:TwoBit}, K}
-    seq = it.seq
-    length(seq) < K && return nothing
-    data = zero_tuple(eltype(it))
-    for i in 1:K
-        encoding = left_shift(UInt(1), UInt(BioSequences.extract_encoded_element(seq, i)))
-        (_, data) = leftshift_carry(data, 4, encoding)
-    end
-    kmer = eltype(it)(unsafe, data)
-    (kmer, (kmer, K+1))
-end
-
-function Base.iterate(it::FwKmers{<:FourBit, K, S}, state::Tuple{Kmer, Integer}) where {K, S <: BioSequence{<:TwoBit}}
-    seq = it.seq
+@inline function iterate_kmer(::TwoToFour, it::FwKmers, state::Tuple{Kmer, Int})
+    src = usable_source(it)
     (kmer, i) = state
-    i > length(seq) && return nothing
-    encoding = left_shift(UInt(1), UInt(BioSequences.extract_encoded_element(seq, i)))
+    i > length(src) && return nothing
+    encoding = left_shift(UInt(1), UInt(BioSequences.extract_encoded_element(src, i)))
     new_kmer = shift_encoding(kmer, encoding)
     (new_kmer, (new_kmer, i+1))
 end
 
-# This is special because, by convention, we skip every ambiguous kmer
-# instead of erroring.
-function Base.iterate(
-    it::FwKmers{A, K, S}, state=(zero_kmer(Kmer{A, K}), K, 1)
-) where {A <: TwoBit, K, S <: BioSequence{<:FourBit}}
+@inline function iterate_kmer(
+    ::Skipping,
+    it::FwKmers{A, K},
+    state::Tuple{Kmer, Int, Int}=(zero_kmer(Kmer{A, K}), K, 1)
+) where {A, K}
     (kmer, remaining, i) = state
-    seq = it.seq
+    src = usable_source(it)
     while !iszero(remaining)
-        i > length(seq) && return nothing
+        i > length(src) && return nothing
         # TODO: Also, LUT here?
-        encoding = UInt(BioSequences.extract_encoded_element(seq, i))
+        encoding = UInt(BioSequences.extract_encoded_element(src, i))
         i += 1
         # TODO: Is lookup table faster?
         remaining = ifelse(isone(count_ones(encoding)), remaining - 1, K)
@@ -171,15 +117,38 @@ function Base.iterate(
     return (kmer, (kmer, 1, i))
 end
 
-function Base.iterate(
-    it::FwKmers{A, K}, state=(zero_kmer(Kmer{A, K}), K, 1)
-) where {A <: TwoBit, K}
+@inline function iterate_kmer(::GenericBytes, it::FwKmers, state::Tuple{Kmer, Int})
+    src = usable_source(it)
+    Base.require_one_based_indexing(src)
+    (kmer, i) = state
+    i > length(src) && return nothing
+    char = reinterpret(Char, (src[i] % UInt32) << 24)
+    symbol = eltype(eltype(it))(char)
+    kmer = shift(kmer, symbol)
+    return (kmer, (kmer, i+1))
+end 
+
+@inline function iterate_kmer(::AsciiEncode, it::FwKmers, state::Tuple{Kmer, Int})
+    src = usable_source(it)
+    Base.require_one_based_indexing(src)
+    (kmer, i) = state
+    i > length(src) && return nothing
+    encoding = BioSequences.ascii_encode(Alphabet(eltype(it)), @inbounds(src[i]))
+    kmer = shift_encoding(kmer, encoding)
+    return (kmer, (kmer, i+1))
+end
+
+@inline function iterate_kmer(
+    ::AsciiSkipping,
+    it::FwKmers{A, K},
+    state=(zero_kmer(Kmer{A, K}), K, 1)
+) where {A, K}
     (kmer, remaining, i) = state
-    seq = it.seq
-    Base.require_one_based_indexing(seq)
+    src = usable_source(it)
+    Base.require_one_based_indexing(src)
     while !iszero(remaining)
-        i > length(seq) && return nothing
-        byte = @inbounds seq[i]
+        i > length(src) && return nothing
+        byte = @inbounds src[i]
         i += 1
         encoding = @inbounds BYTE_LUT[byte + 0x01]
         encoding == 0xff && throw_bad_byte_error(byte)

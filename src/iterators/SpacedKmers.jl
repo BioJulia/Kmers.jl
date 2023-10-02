@@ -1,5 +1,3 @@
-# TODO: Can the FW kmers simply be an alias for SpacedKmers with step = 1
-
 """
     SpacedKmers{T,S}(seq::S, step::Int, start::Int, stop::Int) where {T<:Kmer,S<:BioSequence}
 
@@ -28,7 +26,7 @@ struct SpacedKmers{A <: Alphabet, K, St, S} <: AbstractKmerIterator{A, K}
 
     function SpacedKmers{A, K, St, S}(seq) where {A, K, St, S}
         (K isa Int && K > 0) || error("K must be an Int > 0")
-        (St isa Int && St > 0) ||  error("St must be an Int > 0")
+        (St isa Int && St > 0) || error("St must be an Int > 0")
         new{A, K, St, S}(seq)
     end
 end
@@ -78,14 +76,17 @@ end
         (_, data) = leftshift_carry(data, bps, encoding)
         state += 1
         remaining -= 1
-        iszero(remaining) && return (eltype(it)(unsafe, data), state + max(0, St-K))
+        iszero(remaining) && return (eltype(it)(unsafe, data), state + max(0, St - K))
     end
 end
 
 # Called when St < K, and the encoding in seq matches that of the kmer.
 # We can copy the encoding right over, and we need to preserve some data in the kmer
 # between iterations
-@inline function iterate_copy_mask(it::SpacedKmers{A, K, St}, state::Tuple{Int, Tuple{Vararg{UInt}}}) where {A, K, St}
+@inline function iterate_copy_mask(
+    it::SpacedKmers{A, K, St},
+    state::Tuple{Int, Tuple{Vararg{UInt}}},
+) where {A, K, St}
     seq = it.seq
     len = length(seq)
     bps = BioSequences.bits_per_symbol(A())

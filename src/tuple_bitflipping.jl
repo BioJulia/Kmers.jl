@@ -106,14 +106,22 @@ end
 # Shift a tuple left nbits, carry over bits between tuple elements, and OR
 # the `carry` argument to the right side of the resulting tuple.
 # Returns (new_carry, new_tuple)
-@inline function leftshift_carry(x::Tuple{Vararg{T}}, nbits::Integer, carry::T) where {T <: Unsigned}
+@inline function leftshift_carry(
+    x::Tuple{Vararg{T}},
+    nbits::Integer,
+    carry::T,
+) where {T <: Unsigned}
     head, tail... = x
     (new_carry, new_tail) = leftshift_carry(tail, nbits, carry)
     new_head = left_shift(head, nbits) | new_carry
     (left_carry(head, nbits), (new_head, new_tail...))
 end
 
-@inline function rightshift_carry(x::Tuple{Vararg{T}}, nbits::Integer, carry::T) where {T <: Unsigned}
+@inline function rightshift_carry(
+    x::Tuple{Vararg{T}},
+    nbits::Integer,
+    carry::T,
+) where {T <: Unsigned}
     head, tail... = x
     new_head = right_shift(head, nbits) | right_carry(carry, nbits)
     mask = left_shift(UInt(1), nbits) - 1
@@ -125,4 +133,3 @@ end
 # Recusion terminator for above
 @inline leftshift_carry(::Tuple{}, nbits::Integer, carry::Unsigned) = (carry, ())
 @inline rightshift_carry(::Tuple{}, nbits::Integer, carry::Unsigned) = (carry, ())
-

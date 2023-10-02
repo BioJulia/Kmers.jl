@@ -10,19 +10,20 @@ end
 # This is usually type unstable, but in user code, users may use constant-folded ranges,
 # e.g. f(x) = x[2:4]. In this case, we need it to compile to very efficient code.
 # Hence, it MUST use @inline
-@inline function Base.getindex(kmer::Kmer{A}, range::AbstractRange{<:Integer}) where A
+@inline function Base.getindex(kmer::Kmer{A}, range::AbstractRange{<:Integer}) where {A}
     @boundscheck checkbounds(kmer, range)
     T = derive_type(Kmer{A, length(range)})
     data = zero_tuple(T)
     nbits = BioSequences.bits_per_symbol(A())
     for i in range
-        (_, data) = leftshift_carry(data, nbits, BioSequences.extract_encoded_element(kmer, i))
+        (_, data) =
+            leftshift_carry(data, nbits, BioSequences.extract_encoded_element(kmer, i))
     end
     T(unsafe, data)
 end
 
 # Same as above: This needs to be able to inline if the indices are known statically
-@inline function Base.getindex(kmer::Kmer{A}, indices::AbstractVector{Bool}) where A
+@inline function Base.getindex(kmer::Kmer{A}, indices::AbstractVector{Bool}) where {A}
     @boundscheck checkbounds(eachindex(kmer), indices)
     K = sum(indices)
     N = n_coding_elements(Kmer{A, K})
@@ -31,7 +32,8 @@ end
     nbits = BioSequences.bits_per_symbol(A())
     for (i, bool) in enumerate(indices)
         bool || continue
-        (_, data) = leftshift_carry(data, nbits, BioSequences.extract_encoded_element(kmer, i))
+        (_, data) =
+            leftshift_carry(data, nbits, BioSequences.extract_encoded_element(kmer, i))
     end
     T(unsafe, data)
 end

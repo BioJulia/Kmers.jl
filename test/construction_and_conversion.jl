@@ -91,8 +91,9 @@ global reps = 10
                 ],
             )
             @test all(
-                Bool[check_string_construction(AAKmer{len}, random_aa(len)) for _ in 1:reps
-    ],
+                Bool[
+                    check_string_construction(AAKmer{len}, random_aa(len)) for _ in 1:reps
+                ],
             )
 
             # Long(DNA|RNA)Seq Constructions

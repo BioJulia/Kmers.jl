@@ -7,20 +7,15 @@
 # License is MIT: https://github.com/BioJulia/Kmers.jl/blob/master/LICENSE
 module Kmers
 
-export
-    Kmer,
-
+export Kmer,
     DNAKmer,
     RNAKmer,
     AAKmer,
-
     DNACodon,
     RNACodon,
-
     ReverseGeneticCode,
     reverse_translate,
     reverse_translate!,
-
     @mer_str,
 
     # Immutable operations
@@ -140,7 +135,7 @@ include("revtrans.jl")
 
 include("iterators/common.jl")
 include("iterators/FwKmers.jl")
-include("iterators/FwCanonicalKmers.jl")
+include("iterators/CanonicalKmers.jl")
 include("iterators/SpacedKmers.jl")
 
 end # module

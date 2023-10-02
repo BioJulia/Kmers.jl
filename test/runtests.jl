@@ -7,7 +7,8 @@ using Test
 include("utils.jl")
 
 @testset "BioSequences Interface" begin
-    for A in [DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}, AminoAcidAlphabet]
+    for A in
+        [DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}, AminoAcidAlphabet]
         for K in (1, 9, 116)
             @test BioSequences.has_interface(
                 BioSequence,
@@ -19,8 +20,7 @@ include("utils.jl")
     end
 end
 
-@testset "Construction" begin
-end
+@testset "Construction" begin end
 
 # include("construction_and_conversion.jl")
 # include("comparisons.jl")

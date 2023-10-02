@@ -62,7 +62,7 @@ function Base.IteratorSize(::Type{T}) where {T <: AbstractKmerIterator}
         Base.HasLength()
     elseif sT <: BioSequence && Alphabet(sT) isa TwoBit && A isa FourBit
         Base.HasLength()
-    elseif sT <: ByteSource && isa Union{FourBit, AminoAcidAlphabet}
+    elseif sT <: ByteSource && A isa Union{FourBit, AminoAcidAlphabet}
         Base.HasLength()
     else
         Base.SizeUnknown()
@@ -130,7 +130,8 @@ function RecodingScheme(::Type{T})::RecodingScheme where {T <: AbstractKmerItera
     end
 end
 
-@noinline throw_bad_byte_error(b::UInt8) = error("Cannot interpret byte $(repr(b)) as nucleotide")
+@noinline throw_bad_byte_error(b::UInt8) =
+    error("Cannot interpret byte $(repr(b)) as nucleotide")
 
 const ASCII_SKIPPING_LUT = let
     v = fill(0xff, 256)
@@ -144,12 +145,25 @@ const ASCII_SKIPPING_LUT = let
     Tuple(v)
 end
 
+const FOURBIT_COMPLEMENT_LUT = let
+    v = fill(0x00, 16)
+    for i in alphabet(DNA)
+        v[reinterpret(UInt8, i) + 0x01] = reinterpret(UInt8, complement(i))
+    end
+    Tuple(v)
+end
+
 "Extract a full kmer at a given index of a sequence.
 Note: These methods don't do any bounds checking"
 function extract end
 # TODO: Use extract elsewhere in this code base, e.g. kmer from string instantiation?
 
-@inline function extract(::GenericAlphabet, ::Type{T}, seq::BioSequence, from_index) where {T <: Kmer}
+@inline function extract(
+    ::GenericAlphabet,
+    ::Type{T},
+    seq::BioSequence,
+    from_index,
+) where {T <: Kmer}
     length(seq) < ksize(T) && return nothing
     data = zero_tuple(T)
     A = Alphabet(T)
@@ -162,7 +176,12 @@ function extract end
     T(unsafe, data)
 end
 
-@inline function extract(::TwoToFour, ::Type{T}, seq::BioSequence, from_index) where {T <: Kmer}
+@inline function extract(
+    ::TwoToFour,
+    ::Type{T},
+    seq::BioSequence,
+    from_index,
+) where {T <: Kmer}
     length(seq) < ksize(T) && return nothing
     data = zero_tuple(T)
     for i in 1:ksize(T)
@@ -172,27 +191,42 @@ end
     T(unsafe, data)
 end
 
-@inline function extract(::Copyable, ::Type{T}, seq::BioSequence, from_index) where {T <: Kmer}
+@inline function extract(
+    ::Copyable,
+    ::Type{T},
+    seq::BioSequence,
+    from_index,
+) where {T <: Kmer}
     data = zero_tuple(T)
     bps = BioSequences.bits_per_symbol(Alphabet(seq))
-    for i in from_index:from_index + ksize(T) - 1
+    for i in from_index:(from_index + ksize(T) - 1)
         encoding = UInt(BioSequences.extract_encoded_element(seq, i))
         (_, data) = leftshift_carry(data, bps, encoding)
     end
     T(unsafe, data)
 end
 
-@inline function extract(::AsciiEncode, ::Type{T}, seq::AbstractVector{UInt8}, from_index) where {T <: Kmer}
+@inline function extract(
+    ::AsciiEncode,
+    ::Type{T},
+    seq::AbstractVector{UInt8},
+    from_index,
+) where {T <: Kmer}
     data = zero_tuple(T)
     bps = BioSequences.bits_per_symbol(Alphabet(kT))
-    @inbounds for i in from_index:from_index + ksize(T) - 1
+    @inbounds for i in from_index:(from_index + ksize(T) - 1)
         encoding = BioSequences.ascii_encode(Alphabet(T), seq[i])
         (_, data) = leftshift_carry(data, bps, encoding)
     end
     T(unsafe, data)
 end
 
-@inline function extract(::GenericBytes, ::Type{T}, seq::AbstractVector{UInt8}, from_index) where {T <: Kmer}
+@inline function extract(
+    ::GenericBytes,
+    ::Type{T},
+    seq::AbstractVector{UInt8},
+    from_index,
+) where {T <: Kmer}
     data = zero_tuple(T)
     bps = BioSequences.bits_per_symbol(Alphabet(T))
     @inbounds for i in 1:ksize(T)

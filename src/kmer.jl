@@ -96,13 +96,13 @@ end
 @inline n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
 @inline bits_unused(T::Type{<:Kmer}) = n_unused(T) * BioSequences.bits_per_symbol(T)
 
-@inline BioSequences.Alphabet(::Kmer{A}) where A = A()
+@inline BioSequences.Alphabet(::Kmer{A}) where {A} = A()
 
 @inline function n_coding_elements(::Type{<:Kmer{A, K}}) where {A, K}
     cld(BioSequences.bits_per_symbol(A()) * K, 8 * sizeof(UInt))
 end
 
-@inline function per_word_capacity(::Type{<:Kmer{A}}) where A
+@inline function per_word_capacity(::Type{<:Kmer{A}}) where {A}
     div(8 * sizeof(UInt), BioSequences.bits_per_symbol(A()))
 end
 
@@ -114,7 +114,8 @@ end
     per_word_capacity(Kmer{A, K, N}) - n_unused(Kmer{A, K, N})
 end
 
-@inline derive_type(::Type{Kmer{A, K}}) where {A, K} = Kmer{A, K, n_coding_elements(Kmer{A, K})}
+@inline derive_type(::Type{Kmer{A, K}}) where {A, K} =
+    Kmer{A, K, n_coding_elements(Kmer{A, K})}
 
 ################################################
 # Constructors
@@ -129,7 +130,11 @@ function zero_kmer(T::Type{Kmer{A, K}}) where {A, K}
 end
 
 # Generic, unknown size
-@inline function construct_generic(::Base.SizeUnknown, T::Type{<:Kmer{A, K}}, itr) where {A, K}
+@inline function construct_generic(
+    ::Base.SizeUnknown,
+    T::Type{<:Kmer{A, K}},
+    itr,
+) where {A, K}
     check_kmer(T)
     data = zero_tuple(T)
     nbits = BioSequences.bits_per_symbol(A())
@@ -143,7 +148,11 @@ end
 end
 
 # Generic, size known
-@inline function construct_generic_unchecked(::Union{Base.HasLength, Base.HasShape}, T::Type{<:Kmer{A}}, itr) where A
+@inline function construct_generic_unchecked(
+    ::Union{Base.HasLength, Base.HasShape},
+    T::Type{<:Kmer{A}},
+    itr,
+) where {A}
     check_kmer(T)
     data = zero_tuple(T)
     nbits = BioSequences.bits_per_symbol(A())
@@ -156,7 +165,11 @@ end
 end
 
 # Generic, size known but length not checked.
-@inline function construct_generic(iT::Union{Base.HasLength, Base.HasShape}, T::Type{<:Kmer{A, K}}, itr) where {A, K}
+@inline function construct_generic(
+    iT::Union{Base.HasLength, Base.HasShape},
+    T::Type{<:Kmer{A, K}},
+    itr,
+) where {A, K}
     length(itr) == K || error("Length of sequence must be K elements to build Kmer")
     construct_generic_unchecked(iT, T, itr)
 end
@@ -164,13 +177,16 @@ end
 # BioSequences with the same Alphabet and these element types do not need to decode
 # and encode, but can copy the raw bits directly into the kmer
 @inline function construct_unchecked(
-    T::Type{<:Kmer{A}}, s::BioSequence{A}, data_eltype::Type{E}
+    T::Type{<:Kmer{A}},
+    s::BioSequence{A},
+    data_eltype::Type{E},
 ) where {A <: Alphabet, E <: Union{UInt8, UInt16, UInt32, UInt}}
     check_kmer(T)
     data = zero_tuple(T)
     nbits = BioSequences.bits_per_symbol(A())
     for i in 1:ksize(T)
-        (_, data) = leftshift_carry(data, nbits, BioSequences.extract_encoded_element(s, i) % UInt)
+        (_, data) =
+            leftshift_carry(data, nbits, BioSequences.extract_encoded_element(s, i) % UInt)
     end
     T(unsafe, data)
 end
@@ -178,7 +194,11 @@ end
 # With LongSequence of the same alphabet, entire coding elements can be copied
 # directly.
 # TODO: Test that LongSequence and LongSubSeq encoded_data_eltype is UInt
-@inline function construct_unchecked(T::Type{<:Kmer{A}}, s::LongSequence{A}, data_eltype::Type{UInt}) where {A <: Alphabet}
+@inline function construct_unchecked(
+    T::Type{<:Kmer{A}},
+    s::LongSequence{A},
+    data_eltype::Type{UInt},
+) where {A <: Alphabet}
     check_kmer(T)
     Bps = BioSequences.BitsPerSymbol(A())
     data = ntuple(i -> BioSequences.reversebits(@inbounds(s.data[i]), Bps), Val{nsize(T)}())
@@ -215,8 +235,8 @@ end
 
 # BioSequence: Various missing type parameters
 Kmer{A, K}(s::BioSequence) where {A, K} = derive_type(Kmer{A, K})(s)
-Kmer{A}(s::BioSequence) where A = derive_type(Kmer{A, length(s)})(s)
-Kmer(s::BioSequence{A}) where A = derive_type(Kmer{A, length(s)})(s)
+Kmer{A}(s::BioSequence) where {A} = derive_type(Kmer{A, length(s)})(s)
+Kmer(s::BioSequence{A}) where {A} = derive_type(Kmer{A, length(s)})(s)
 
 # Iterators: Various missing type parameters.
 # It's too impractical to construct a kmer before we know the value of K,
@@ -230,15 +250,15 @@ function Kmer{A, K}(iT::Union{Base.HasLength, Base.HasShape}, itr) where {A, K}
     construct_generic_unchecked(iT, derive_type(Kmer{A, K}), itr)
 end
 
-Kmer{A}(itr) where A = Kmer{A}(Base.IteratorSize(itr), itr)
-Kmer{A}(::Base.SizeUnknown, itr) where A = Kmer{A}(vec(collect(itr)))
+Kmer{A}(itr) where {A} = Kmer{A}(Base.IteratorSize(itr), itr)
+Kmer{A}(::Base.SizeUnknown, itr) where {A} = Kmer{A}(vec(collect(itr)))
 
-function Kmer{A}(iT::Union{Base.HasLength, Base.HasShape}, itr) where A
+function Kmer{A}(iT::Union{Base.HasLength, Base.HasShape}, itr) where {A}
     construct_generic_unchecked(iT, derive_type(Kmer{A, length(itr)}), itr)
 end
 
 # Strings: Various missing type parameters
-function Kmer{A}(s::Union{String, SubString{String}}) where A
+function Kmer{A}(s::Union{String, SubString{String}}) where {A}
     construct_generic_unchecked(Base.HasLength(), derive_type(Kmer{A, length(s)}), s)
 end
 
@@ -302,7 +322,7 @@ function Base.print(io::IO, s::Kmer)
 end
 
 Base.cmp(x::T, y::T) where {T <: Kmer} = cmp(x.data, y.data)
-Base.:(==)(x::Kmer{A}, y::Kmer{A}) where A = x.data == y.data
+Base.:(==)(x::Kmer{A}, y::Kmer{A}) where {A} = x.data == y.data
 Base.isless(x::T, y::T) where {T <: Kmer} = isless(x.data, y.data)
 
 Base.isequal(x::Kmer, y::BioSequence) = false
@@ -311,7 +331,7 @@ Base.hash(x::Kmer{A, K, N}, h::UInt) where {A, K, N} = hash(x.data, h ⊻ K)
 
 function push(kmer::Kmer, s)
     bps = BioSequences.bits_per_symbol(kmer)
-    newT = derive_type(Kmer{A, length(kmer)+1})
+    newT = derive_type(Kmer{A, length(kmer) + 1})
     # If no free space in data, add new tuple
     new_data = if n_unused(typeof(kmer)) < bps
         (zero(UInt), kmer.data...)
@@ -340,7 +360,7 @@ AminoAcid 10-mer
 KYMLPIIRSF
 ```
 """
-function shift(kmer::Kmer{A}, s) where A
+function shift(kmer::Kmer{A}, s) where {A}
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
     shift_encoding(kmer, encoding)
 end
@@ -352,9 +372,9 @@ end
     typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
 end
 
-function pushfirst(kmer::Kmer{A}, s) where A
+function pushfirst(kmer::Kmer{A}, s) where {A}
     bps = BioSequences.bits_per_symbol(A())
-    newT = derive_type(Kmer{A, length(kmer)+1})
+    newT = derive_type(Kmer{A, length(kmer) + 1})
     # If no free space in data, add new tuple
     new_data = if n_unused(typeof(kmer)) < bps
         (zero(UInt), kmer.data...)
@@ -383,12 +403,12 @@ AminoAcid 10-mer
 FWKYMLPIIR
 ```
 """
-function shift_first(kmer::Kmer{A}, s) where A
+function shift_first(kmer::Kmer{A}, s) where {A}
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
     shift_first_encoding(kmer, encoding)
 end
 
-function shift_first_encoding(kmer::Kmer{A}, encoding::UInt) where A
+function shift_first_encoding(kmer::Kmer{A}, encoding::UInt) where {A}
     bps = BioSequences.bits_per_symbol(A())
     (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
     (head, tail...) = new_data
@@ -396,10 +416,10 @@ function shift_first_encoding(kmer::Kmer{A}, encoding::UInt) where A
     typeof(kmer)(unsafe, (head, tail...))
 end
 
-function pop(kmer::Kmer{A}) where A
+function pop(kmer::Kmer{A}) where {A}
     isempty(kmer) && throw(ArgumentError("Cannot pop 0-mer"))
     bps = BioSequences.bits_per_symbol(A())
-    newT = derive_type(Kmer{A, length(kmer)-1})
+    newT = derive_type(Kmer{A, length(kmer) - 1})
     (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
     new_data = if elements_in_head(typeof(kmer)) == 1
         (head, tail...) = new_data
@@ -413,5 +433,5 @@ end
 # Get a mask 0x0001111 ... masking away the unused bits of the head element
 # in the UInt tuple
 @inline function get_mask(T::Type{<:Kmer})
-    UInt(1) << (8*sizeof(UInt) - bits_unused(T)) - 1
+    UInt(1) << (8 * sizeof(UInt) - bits_unused(T)) - 1
 end

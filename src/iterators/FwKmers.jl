@@ -34,6 +34,8 @@ struct FwKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
     end
 end
 
+source_type(::Type{FwKmers{A, K, S}}) where {A, K, S} = S
+
 # Constructors
 FwKmers{A, K}(s) where {A <: Alphabet, K} = FwKmers{A, K, typeof(s)}
 const FwDNAMers{K, S} = FwKmers{DNAAlphabet{2}, K, S}
@@ -49,12 +51,9 @@ function FwKmers{A, K}(s::S) where {S <: Union{String, SubString{String}}, A <: 
     FwKmers{A, K, typeof(s2)}(s2)
 end
 
-# Known length if every symbol of the sequence can be represented in the kmer
-Base.IteratorSize(::Type{<:FwKmers{A, K, <:BioSequence{A}}}) where {A <: Alphabet, K} = Base.HasLength()
-Base.IteratorSize(::Type{<:FwKmers{<:FourBit, K, <:BioSequence{<:TwoBit}}}) where K = Base.HasLength()
-
-function Base.length(it::FwKmers{A, K, <:BioSequence{A}}) where {A <: Alphabet, K}
-    length(it.seq) - K + 1
+function Base.length(it::FwKmers)
+    Base.IteratorSize(typeof(it)) == Base.HasLength() || throw(MethodError(length, (it,)))
+    length(it.seq) - ksize(eltype(it)) + 1
 end
 
 # Generic fallback

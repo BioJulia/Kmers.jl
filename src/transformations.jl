@@ -63,7 +63,7 @@ function BioSequences.translate(
         (_, data) = leftshift_carry(data, BioSequences.bits_per_symbol(AminoAcidAlphabet()), carry)
     end
     result = T(unsafe, data)
-    if alternative_start && !iszero(ksize(seq))
+    if alternative_start && !iszero(ksize(typeof(seq)))
         return setindex(result, 1, AA_M)
     else
         return result
@@ -96,7 +96,7 @@ function BioSequences.translate(
         (_, data) = leftshift_carry(data, BioSequences.bits_per_symbol(AminoAcidAlphabet()), carry)
     end
     result = T(unsafe, data)
-    if alternative_start && !iszero(ksize(seq))
+    if alternative_start && !iszero(ksize(typeof(seq)))
         return setindex(result, 1, AA_M)
     else
         return result

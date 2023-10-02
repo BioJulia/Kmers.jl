@@ -4,6 +4,8 @@ end
 
 const SameFwCanonicalKmers{A, K, S} = FwCanonicalKmers{S, A, K} where {A, S <: BioSequence{A}}
 
+source_type(::Type{FwCanonicalKmers{A, K, S}}) where {A, K, S} = S
+
 function FwCanonicalKmers{K}(s::BioSequence) where K
     S = typeof(s)
     A = typeof(Alphabet(S))
@@ -20,8 +22,6 @@ function FwCanonicalKmers{A, K}(s::S) where {S <: Union{String, SubString{String
     FwCanonicalKmers{typeof(s2), A, K}(s2)
 end
 
-Base.IteratorSize(::Type{<:SameFwCanonicalKmers}) = Base.HasLength()
-Base.IteratorSize(::Type{<:FwCanonicalKmers{<:BioSequence{<:TwoBit}, <:FourBit}}) = Base.HasLength()
 Base.length(it::SameFwCanonicalKmers) = length(it.it)
 
 # Generic iterator for the first element: I think we can do no better than to reverse-complement

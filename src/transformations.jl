@@ -32,7 +32,7 @@ end
 
 # TODO: Should this be the generic BioSequence def in BioSequences.jl?
 function BioSequences.reverse_complement(x::Kmer)
-    reverse(complement(x))
+    @inline(reverse(@inline(complement(x))))
 end
 
 function BioSequences.canonical(x::Kmer)

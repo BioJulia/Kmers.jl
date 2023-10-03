@@ -117,183 +117,12 @@ end
 @inline derive_type(::Type{Kmer{A, K}}) where {A, K} =
     Kmer{A, K, n_coding_elements(Kmer{A, K})}
 
-################################################
-# Constructors
-################################################
-
 zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), Val{nsize(T)}())
 
 # TODO: Should this somehow throw a MethodError if N is already parameterized?
 function zero_kmer(T::Type{Kmer{A, K}}) where {A, K}
     T2 = derive_type(Kmer{A, K})
     T2(unsafe, zero_tuple(T2))
-end
-
-# Generic, unknown size
-@inline function construct_generic(
-    ::Base.SizeUnknown,
-    T::Type{<:Kmer{A, K}},
-    itr,
-) where {A, K}
-    check_kmer(T)
-    data = zero_tuple(T)
-    nbits = BioSequences.bits_per_symbol(A())
-    for (i, element) in enumerate(itr)
-        i > K && error("Length of sequence must be K elements to build Kmer")
-        symbol = convert(eltype(A), element)
-        carry = UInt(BioSequences.encode(A(), symbol))
-        (_, data) = leftshift_carry(data, nbits, carry)
-    end
-    T(unsafe, data)
-end
-
-# Generic, size known
-@inline function construct_generic_unchecked(
-    ::Union{Base.HasLength, Base.HasShape},
-    T::Type{<:Kmer{A}},
-    itr,
-) where {A}
-    check_kmer(T)
-    data = zero_tuple(T)
-    nbits = BioSequences.bits_per_symbol(A())
-    for element in itr
-        symbol = convert(eltype(A), element)
-        carry = UInt(BioSequences.encode(A(), symbol))
-        (_, data) = leftshift_carry(data, nbits, carry)
-    end
-    T(unsafe, data)
-end
-
-# Generic, size known but length not checked.
-@inline function construct_generic(
-    iT::Union{Base.HasLength, Base.HasShape},
-    T::Type{<:Kmer{A, K}},
-    itr,
-) where {A, K}
-    length(itr) == K || error("Length of sequence must be K elements to build Kmer")
-    construct_generic_unchecked(iT, T, itr)
-end
-
-# BioSequences with the same Alphabet and these element types do not need to decode
-# and encode, but can copy the raw bits directly into the kmer
-@inline function construct_unchecked(
-    T::Type{<:Kmer{A}},
-    s::BioSequence{A},
-    data_eltype::Type{E},
-) where {A <: Alphabet, E <: Union{UInt8, UInt16, UInt32, UInt}}
-    check_kmer(T)
-    data = zero_tuple(T)
-    nbits = BioSequences.bits_per_symbol(A())
-    for i in 1:ksize(T)
-        (_, data) =
-            leftshift_carry(data, nbits, BioSequences.extract_encoded_element(s, i) % UInt)
-    end
-    T(unsafe, data)
-end
-
-# With LongSequence of the same alphabet, entire coding elements can be copied
-# directly.
-# TODO: Test that LongSequence and LongSubSeq encoded_data_eltype is UInt
-@inline function construct_unchecked(
-    T::Type{<:Kmer{A}},
-    s::LongSequence{A},
-    data_eltype::Type{UInt},
-) where {A <: Alphabet}
-    check_kmer(T)
-    Bps = BioSequences.BitsPerSymbol(A())
-    data = ntuple(i -> BioSequences.reversebits(@inbounds(s.data[i]), Bps), Val{nsize(T)}())
-    (_, data) = rightshift_carry(data, bits_unused(T), zero(UInt))
-    T(unsafe, data)
-end
-
-# BioSequence with another element type fall back to the generic length constructor
-@inline function construct_unchecked(T::Type{<:Kmer}, s::BioSequence, data_eltype::Type)
-    construct_generic_unchecked(Base.HasLength(), T, s)
-end
-
-# BioSequence must implement length so we don't need to dispatch on that.
-# However, if the encoded data eltype is an unsigned, we can use a specialized method where we don't
-# decode each symbol but simply move the encoded data directly into the tuple
-function Kmer{A, K, N}(s::BioSequence) where {A, K, N}
-    length(s) == K || error("Length of sequence must be K elements to build Kmer")
-    construct_unchecked(Kmer{A, K, N}, s, BioSequences.encoded_data_eltype(typeof(s)))
-end
-
-# Generic constructor: Dispatch on the iteratorsize
-function Kmer{A, K, N}(itr) where {A, K, N}
-    construct_generic(Base.IteratorSize(typeof(itr)), Kmer{A, K, N}, itr)
-end
-
-# To avoid having the O(N) length check. TODO: Use optimised method
-function Kmer{A, K, N}(s::Union{String, SubString{String}}) where {A, K, N}
-    construct_generic(Base.SizeUnknown(), Kmer{A, K, N}, s)
-end
-
-################################################
-# Derived constructors
-################################################
-
-# BioSequence: Various missing type parameters
-Kmer{A, K}(s::BioSequence) where {A, K} = derive_type(Kmer{A, K})(s)
-Kmer{A}(s::BioSequence) where {A} = derive_type(Kmer{A, length(s)})(s)
-Kmer(s::BioSequence{A}) where {A} = derive_type(Kmer{A, length(s)})(s)
-
-# Iterators: Various missing type parameters.
-# It's too impractical to construct a kmer before we know the value of K,
-# so either the iterator must have a known length, or else we need to collect
-# it first
-Kmer{A, K}(itr) where {A, K} = Kmer{A, K}(Base.IteratorSize(itr), itr)
-Kmer{A, K}(::Base.SizeUnknown, itr) where {A, K} = Kmer{A, K}(collect(itr))
-
-function Kmer{A, K}(iT::Union{Base.HasLength, Base.HasShape}, itr) where {A, K}
-    length(itr) == K || error("Length of sequence must be K elements to build Kmer")
-    construct_generic_unchecked(iT, derive_type(Kmer{A, K}), itr)
-end
-
-Kmer{A}(itr) where {A} = Kmer{A}(Base.IteratorSize(itr), itr)
-Kmer{A}(::Base.SizeUnknown, itr) where {A} = Kmer{A}(vec(collect(itr)))
-
-function Kmer{A}(iT::Union{Base.HasLength, Base.HasShape}, itr) where {A}
-    construct_generic_unchecked(iT, derive_type(Kmer{A, length(itr)}), itr)
-end
-
-# Strings: Various missing type parameters
-function Kmer{A}(s::Union{String, SubString{String}}) where {A}
-    construct_generic_unchecked(Base.HasLength(), derive_type(Kmer{A, length(s)}), s)
-end
-
-function Kmer{A, K}(s::Union{String, SubString{String}}) where {A, K}
-    length(s) == K || error("Length of sequence must be K elements to build Kmer")
-    construct_generic_unchecked(Base.HasLength(), derive_type(Kmer{A, K}), s)
-end
-
-# TODO: Constructor from LongSubSeq
-# where whole coding elements can be copied directly over
-# without extracting individual elements
-
-# TODO: Kmer => LongSequence constructor, same as above but opposite, kinda.
-
-# TODO: Constructor from String that predicts the alphabet?
-# Maybe implement the guessparse function in BioSequences.jl
-# (See related issue), then call it from here.
-
-################################################
-# String literals
-################################################
-
-macro mer_str(seq, flag)
-    trimmed = BioSequences.remove_newlines(seq)
-    # Unlike @dna_str, we default to 2-bit alphabets, because kmers
-    # by convention are usually 2-bit only
-    if flag == "dna" || flag == "d"
-        Kmer{DNAAlphabet{2}}(trimmed)
-    elseif flag == "rna" || flag == "r"
-        Kmer{RNAAlphabet{2}}(trimmed)
-    elseif flag == "aa" || flag == "a"
-        Kmer{AminoAcidAlphabet}(trimmed)
-    else
-        error("Invalid type flag: '$(flag)'")
-    end
 end
 
 ##################
@@ -321,12 +150,22 @@ function Base.print(io::IO, s::Kmer)
     print(io, LongSequence(s))
 end
 
-Base.cmp(x::T, y::T) where {T <: Kmer} = cmp(x.data, y.data)
-Base.:(==)(x::Kmer{A}, y::Kmer{A}) where {A} = x.data == y.data
-Base.isless(x::T, y::T) where {T <: Kmer} = isless(x.data, y.data)
+function Base.cmp(x::Kmer{A, K1}, y::Kmer{A, K2}) where {A, K1, K2}
+    if K1 < K2
+        -1
+    elseif K2 < K1
+        1
+    else
+        cmp(x.data, y.data)
+    end
+end
 
-Base.isequal(x::Kmer, y::BioSequence) = false
-Base.isequal(x::BioSequence, y::Kmer) = false
+Base.isless(x::Kmer, y::Kmer) = cmp(x, y) == -1
+Base.:(==)(x::Kmer, y::Kmer) = iszero(cmp(x, y))
+
+Base.:(==)(x::Kmer, y::BioSequence) = throw(MethodError(==, (x, y)))
+Base.:(==)(x::BioSequence, y::Kmer) = throw(MethodError(==, (x, y)))
+
 Base.hash(x::Kmer{A, K, N}, h::UInt) where {A, K, N} = hash(x.data, h ⊻ K)
 
 function push(kmer::Kmer, s)

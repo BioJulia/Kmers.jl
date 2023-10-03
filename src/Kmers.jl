@@ -127,15 +127,21 @@ Internal trait object used to access unsafe methods of functions.
 struct Unsafe end
 const unsafe = Unsafe()
 
+const FourBit = Union{DNAAlphabet{4}, RNAAlphabet{4}}
+const TwoBit = Union{DNAAlphabet{2}, RNAAlphabet{2}}
+const Bytes = Union{String, SubString{String}, AbstractVector{UInt8}}
+const BitInteger = Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128}
+
 include("tuple_bitflipping.jl")
 include("kmer.jl")
+include("construction.jl")
 include("indexing.jl")
 include("transformations.jl")
 include("revtrans.jl")
 
 include("iterators/common.jl")
 include("iterators/FwKmers.jl")
-include("iterators/CanonicalKmers.jl")
-include("iterators/SpacedKmers.jl")
+#include("iterators/CanonicalKmers.jl")
+#include("iterators/SpacedKmers.jl")
 
 end # module

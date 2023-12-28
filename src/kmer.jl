@@ -74,7 +74,7 @@ This function should compile to a noop in case the parameterization is good.
 @inline function check_kmer(::Type{Kmer{A, K, N}}) where {A, K, N}
     if !(K isa Int)
         throw(ArgumentError("K must be an Int"))
-    elseif K < 1
+    elseif K < 0
         throw(ArgumentError("Bad kmer parameterisation. K must be greater than 0."))
     end
     n = cld((K * BioSequences.bits_per_symbol(A())) % UInt, (sizeof(UInt) * 8) % UInt) % Int
@@ -94,7 +94,8 @@ end
 @inline ksize(::Type{<:Kmer{A, K}}) where {A, K} = K
 @inline nsize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = N
 @inline n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
-@inline bits_unused(T::Type{<:Kmer}) = n_unused(T) * BioSequences.bits_per_symbol(T)
+@inline bits_unused(T::Type{<:Kmer}) =
+    n_unused(T) * BioSequences.bits_per_symbol(Alphabet(T))
 
 @inline BioSequences.Alphabet(::Kmer{A}) where {A} = A()
 
@@ -150,7 +151,7 @@ function Base.print(io::IO, s::Kmer)
     print(io, LongSequence(s))
 end
 
-function Base.cmp(x::Kmer{A, K1}, y::Kmer{A, K2}) where {A, K1, K2}
+@inline function _cmp(x::Kmer{A1, K1}, y::Kmer{A2, K2}) where {A1, A2, K1, K2}
     if K1 < K2
         -1
     elseif K2 < K1
@@ -159,6 +160,13 @@ function Base.cmp(x::Kmer{A, K1}, y::Kmer{A, K2}) where {A, K1, K2}
         cmp(x.data, y.data)
     end
 end
+
+# Here, we don't allow comparing twobit to fourbit sequences. We could do this semantically,
+# but this would open a whole can of worms, be impossible to optimise and defeat the purpose
+# of using Kmers.
+Base.cmp(x::Kmer{A}, y::Kmer{A}) where {A} = _cmp(x, y)
+Base.cmp(x::Kmer{<:FourBit}, y::Kmer{<:FourBit}) = _cmp(x, y)
+Base.cmp(x::Kmer{<:TwoBit}, y::Kmer{<:TwoBit}) = _cmp(x, y)
 
 Base.isless(x::Kmer, y::Kmer) = cmp(x, y) == -1
 Base.:(==)(x::Kmer, y::Kmer) = iszero(cmp(x, y))
@@ -170,7 +178,8 @@ Base.hash(x::Kmer{A, K, N}, h::UInt) where {A, K, N} = hash(x.data, h ⊻ K)
 
 function push(kmer::Kmer, s)
     bps = BioSequences.bits_per_symbol(kmer)
-    newT = derive_type(Kmer{A, length(kmer) + 1})
+    A = Alphabet(kmer)
+    newT = derive_type(Kmer{typeof(A), length(kmer) + 1})
     # If no free space in data, add new tuple
     new_data = if n_unused(typeof(kmer)) < bps
         (zero(UInt), kmer.data...)
@@ -178,7 +187,7 @@ function push(kmer::Kmer, s)
         kmer.data
     end
     # leftshift_carry the new encoding in.
-    encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
+    encoding = UInt(BioSequences.encode(A, convert(eltype(kmer), s)))
     (_, new_data) = leftshift_carry(new_data, bps, encoding)
     newT(unsafe, new_data)
 end
@@ -211,7 +220,7 @@ end
     typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
 end
 
-function pushfirst(kmer::Kmer{A}, s) where {A}
+function push_first(kmer::Kmer{A}, s) where {A}
     bps = BioSequences.bits_per_symbol(A())
     newT = derive_type(Kmer{A, length(kmer) + 1})
     # If no free space in data, add new tuple

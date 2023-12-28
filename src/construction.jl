@@ -153,29 +153,33 @@ function Kmer{A, K, N}(x) where {A, K, N}
 end
 
 # BioSequences support indexing and fast length checks
-@inline function build_kmer(R::RecodingScheme, ::Type{T}, s::BioSequence) where T
-    length(s) == K || error("Length of sequence must be K elements to build Kmer")
+@inline function build_kmer(R::RecodingScheme, ::Type{T}, s::BioSequence) where {T}
+    length(s) == ksize(T) || error("Length of sequence must be K elements to build Kmer")
     unsafe_extract(R, T, s, 1)
 end
 
-# LongSequence with same alphabet: Extract whole coding elements
-@inline function build_kmer(R::RecodingScheme, ::Type{Kmer{A, K, N}}, s::LongSequence{A}) where {A, K, N}
-    length(s) == K || error("Length of sequence must be K elements to build Kmer")
-    bps = BioSequences.BitsPerSymbol(A())
-    data = ntuple(i -> BioSequences.reversebits(@inbounds(s.data[i]), bps), Val{nsize(Kmer{A, K, N})}())
+# LongSequence with compatible alphabet: Extract whole coding elements
+@inline function build_kmer(R::Copyable, ::Type{T}, s::LongSequence) where {T}
+    length(s) == ksize(T) || error("Length of sequence must be K elements to build Kmer")
+    bps = BioSequences.BitsPerSymbol(Alphabet(T))
+    data = ntuple(i -> BioSequences.reversebits(@inbounds(s.data[i]), bps), Val{nsize(T)}())
     (_, data) = rightshift_carry(data, bits_unused(T), zero(UInt))
     T(unsafe, data)
 end
 
-# TODO: LongSubSeq: 
+# TODO: LongSubSeq with compatible alphabet
 
 # For UTF8-strings combined with an ASCII kmer alphabet, we convert to byte vector
-@inline function build_kmer(R::AsciiEncode, ::Type{T}, s::Union{String, SubString{String}}) where T
+@inline function build_kmer(
+    R::AsciiEncode,
+    ::Type{T},
+    s::Union{String, SubString{String}},
+) where {T}
     build_kmer(R, T, codeunits(s))
 end
 
 # For byte vectors, we can build a kmer iff the kmer alphabet is AsciiAlphabet
-@inline function build_kmer(R::AsciiEncode, ::Type{T}, s::AbstractVector{UInt8}) where T
+@inline function build_kmer(R::AsciiEncode, ::Type{T}, s::AbstractVector{UInt8}) where {T}
     length(s) == ksize(T) || error("Length of sequence must be K elements to build Kmer")
     unsafe_extract(R, T, s, 1)
 end
@@ -190,23 +194,28 @@ end
     A = Alphabet(T)
     bps = BioSequences.bits_per_symbol(A)
     i = 0
-    for element in itr
+    for element in s
         i += 1
-        i > K && error("Length of sequence must be K elements to build Kmer")
+        i > ksize(T) && error("Length of sequence must be K elements to build Kmer")
         symbol = convert(eltype(A), element)
         carry = UInt(BioSequences.encode(A, symbol))
         (_, data) = leftshift_carry(data, bps, carry)
     end
-    i == K || error("Length of sequence must be K elements to build Kmer")
+    i == ksize(T) || error("Length of sequence must be K elements to build Kmer")
     T(unsafe, data)
 end
 
-@inline function build_kmer(::Union{Base.HasLength, Base.HasShape}, ::RecodingScheme, T::Type, s)
-    length(s) == K || error("Length of sequence must be K elements to build Kmer")
+@inline function build_kmer(
+    ::Union{Base.HasLength, Base.HasShape},
+    ::RecodingScheme,
+    T::Type,
+    s,
+)
+    length(s) == ksize(T) || error("Length of sequence must be K elements to build Kmer")
     data = zero_tuple(T)
     A = Alphabet(T)
     bps = BioSequences.bits_per_symbol(A)
-    for element in itr
+    for element in s
         symbol = convert(eltype(A), element)
         carry = UInt(BioSequences.encode(A, symbol))
         (_, data) = leftshift_carry(data, bps, carry)
@@ -219,6 +228,7 @@ end
 ################################################
 
 Kmer{A, K}(x) where {A, K} = derive_type(Kmer{A, K})(x)
+Kmer{A1}(x::Kmer{A2, K, N}) where {A1, A2, K, N} = Kmer{A1, K, N}(x)
 
 function kmer(::Val{K}, s::BioSequence{A}) where {A, K}
     K isa Int || error("K must be an Int")
@@ -246,7 +256,7 @@ macro mer_str(seq, flag)
     elseif flag == "rna" || flag == "r"
         Kmer{RNAAlphabet{2}, ncu}(trimmed)
     elseif flag == "aa" || flag == "a"
-        Kmer{AminoAcidAlphabet,ncu}(trimmed)
+        Kmer{AminoAcidAlphabet, ncu}(trimmed)
     else
         error("Invalid type flag: '$(flag)'")
     end

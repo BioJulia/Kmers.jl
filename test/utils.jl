@@ -1,3 +1,7 @@
+function random_seq(A::Alphabet, n::Integer)
+    randseq(A, SamplerUniform(symbols(A)), n)
+end
+
 # Return a random DNA/RNA sequence of the given length.
 function random_seq(n::Integer, nts, probs, outtype=String)
     cumprobs = cumsum(probs)

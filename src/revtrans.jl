@@ -24,8 +24,6 @@ Kmers.CodonSet with 4 elements:
   UAG
   UUU
 ```
-
-See also: `push`
 """
 struct CodonSet <: AbstractSet{RNACodon}
     x::UInt64
@@ -138,11 +136,20 @@ function Base.iterate(c::ReverseGeneticCode, s=1)
 end
 
 """
-    reverse_translate!(v::Vector{CodonSet}, s::AASeq code=rev_standard_genetic_code)
+    reverse_translate!(v::Vector{CodonSet}, s::AASeq code=rev_standard_genetic_code) -> v
 
 Reverse-translates `s` under the reverse genetic code `code`, putting the result in `v`.
 
 See also: [`reverse_translate`](@ref)
+
+# Examples:
+```jldoctest
+julia> v = CodonSet[];
+
+julia> reverse_translate!(v, aa"KWCL")
+4-element Vector{CodonSet}
+[...]
+```
 """
 function reverse_translate!(v::Vector{CodonSet}, seq::AASeq, code=rev_standard_genetic_code)
     resize!(v, length(seq))

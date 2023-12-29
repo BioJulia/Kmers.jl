@@ -1,28 +1,30 @@
 """
     Kmer{A<:Alphabet,K,N} <: BioSequence{A}
 
-A parametric, immutable, bitstype for representing k-mers - short sequences
+An immutable bitstype for representing k-mers - short `BioSequences`
 of a fixed length `K`.
 Since they can be stored directly in registers, `Kmer`s are generally the most
 efficient type of `BioSequence`, when `K` is small and known at compile time.
+
 The `N` parameter is derived from `A` and `K` and is not a free parameter.
+
+See also: [`DNAKmer`](@ref), [`RNAKmer`](@ref), [`AAKmer`](@ref), [`AbstractKmerIterator`](@ref)
 
 # Examples
 ```jldoctest
-julia> m = Kmer{DNAAlphabet{4}}("AGCKN") # type-unstable
-DNA 5-mer
-AGCKN
+julia> RNAKmer{5}("ACGUC")
+RNA 5-mer
+ACGUC
 
-julia> length(m) == 5
-true
+julia> Kmer{DNAAlphabet{4}, 6}(dna"TGCTTA")
+DNA 6-mer
+TGCTTA
 
-julia> DNAKmer(dna"TGCTTA") isa DNAKmer{6}
-true
+julia> AAKmer{5}((lowercase(i) for i in "KLWYR"))
+AminoAcid 5-mer
+TGCTTA
 
-julia> AAKmer((lowercase(i) for i in "KLWYR")) isa AAKmer{5}
-true
-
-julia> RNAKmer{3}("UA")
+julia> RNAKmer{3}("UAUC") # wrong length
 ERROR:
 [ ... ]
 ```
@@ -49,22 +51,40 @@ struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
 end
 
 # Useful to do e.g. `mer"TAG"d isa Mer{3}`
+"""
+    Mer{K}
+
+Alias for `Kmer{<:Alphabet, K}`. Useful to dispatch on `K-mers` without regard
+for the alphabat
+
+# Example
+```jldoctest
+julia> mer"DEKR"a isa Mer{4}
+true
+
+julia> DNAKmer{2}("TGATCA") isa Mer{6}
+true
+
+julia> RNACodon <: Mer{3}
+true
+```
+"""
 const Mer{K} = Kmer{<:Alphabet, K}
 
 # Aliases
-"Shortcut for the type `Kmer{DNAAlphabet{2},K,N}`"
+"Alias for `Kmer{DNAAlphabet{2},K,N}`"
 const DNAKmer{K, N} = Kmer{DNAAlphabet{2}, K, N}
 
-"Shortcut for the type `Kmer{RNAAlphabet{2},K,N}`"
+"Alias for `Kmer{RNAAlphabet{2},K,N}`"
 const RNAKmer{K, N} = Kmer{RNAAlphabet{2}, K, N}
 
-"Shortcut for the type `Kmer{AminoAcidAlphabet,K,N}`"
+"Alias for `Kmer{AminoAcidAlphabet,K,N}`"
 const AAKmer{K, N} = Kmer{AminoAcidAlphabet, K, N}
 
-"Shorthand for `DNAKmer{3,1}`"
+"Alias for `DNAKmer{3,1}`"
 const DNACodon = DNAKmer{3, 1}
 
-"Shorthand for `RNAKmer{3,1}`"
+"Alias for `RNAKmer{3,1}`"
 const RNACodon = RNAKmer{3, 1}
 
 """
@@ -174,6 +194,29 @@ Base.:(==)(x::BioSequence, y::Kmer) = throw(MethodError(==, (x, y)))
 
 Base.hash(x::Kmer{A, K, N}, h::UInt) where {A, K, N} = hash(x.data, h ⊻ K)
 
+"""
+    push(kmer::Kmer{A, K}, s)::Kmer{A, K+1}
+
+Create a new kmer which is the concatenation of `kmer` and `s`.
+Returns a `K+1`-mer.
+
+!!! warn
+    Since the output of this function is a `K+1`-mer, use of this function
+    in a loop may result in type-instability.
+
+See also: [`push_first`](@ref), [`pop`](@ref), [`shift`](@ref)
+
+# Examples
+```jldoctest
+julia> shift(mer"UGCUGA"r, RNA_G)
+RNA 7-mer
+UGCUGAG
+
+julia> shift(mer"W"a, 'E')
+AminoAcid 2-mer
+WE
+```
+"""
 function push(kmer::Kmer, s)
     bps = BioSequences.bits_per_symbol(kmer)
     A = Alphabet(kmer)
@@ -191,9 +234,13 @@ function push(kmer::Kmer, s)
 end
 
 """
-shift(kmer::kmer, symbol)::typeof(kmer)
+    shift(kmer::Kmer{A, K}, s)::Kmer{A, K}
 
 Push `symbol` onto the end of `kmer`, and pop the first symbol in `kmer`.
+Unlike `push`, this preserves the input type, and is less likely to result in
+type instability.
+
+See also: [`shift_first`](@ref), [`push`](@ref)
 
 # Examples
 ```jldoctest
@@ -201,7 +248,7 @@ julia> shift(mer"TACC"d, DNA_A)
 DNA 4-mer
 ACCA
 
-julia> shift(mer"WKYMLPIIRS"aa, AA_F)
+julia> shift(mer"WKYMLPIIRS"aa, 'F')
 AminoAcid 10-mer
 KYMLPIIRSF
 ```
@@ -218,6 +265,30 @@ end
     typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
 end
 
+"""
+    push_first(kmer::Kmer{A, K}, s)::Kmer{A, K+1}
+
+Create a new kmer which is the concatenation of `s` and `kmer`.
+Returns a `K+1`-mer. Similar to [`push`](@ref), but places the new symbol `s`
+at the front.
+
+!!! warn
+    Since the output of this function is a `K+1`-mer, use of this function
+    in a loop may result in type-instability.
+
+See also: [`push`](@ref),  [`pop`](@ref), [`shift`](@ref)
+
+# Examples
+```jldoctest
+julia> shift(mer"GCU"r, RNA_G)
+RNA 4-mer
+GGCU
+
+julia> shift(mer"W"a, 'E')
+AminoAcid 2-mer
+EW
+```
+"""
 function push_first(kmer::Kmer{A}, s) where {A}
     bps = BioSequences.bits_per_symbol(A())
     newT = derive_type(Kmer{A, length(kmer) + 1})
@@ -238,13 +309,15 @@ end
 
 Push `symbol` onto the start of `kmer`, and pop the last symbol in `kmer`.
 
+See also: [`shift`](@ref), [`push`](@ref)
+
 # Examples
 ```jldoctest
 julia> shift_first(mer"TACC"d, DNA_A)
 DNA 4-mer
 ATAC
 
-julia> shift_first(mer"WKYMLPIIRS"aa, AA_F)
+julia> shift_first(mer"WKYMLPIIRS"aa, 'F')
 AminoAcid 10-mer
 FWKYMLPIIR
 ```
@@ -262,6 +335,33 @@ function shift_first_encoding(kmer::Kmer{A}, encoding::UInt) where {A}
     typeof(kmer)(unsafe, (head, tail...))
 end
 
+"""
+    pop(kmer::Kmer{A, K})::Kmer{A, K-1}
+
+Returns a new kmer with the last symbol of the input `kmer` removed.
+Throws an `ArgumentError` if `kmer` is empty.
+
+!!! warn
+    Since the output of this function is a `K+1`-mer, use of this function
+    in a loop may result in type-instability.
+
+See also: [`push`](@ref), [`shift`](@ref)
+
+# Examples
+```jldoctest
+julia> pop(mer"TCTGTA"d)
+DNA 5-mer
+TCTGT
+
+julia> pop(mer"QPSY"a)
+AminoAcid 3-mer
+QPS
+
+julia> pop(mer""a)
+ERROR: ArgumentError:
+[...]
+```
+"""
 function pop(kmer::Kmer{A}) where {A}
     isempty(kmer) && throw(ArgumentError("Cannot pop 0-mer"))
     bps = BioSequences.bits_per_symbol(A())

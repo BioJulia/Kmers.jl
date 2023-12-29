@@ -367,6 +367,57 @@ end
 end
 
 @testset "Translation" begin
+    @testset "Forward translation" begin
+        # Empty
+        @test translate(mer""r) == mer""a
+        @test translate(mer""d) == mer""a
+        @test translate(Kmer{DNAAlphabet{4}, 0}("")) == mer""a
+
+        # Not divisible by 3
+        @test_throws Exception translate(mer"U"r)
+        @test_throws Exception translate(mer"UGCA"r)
+        @test_throws Exception translate(mer"GUCGAUUGUC"r)
+
+        # Containing gaps
+        @test_throws Exception translate(Kmer{DNAAlphabet{4}, 6}("CTGA-C"))
+        @test_throws Exception translate(Kmer{RNAAlphabet{4}, 3}("UC-"))
+
+        # Invalid alphabet
+        @test_throws Exception transate(mer"CCC"a)
+        @test_throws Exception transate(Kmer{CharAlphabet, 3}("GGG"))
+
+        # Compare to LongSequence
+        for s in [
+            rna"UCGUAGUUCGAUUCUAUGCUGUAGUGGCAA",
+            rna"UCGUAGGCGUAUUGCGCAAAGCGC",
+            rna"UGCUAGUGUUCGAAA",
+            rna"UCGUUAGUAAAA",
+        ]
+            for A in [DNAAlphabet{4}, RNAAlphabet{2}, DNAAlphabet{2}, RNAAlphabet{4}]
+                ss = LongSequence{A}(s)
+                @test collect(translate(ss)) == collect(translate(Kmer{A, length(s)}(s)))
+            end
+        end
+
+        for s in [
+            rna"UGCUGAWKVUDUGWUGUDHUAGUGCNUBGKUGCMGGSWC",
+            rna"UCGUAGUCKGUCGUYCUGAGGWUGCUGANNUGCUGA",
+            rna"CAGGCCAGWGCUGSSSCUGSMGKYVUCUAS",
+        ]
+            for A in [DNAAlphabet{4}, RNAAlphabet{4}]
+                ss = LongSequence{A}(s)
+                @test collect(translate(ss)) == collect(translate(Kmer{A, length(s)}(s)))
+            end
+        end
+
+        # Skip 1, the index of gap (which cannot be translated)
+        A = alphabet(RNA)
+        for i in 2:16, j in 2:16, k in 2:16
+            mer = Kmer{RNAAlphabet{4}, 3}((A[i], A[j], A[k]))
+            @test only(translate(mer)) == only(translate(LongSequence(mer)))
+        end
+    end
+
     @testset "CodonSet" begin
         codons = [RNACodon((i, j, k)) for i in mer"UACG"r, j in mer"UACG"r, k in mer"UACG"r]
         @test length(Set(codons)) == 64

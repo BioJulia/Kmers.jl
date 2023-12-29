@@ -370,13 +370,7 @@ end
     @testset "CodonSet" begin
         codons = [RNACodon((i, j, k)) for i in mer"UACG"r, j in mer"UACG"r, k in mer"UACG"r]
         @test length(Set(codons)) == 64
-        sources = [
-            [],
-            codons[[1, 4, 8]],
-            codons,
-            codons[rand(Bool, 64)],
-            codons[[4, 8]],
-        ]
+        sources = [[], codons[[1, 4, 8]], codons, codons[rand(Bool, 64)], codons[[4, 8]]]
         csets = map(CodonSet, sources)
         sets = map(Set, sources)
 
@@ -424,7 +418,7 @@ end
         end
         @test length(seen_codons) == 64
     end
-    
+
     @testset "Custom reverse genetic code" begin
         # TODO!
     end
@@ -454,7 +448,8 @@ end
 @testset "Iterators" begin
     @testset "Forward iteration" begin
         @testset "Aliases" begin
-            @test FwKmers{DNAAlphabet{2}, 3}(dna"TAGA") isa FwKmers{DNAAlphabet{2}, 3, LongDNA{4}}
+            @test FwKmers{DNAAlphabet{2}, 3}(dna"TAGA") isa
+                  FwKmers{DNAAlphabet{2}, 3, LongDNA{4}}
             @test FwDNAMers{4}(rna"UAGC") isa FwKmers{DNAAlphabet{2}, 4, LongRNA{4}}
             @test FwRNAMers{4}(dna"TACA") isa FwKmers{RNAAlphabet{2}, 4, LongDNA{4}}
             @test FwAAMers{4}(aa"LKCY") isa FwKmers{AminoAcidAlphabet, 4, LongAA}
@@ -468,43 +463,37 @@ end
 
         @testset "Conversible alphabets" begin
             for (seqs, alphabets) in [
-                ([
-                    LongDNA{2}("TGATGGCGTAGTA"),
-                    LongRNA{2}("UCGUGCUA"),
-                    LongDNA{2}("")
-                ], [
-                    DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}
-                ]), # From two-bit
-                ([
-                    dna"TAGTCTGAC",
-                    rna"UAGUCGAUUAGGCC"
-                ], [
-                    DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}
-                ]), # From four-bit
+                (
+                    [LongDNA{2}("TGATGGCGTAGTA"), LongRNA{2}("UCGUGCUA"), LongDNA{2}("")],
+                    [DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}],
+                ), # From two-bit
+                (
+                    [dna"TAGTCTGAC", rna"UAGUCGAUUAGGCC"],
+                    [DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}],
+                ), # From four-bit
             ]
                 for seq in seqs, alphabet in alphabets
                     v1 = collect(FwKmers{alphabet, 3}(seq))
-                    v2 = [Kmer{alphabet, 3, 1}(seq[i:i+2]) for i in 1:length(seq)-2]
+                    v2 = [Kmer{alphabet, 3, 1}(seq[i:(i + 2)]) for i in 1:(length(seq) - 2)]
                     @test v1 == v2
                 end
             end
-            for seq in [
-                dna"TGWSNVNTGA", rna"C-GGAU-WSNUCG"
-            ]
+            for seq in [dna"TGWSNVNTGA", rna"C-GGAU-WSNUCG"]
                 @test_throws Exception first(FwDNAMers{3}(seq))
                 @test_throws Exception first(FwRNAMers{3}(seq))
             end
         end
 
         @testset "Four to two bit" begin
-            for seq in [
-                dna"TATGCTTCGTAGTCGTCGTTGCTA",
-            ]
+            for seq in [dna"TATGCTTCGTAGTCGTCGTTGCTA"]
                 for seqq in [seq, LongRNA{4}(seq)]
                     filtered = typeof(seqq)([i for i in seqq if !isambiguous(i)])
                     for A in [DNAAlphabet{2}, RNAAlphabet{2}]
                         v1 = collect(FwKmers{A, 4}(seqq))
-                        v2 = [Kmer{A, 4, 1}(filtered[i:i+3]) for i in 1:length(filtered)-3]
+                        v2 = [
+                            Kmer{A, 4, 1}(filtered[i:(i + 3)]) for
+                            i in 1:(length(filtered) - 3)
+                        ]
                         @test v1 == v2
                     end
                 end
@@ -515,12 +504,8 @@ end
             str = "TaghWS-TGnADbkWWMSTV"
             T = FwKmers{DNAAlphabet{4}, 4}
             mers = collect(T(str))
-            for source in [
-                str,
-                view(str, 1:lastindex(str)),
-                codeunits(str),
-                Vector(codeunits(str)),
-            ]
+            for source in
+                [str, view(str, 1:lastindex(str)), codeunits(str), Vector(codeunits(str))]
                 @test collect(T(source)) == mers
             end
         end

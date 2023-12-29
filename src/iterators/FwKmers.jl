@@ -28,10 +28,10 @@ struct FwKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
     end
 end
 
-source_type(::Type{FwKmers{A, K, S}}) where {A, K, S} = S
-load_source(x::FwKmers) = x.seq
+source_type(::Type{FwKmers{A, K, S}}) where {A, K, S} = S # TODO: Can be deleted?
+load_source(x::FwKmers) = x.seq # TODO: Can be deleted? Is it unused, here and other defs
 
-function Base.length(it::FwKmers{A, K, S}) where {A, K, S}
+@inline function Base.length(it::FwKmers{A, K, S}) where {A, K, S}
     src = used_source(RecodingScheme(A(), S), it.seq)
     max(0, length(src) - ksize(eltype(it)) + 1)
 end
@@ -43,11 +43,8 @@ const FwDNAMers{K, S} = FwKmers{DNAAlphabet{2}, K, S}
 const FwRNAMers{K, S} = FwKmers{RNAAlphabet{2}, K, S}
 const FwAAMers{K, S} = FwKmers{AminoAcidAlphabet, K, S}
 
-FwDNAMers{K}(s) where {K} = FwDNAMers{K, typeof(s)}(s)
-FwRNAMers{K}(s) where {K} = FwRNAMers{K, typeof(s)}(s)
-FwAAMers{K}(s) where {K} = FwAAMers{K, typeof(s)}(s)
-
-function Base.iterate(it::FwKmers{A, K, S}, state...) where {A, K, S}
+# TODO: Should this go in common?
+@inline function Base.iterate(it::FwKmers{A, K, S}, state...) where {A, K, S}
     iterate_kmer(RecodingScheme(A(), S), it, state...)
 end
 

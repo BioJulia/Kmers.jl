@@ -51,11 +51,3 @@ const ASCII_SKIPPING_LUT = let
     end
     Tuple(v)
 end
-
-const FOURBIT_COMPLEMENT_LUT = let
-    v = fill(0x00, 16)
-    for i in alphabet(DNA)
-        v[reinterpret(UInt8, i) + 0x01] = reinterpret(UInt8, complement(i))
-    end
-    Tuple(v)
-end

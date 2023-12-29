@@ -1,82 +1,111 @@
-struct CanonicalKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
+"""
+    CanonicalKmers{A <: NucleicAcidAlphabet, K, S}
+
+Iterator of canonical nucleic acid kmers. The result of this iterator is equivalent
+to calling `canonical` on each value of a `FwKmers` iterator, but may be more
+efficient.
+
+!!! note
+    When counting small kmers, it may be more efficient to count `FwKmers`,
+    then call `canonical` only once per unique kmer.
+
+Can be constructed more conventiently with the constructors `CanonicalDNAMers{K}(s)`
+`CanonicalRNAMers{K}(s)`
+
+# Examples:
+```jldoctest
+julia> collect(CanonicalRNAMers{3}("AGCGA"))
+3-element Vector{Kmer{RNAAlphabet{2}, 4, 1}}:
+ AGC
+ CGC
+ CGA
+```
+"""
+struct CanonicalKmers{A <: NucleicAcidAlphabet, K, S} <: AbstractKmerIterator{A, K}
     it::FwKmers{A, K, S}
 end
 
 source_type(::Type{CanonicalKmers{A, K, S}}) where {A, K, S} = S
 load_source(x::CanonicalKmers) = x.it.seq
-Base.length(it::CanonicalKmers) = length(it.it)
+@inline Base.length(it::CanonicalKmers) = length(it.it)
 
 # Constructors
-function CanonicalKmers{A, K}(s::S) where {S, A <: Alphabet, K}
-    CanonicalKmers{S, A, K}(FwKmers{A, K}(s))
+function CanonicalKmers{A, K}(s::S) where {S, A <: NucleicAcidAlphabet, K}
+    CanonicalKmers{A, K, S}(FwKmers{A, K}(s))
+end
+function CanonicalKmers{A, K, S}(s::S) where {S, A <: NucleicAcidAlphabet, K}
+    CanonicalKmers{A, K, S}(FwKmers{A, K}(s))
 end
 
-# Iteration
-function Base.iterate(it::CanonicalKmers, state...)
-    iterate_kmer(RecodingScheme(typeof(it)), it, state...)
+const CanonicalDNAMers{K, S} = CanonicalKmers{DNAAlphabet{2}, K, S}
+const CanonicalRNAMers{K, S} = CanonicalKmers{RNAAlphabet{2}, K, S}
+
+@inline function Base.iterate(it::CanonicalKmers{A, K, S}, state...) where {A, K, S}
+    iterate_kmer(RecodingScheme(A(), S), it, state...)
 end
 
-# For these recoding schemes, no symbols in the source sequence are skipped.
-# Hence, we can forward to just `extract`.
-# Here, instead of reverse complementing each symbol, it's more efficient
-# to do it in bulk by RC'ing the entire kmer
-@inline function iterate_kmer(
-    R::Union{GenericAlphabet, Copyable, TwoToFour, AsciiEncode, GenericBytes},
-    it::CanonicalKmers,
-)
-    src = usable_source(it)
-    length(src) < ksize(eltype(it)) && return nothing
-    fw = extract(R, eltype(it), src, 1)
+# For the first kmer, we extract it, then reverse complement.
+# When it's not done incrementally, it's faster to RC the whole
+# kmer at once.
+@inline function iterate_kmer(R::RecodingScheme, it::CanonicalKmers)
+    length(it.it.seq) < ksize(eltype(it)) && return nothing
+    fw = unsafe_extract(R, eltype(it), it.it.seq, 1)
     rv = reverse_complement(fw)
-    (min(fw, rv), (fw, rv, ksize(eltype(it)) + 1))
+    (fw < rv ? fw : rv, (fw, rv, ksize(eltype(it)) + 1))
 end
 
-# Fallback: Just because it's Copyable doesn't mean we have neat bit-tricks
-# to RC the encoding
+# Here, we need to convert to an abstractvector
 @inline function iterate_kmer(
-    ::Union{GenericAlphabet, Copyable},
+    R::AsciiEncode,
+    it::CanonicalKmers{A, K, S},
+) where {A <: NucleicAcidAlphabet, K, S <: Bytes}
+    src = used_source(RecodingScheme(A(), S), it.it.seq)
+    Base.require_one_based_indexing(src)
+    length(src) < ksize(eltype(it)) && return nothing
+    fw = unsafe_extract(R, eltype(it), src, 1)
+    rv = reverse_complement(fw)
+    (fw < rv ? fw : rv, (fw, rv, ksize(eltype(it)) + 1))
+end
+
+@inline function iterate_kmer(
+    ::GenericRecoding,
     it::CanonicalKmers,
     state::Tuple{Kmer, Kmer, Int},
 )
-    src = usable_source(it)
     (fw, rv, i) = state
-    i > length(src) && return nothing
-    symbol = @inbounds src[i]
-    encoding = UInt(BioSequences.encode(Alphabet(typeof(fw)), symbol))::UInt
-    rc_encoding = UInt(BioSequences.encode(Alphabet(typeof(fw)), complement(symbol)))::UInt
-    fw = shift_encoding(kmer, encoding)
-    rv = shift_first_encoding(rv, rc_encoding)
-    (min(fw, rc), (fw, rv, i + 1))
+    i > length(it.it.seq) && return nothing
+    symbol = convert(eltype(fw), @inbounds it.it.seq[i])
+    fw = shift(fw, symbol)
+    rv = shift_first(rv, complement(symbol))
+    (fw < rv ? fw : rv, (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
     ::Copyable,
-    it::CanonicalKmers{<:TwoBit, K, <:TwoBit},
+    it::CanonicalKmers{<:TwoBit, K, <:BioSequence{<:TwoBit}},
     state::Tuple{Kmer, Kmer, Int},
 ) where {K}
-    src = usable_source(it)
     (fw, rv, i) = state
-    i > length(src) && return nothing
-    encoding = UInt(BioSequences.extract_encoded_element(src, i))::UInt
-    rc_encoding = encoding ⊻ UInt(3)
-    fw = shift_encoding(kmer, encoding)
-    rv = shift_first_encoding(rv, rc_encoding)
-    (min(fw, rc), (fw, rv, i + 1))
+    i > length(it.it.seq) && return nothing
+    encoding = UInt(BioSequences.extract_encoded_element(it.it.seq, i))
+    fw = shift_encoding(fw, encoding)
+    rv = shift_first_encoding(rv, encoding ⊻ 0x03)
+    (fw < rv ? fw : rv, (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
     ::Copyable,
-    it::CanonicalKmers{<:FourBit, K, <:FourBit},
+    it::CanonicalKmers{<:FourBit, K, <:BioSequence{<:FourBit}},
     state::Tuple{Kmer, Kmer, Int},
 ) where {K}
-    src = usable_source(it)
     (fw, rv, i) = state
-    i > length(src) && return nothing
-    encoding = UInt(BioSequences.extract_encoded_element(src, i))::UInt
-    rc_encoding = (@inbounds(FOURBIT_COMPLEMENT_LUT[encoding + UInt(1)])) % UInt
-    fw = shift_encoding(kmer, encoding)
+    i > length(it.it.seq) && return nothing
+    encoding = UInt(BioSequences.extract_encoded_element(it.it.seq, i))
+    fw = shift_encoding(fw, encoding)
+    rc_encoding =
+        reinterpret(UInt8, complement(reinterpret(eltype(rv), encoding % UInt8))) % UInt
     rv = shift_first_encoding(rv, rc_encoding)
-    (min(fw, rc), (fw, rv, i + 1))
+    (fw < rv ? fw : rv, (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
@@ -84,67 +113,34 @@ end
     it::CanonicalKmers,
     state::Tuple{Kmer, Kmer, Int},
 )
-    src = usable_source(it)
     (fw, rv, i) = state
-    i > length(src) && return nothing
-    twobit_encoding = UInt(BioSequences.extract_encoded_element(src, i))::UInt
-    fw_encoding = reinterpret(UInt8, decode(Alphabet(fw), twobit_encoding)) % UInt
-    rc_encoding = reinterpret(UInt8, decode(Alphabet(fw), twobit_encoding ⊻ UInt(3))) % UInt
-    fw = shift_encoding(kmer, encoding)
-    rv = shift_first_encoding(rv, rc_encoding)
-    (min(fw, rc), (fw, rv, i + 1))
-end
-
-# 4 -> 2 (skipping): Ascii skipping LUT, as with FwKmers - DEFAULT STATE
-@inline function iterate_kmer(
-    ::Skipping,
-    it::CanonicalKmers{A, K},
-    state::Tuple{Kmer, Kmer, Int, Int}=(zero_kmer(Kmer{A, K}), zero_kmer(Kmer{A, K}), K, 1),
-) where {A, K}
-    src = usable_source(it)
-    (fw, rv, remaining, i) = state
-    while !iszero(remaining)
-        i > length(src) && return nothing
-        encoding = UInt(BioSequences.extract_encoded_element(src, i))::UInt
-        i += 1
-        if isone(count_ones(encoding))
-            fw_encoding = trailing_zeros(encoding) % UInt
-            fw = shift_encoding(fw, fw_encoding)
-            rv = shift_first_encoding(rv, fw_encoding ⊻ UInt(3))
-            remaining -= 1
-        else
-            remaining = K
-            # No need to RC anything
-            continue
-        end
-    end
-    return (min(fw, rv), (fw, rv, 1, i))
+    i > length(it.it.seq) && return nothing
+    encoding = UInt(BioSequences.extract_encoded_element(it.it.seq, i))
+    fw = shift_encoding(fw, left_shift(UInt(1), encoding))
+    rv = shift_first_encoding(rv, left_shift(UInt(1), encoding ⊻ 0x03))
+    (fw < rv ? fw : rv, (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
-    ::AsciiSkipping,
-    it::CanonicalKmers{A, K},
-    state::Tuple{Kmer, Kmer, Int, Int}=(zero_kmer(Kmer{A, K}), zero_kmer(Kmer{A, K}), K, 1),
+    ::FourToTwo,
+    it::CanonicalKmers{A, K, <:BioSequence},
+    state::Tuple{Kmer, Kmer, Int},
 ) where {A, K}
-    src = usable_source(it)
-    Base.require_one_based_indexing(src)
-    (fw, rv, remaining, i) = state
-    while !iszero(remaining)
-        i > length(src) && return nothing
-        byte = @inbounds src[i]
-        i += 1
-        encoding = @inbounds BYTE_LUT[byte + 0x01]
-        encoding == 0xff && throw_bad_byte_error(byte)
-        if encoding == 0xf0
-            remaining = K
-            continue
-        else
-            fw = shift_encoding(fw, encoding)
-            rv = shift_first_encoding(rv, encoding ⊻ UInt(3))
-            remaining -= 1
-        end
+    (fw, rv, i) = state
+    i > length(it.it.seq) && return nothing
+    encoding = UInt(BioSequences.extract_encoded_element(it.it.seq, i))::UInt
+    if count_ones(encoding) != 1
+        throw(
+            BioSequences.EncodeError(
+                Alphabet(fw),
+                reinterpret(eltype(it.it.seq), encoding % UInt8),
+            ),
+        )
     end
-    return (min(fw, rv), (fw, rv, 1, i))
+    enc = trailing_zeros(encoding) % UInt
+    fw = shift_encoding(fw, enc)
+    rv = shift_first_encoding(rv, enc ⊻ 0x03)
+    (fw < rv ? fw : rv, (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
@@ -152,49 +148,27 @@ end
     it::CanonicalKmers,
     state::Tuple{Kmer, Kmer, Int},
 )
-    src = usable_source(it)
-    Base.require_one_based_indexing(src)
-    (fw, rv, i) = state
-    A = Alphabet(typeof(fw))
-    i > length(src) && return nothing
-    encoding = UInt(BioSequences.ascii_encode(A, @inbounds(src[i])))::UInt
-    rc_encoding =
-        UInt(BioSequences.encode(A, complement(BioSequences.decode(A, encoding))))::UInt
-    fw = shift_encoding(kmer, encoding)
-    rv = shift_first_encoding(rv, rc_encoding)
-    (min(fw, rc), (fw, rv, i + 1))
-end
-
-@inline function iterate_kmer(
-    ::AsciiEncode,
-    it::CanonicalKmers{<:FourBit},
-    state::Tuple{Kmer, Kmer, Int},
-)
-    src = usable_source(it)
-    Base.require_one_based_indexing(src)
-    (fw, rv, i) = state
-    A = Alphabet(typeof(fw))
-    i > length(src) && return nothing
-    encoding = UInt(BioSequences.ascii_encode(A, @inbounds(src[i])))::UInt
-    rc_encoding = @inbounds(FOURBIT_COMPLEMENT_LUT[encoding + 0x01]) % UInt
-    fw = shift_encoding(kmer, encoding)
-    rv = shift_first_encoding(rv, rc_encoding)
-    (min(fw, rc), (fw, rv, i + 1))
-end
-
-@inline function iterate_kmer(
-    ::GenericBytes,
-    it::CanonicalKmers,
-    state::Tuple{Kmer, Kmer, Int},
-)
-    src = usable_source(it)
+    src = used_source(
+        RecodingScheme(Alphabet(eltype(it)), source_type(typeof(it))),
+        it.it.seq,
+    )
     Base.require_one_based_indexing(src)
     (fw, rv, i) = state
     i > length(src) && return nothing
-    char = reinterpret(Char, (src[i] % UInt32) << 24)
-    fw_symbol = eltype(fw)(char)
-    rc_symbol = complement(fw_symbol)
-    fw = shift(fw, fw_symbol)
-    rv = shift(rv, rc_symbol)
-    (min(fw, rc), (fw, rv, i + 1))
+    byte = @inbounds src[i]
+    encoding = BioSequences.ascii_encode(Alphabet(eltype(it)), byte)
+    if encoding > 0x7f
+        throw(BioSequences.EncodeError(Alphabet(eltype(it)), repr(byte)))
+    end
+    # Hopefully this branch is eliminated at compile time...
+    rc_encoding = if Alphabet(fw) isa FourBit
+        reinterpret(UInt8, complement(reinterpret(DNA, encoding)))
+    elseif Alphabet(fw) isa TwoBit
+        encoding ⊻ 0x03
+    else
+        error("Unreachable")
+    end
+    fw = shift_encoding(fw, encoding % UInt)
+    rv = shift_first_encoding(rv, rc_encoding % UInt)
+    (fw < rv ? fw : rv, (fw, rv, i + 1))
 end

@@ -247,6 +247,33 @@ end
 # String literals
 ################################################
 
+"""
+    @mer_str -> Kmer
+
+Construct a `Kmer` from the given string. The macro must be used with a flag
+after the input string, e.g. `d` in `mer"TAG"d` or `a` in `mer"PCW"a`, signifying
+the alphabet of the kmer.
+The flags `d = DNAAlphabet{2}`, `r = RNAAlphabet{2}` and `a = AminoAcidAlphabet`
+are recognized.
+
+Because the macro is resolved and the kmer is created at parse time,
+the macro is type stable, and may be used in high performance code.
+
+# Examples
+```jldoctest
+julia> mer"UGCUA"r
+RNA 5-mer:
+UGCUA
+
+julia> mer"YKVSTEDLLKKR"a
+AminoAcid 12-mer:
+YKVSTEDLLKKR
+
+julia> mer"TATTAGCA"d
+DNA 8-mer:
+TATTAGCA
+```
+"""
 macro mer_str(seq, flag)
     trimmed = BioSequences.remove_newlines(seq)
     ncu = ncodeunits(trimmed)

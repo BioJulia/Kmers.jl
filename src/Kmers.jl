@@ -31,6 +31,12 @@ export Kmer,
     FwDNAMers,
     FwRNAMers,
     FwAAMers,
+    CanonicalKmers,
+    CanonicalDNAMers,
+    CanonicalRNAMers,
+    UnambiguousKmers,
+    UnambiguousDNAMers,
+    UnambiguousRNAMers,
 
     # Reverse translation
     CodonSet,
@@ -148,7 +154,8 @@ include("revtrans.jl")
 
 include("iterators/common.jl")
 include("iterators/FwKmers.jl")
-#include("iterators/CanonicalKmers.jl")
+include("iterators/CanonicalKmers.jl")
+include("iterators/UnambiguousKmers.jl")
 #include("iterators/SpacedKmers.jl")
 
 end # module

@@ -48,6 +48,9 @@ struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
     end
 end
 
+# Useful to do e.g. `mer"TAG"d isa Mer{3}`
+const Mer{K} = Kmer{<:Alphabet, K}
+
 # Aliases
 "Shortcut for the type `Kmer{DNAAlphabet{2},K,N}`"
 const DNAKmer{K, N} = Kmer{DNAAlphabet{2}, K, N}
@@ -146,11 +149,6 @@ function Base.show(io::IO, ::MIME"text/plain", s::Kmer)
     print(io, s)
 end
 
-function Base.print(io::IO, s::Kmer)
-    # TODO: Can be optimised but whatever
-    print(io, LongSequence(s))
-end
-
 @inline function _cmp(x::Kmer{A1, K1}, y::Kmer{A2, K2}) where {A1, A2, K1, K2}
     if K1 < K2
         -1
@@ -181,7 +179,7 @@ function push(kmer::Kmer, s)
     A = Alphabet(kmer)
     newT = derive_type(Kmer{typeof(A), length(kmer) + 1})
     # If no free space in data, add new tuple
-    new_data = if n_unused(typeof(kmer)) < bps
+    new_data = if bits_unused(typeof(kmer)) < bps
         (zero(UInt), kmer.data...)
     else
         kmer.data
@@ -224,7 +222,7 @@ function push_first(kmer::Kmer{A}, s) where {A}
     bps = BioSequences.bits_per_symbol(A())
     newT = derive_type(Kmer{A, length(kmer) + 1})
     # If no free space in data, add new tuple
-    new_data = if n_unused(typeof(kmer)) < bps
+    new_data = if bits_unused(typeof(kmer)) < bps
         (zero(UInt), kmer.data...)
     else
         kmer.data

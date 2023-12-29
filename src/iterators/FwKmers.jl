@@ -33,11 +33,11 @@ load_source(x::FwKmers) = x.seq
 
 function Base.length(it::FwKmers{A, K, S}) where {A, K, S}
     src = used_source(RecodingScheme(A(), S), it.seq)
-    length(src) - ksize(eltype(it)) + 1
+    max(0, length(src) - ksize(eltype(it)) + 1)
 end
 
 # Constructors
-FwKmers{A, K}(s) where {A <: Alphabet, K} = FwKmers{A, K, typeof(s)}
+FwKmers{A, K}(s) where {A <: Alphabet, K} = FwKmers{A, K, typeof(s)}(s)
 
 const FwDNAMers{K, S} = FwKmers{DNAAlphabet{2}, K, S}
 const FwRNAMers{K, S} = FwKmers{RNAAlphabet{2}, K, S}

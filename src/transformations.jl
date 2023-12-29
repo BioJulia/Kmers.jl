@@ -27,7 +27,7 @@ end
 
 # Generic fallback
 function BioSequences.complement(x::Kmer{<:NucleicAcidAlphabet})
-    construct_generic_unchecked(Base.HasLength(), typeof(x), (complement(i) for i in x))
+    typeof(x)((complement(i) for i in x))
 end
 
 # TODO: Should this be the generic BioSequence def in BioSequences.jl?

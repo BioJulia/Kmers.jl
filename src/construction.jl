@@ -159,7 +159,7 @@ end
 end
 
 # LongSequence with compatible alphabet: Extract whole coding elements
-@inline function build_kmer(R::Copyable, ::Type{T}, s::LongSequence) where {T}
+@inline function build_kmer(::Copyable, ::Type{T}, s::LongSequence) where {T}
     length(s) == ksize(T) || error("Length of sequence must be K elements to build Kmer")
     bps = BioSequences.BitsPerSymbol(Alphabet(T))
     data = ntuple(i -> BioSequences.reversebits(@inbounds(s.data[i]), bps), Val{nsize(T)}())
@@ -168,6 +168,7 @@ end
 end
 
 # TODO: LongSubSeq with compatible alphabet
+# Note: LongSequence may be UInt64 whereas kmers use UInt32
 
 # For UTF8-strings combined with an ASCII kmer alphabet, we convert to byte vector
 @inline function build_kmer(

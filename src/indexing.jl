@@ -38,6 +38,20 @@ end
     T(unsafe, data)
 end
 
+function Base.getindex(kmer::Kmer{A}, indices::AbstractVector{<:Integer}) where {A}
+    K = length(indices)
+    N = n_coding_elements(Kmer{A, K})
+    T = Kmer{A, K, N}
+    data = zero_tuple(T)
+    nbits = BioSequences.bits_per_symbol(A())
+    for i in indices
+        checkbounds(kmer, i)
+        (_, data) =
+            leftshift_carry(data, nbits, BioSequences.extract_encoded_element(kmer, i))
+    end
+    T(unsafe, data)
+end
+
 @inline function BioSequences.bitindex(kmer::Kmer, i::Unsigned)::Tuple{UInt, UInt}
     bps = BioSequences.bits_per_symbol(kmer) % UInt
     bpe = (8 * sizeof(UInt)) % UInt

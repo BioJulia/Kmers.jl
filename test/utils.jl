@@ -66,10 +66,6 @@ function random_rna_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
     return random_seq(n, ['A', 'C', 'G', 'U', 'N'], probs, Vector{RNA})
 end
 
-function random_rna_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
-    return random_seq(n, ['A', 'C', 'G', 'U', 'N'], probs, Vector{RNA})
-end
-
 function random_aa_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
     return random_seq(
         n,

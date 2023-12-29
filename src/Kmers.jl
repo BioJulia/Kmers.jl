@@ -8,6 +8,7 @@
 module Kmers
 
 export Kmer,
+    Mer,
     DNAKmer,
     RNAKmer,
     AAKmer,
@@ -23,12 +24,17 @@ export Kmer,
     push_first,
     shift,
     shift_first,
+    pop,
 
     # Iterators
     FwKmers,
     FwDNAMers,
     FwRNAMers,
     FwAAMers,
+
+    # Reverse translation
+    CodonSet,
+    delete, # push already exported
 
     ##################
     # Re-exports

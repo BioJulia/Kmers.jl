@@ -38,8 +38,13 @@ end
 # Constructors
 FwKmers{A, K}(s) where {A <: Alphabet, K} = FwKmers{A, K, typeof(s)}(s)
 
+"`FwDNAMers{K, S}`: Alias for `FwKmers{DNAAlphabet{2}, K, S}`"
 const FwDNAMers{K, S} = FwKmers{DNAAlphabet{2}, K, S}
+
+"`FwRNAMers{K, S}`: Alias for `FwKmers{RNAAlphabet{2}, K, S}`"
 const FwRNAMers{K, S} = FwKmers{RNAAlphabet{2}, K, S}
+
+"`FwAAMers{K, S}`: Alias for `FwKmers{AminoAcidAlphabet, K, S}`"
 const FwAAMers{K, S} = FwKmers{AminoAcidAlphabet, K, S}
 
 # TODO: Should this go in common?
@@ -98,6 +103,7 @@ end
     (kmer, i) = state
     i > length(it.seq) && return nothing
     encoding = UInt(BioSequences.extract_encoded_element(it.seq, i))::UInt
+    # TODO: Abstract this into a function
     if count_ones(encoding) != 1
         throw(
             BioSequences.EncodeError(

@@ -102,7 +102,7 @@ EDEHL
 Since the literals produce the kmer at parse time and inserts it directly into the parsed code, this will always be type stable,
 and the overhead related to parsing the string will not be paid:
 
-```jldoctest; filter = r"(^\s+0\.\d+ seconds.+)|(^\d+$)"
+```jldoctest; filter = [r"^\s*0\.\d+ seconds.+"s, r"^\d+"s]
 julia> function count_aaas(dna)
            x = 0
            for kmer in FwDNAMers{3}(dna)
@@ -114,11 +114,12 @@ julia> function count_aaas(dna)
        end;
 
 julia> seq = randseq(DNAAlphabet{2}(), 100_000_000);
-```
 
 julia> @time count_aaas(seq)
   0.193463 seconds (32.05 k allocations: 2.051 MiB, 21.88% compilation time)
 1563330
+```
+
 
 ### Indexing
 Kmers support most normal indexing, such as scalar indexing:

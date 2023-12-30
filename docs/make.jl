@@ -14,11 +14,9 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "The Kmer type" => "kmers.md",
+        "Iteration" => "iteration.md",
         "Translation" => "translation.md",
-        # The kmer type (construction, indexing)
-        # Kmer iteration
-        # Translation (revtrans also)
-        # FAQ (why not compare to bioseq, why no unambig canonical)
+        "FAQ" => "faq.md",
     ],
     authors="Jakob Nybo Nissen, Sabrina J. Ward, The BioJulia Organisation and other contributors.",
     checkdocs=:exports,

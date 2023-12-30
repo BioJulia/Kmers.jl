@@ -36,7 +36,10 @@ function CanonicalKmers{A, K, S}(s::S) where {S, A <: NucleicAcidAlphabet, K}
     CanonicalKmers{A, K, S}(FwKmers{A, K}(s))
 end
 
+"`CanonicalDNAMers{K, S}`: Alias for `CanonicalKmers{DNAAlphabet{2}, K, S}`"
 const CanonicalDNAMers{K, S} = CanonicalKmers{DNAAlphabet{2}, K, S}
+
+"`CanonicalRNAMers{K, S}`: Alias for `CanonicalKmers{RNAAlphabet{2}, K, S}`"
 const CanonicalRNAMers{K, S} = CanonicalKmers{RNAAlphabet{2}, K, S}
 
 @inline function Base.iterate(it::CanonicalKmers{A, K, S}, state...) where {A, K, S}

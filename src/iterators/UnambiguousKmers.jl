@@ -29,7 +29,6 @@ end
 
 Base.IteratorSize(::Type{<:UnambiguousKmers}) = Base.SizeUnknown()
 source_type(::Type{UnambiguousKmers{A, K, S}}) where {A, K, S} = S
-load_source(x::UnambiguousKmers) = x.it.seq
 
 # Constructors
 function UnambiguousKmers{A, K}(s::S) where {S, A <: TwoBit, K}
@@ -39,7 +38,10 @@ function UnambiguousKmers{A, K, S}(s::S) where {S, A <: TwoBit, K}
     UnambiguousKmers{A, K, S}(FwKmers{A, K}(s))
 end
 
+"`UnambiguousDNAMers{K, S}`: Alias for `UnambiguousKmers{DNAAlphabet{2}, K, S}`"
 const UnambiguousDNAMers{K, S} = UnambiguousKmers{DNAAlphabet{2}, K, S}
+
+"`UnambiguousRNAMers{K, S}`: Alias for `UnambiguousKmers{RNAAlphabet{2}, K, S}`"
 const UnambiguousRNAMers{K, S} = UnambiguousKmers{RNAAlphabet{2}, K, S}
 
 @inline function Base.iterate(it::UnambiguousKmers{A, K, S}) where {A, K, S}

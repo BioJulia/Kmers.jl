@@ -18,7 +18,7 @@ julia> Set(CodonSet(v)) == Set(v)
 true
 
 julia> union(CodonSet(v), CodonSet([mer"GAG"r]))
-Kmers.CodonSet with 4 elements:
+CodonSet with 4 elements:
   GAG
   GGA
   UAG
@@ -74,7 +74,7 @@ inverse of the mapping through `GeneticCode`
 julia> code = ReverseGeneticCode(BioSequences.candidate_division_sr1_genetic_code);
 
 julia> code[AA_E]
-Kmers.CodonSet with 2 elements:
+CodonSet with 2 elements:
   GAA
   GAG
 
@@ -147,8 +147,11 @@ See also: [`reverse_translate`](@ref)
 julia> v = CodonSet[];
 
 julia> reverse_translate!(v, aa"KWCL")
-4-element Vector{CodonSet}
-[...]
+4-element Vector{CodonSet}:
+ CodonSet(0x0000000000000005)
+ CodonSet(0x0400000000000000)
+ CodonSet(0x0a00000000000000)
+ CodonSet(0x50000000f0000000)
 ```
 """
 function reverse_translate!(v::Vector{CodonSet}, seq::AASeq, code=rev_standard_genetic_code)
@@ -169,21 +172,20 @@ If `s` is an `AASeq`, return `Vector{CodonSet}`.
 # Examples
 ```jldoctest
 julia> reverse_translate(AA_W)
-Kmers.CodonSet with 1 element:
+CodonSet with 1 element:
   UGG
 
 julia> v = reverse_translate(aa"MMLVQ");
 
 julia> typeof(v)
-Vector{Kmers.CodonSet}
+Vector{CodonSet} (alias for Array{CodonSet, 1})
 
 julia> v[4]
-Kmers.CodonSet with 4 elements:
+CodonSet with 4 elements:
   GUA
   GUC
   GUG
   GUU
-[...]
 ```
 
 See also: [`reverse_translate!`](@ref), [`ReverseGeneticCode`](@ref)

@@ -15,7 +15,7 @@ Can be constructed more conventiently with the constructors `CanonicalDNAMers{K}
 # Examples:
 ```jldoctest
 julia> collect(CanonicalRNAMers{3}("AGCGA"))
-3-element Vector{Kmer{RNAAlphabet{2}, 4, 1}}:
+3-element Vector{Kmer{RNAAlphabet{2}, 3, 1}}:
  AGC
  CGC
  CGA
@@ -26,7 +26,6 @@ struct CanonicalKmers{A <: NucleicAcidAlphabet, K, S} <: AbstractKmerIterator{A,
 end
 
 source_type(::Type{CanonicalKmers{A, K, S}}) where {A, K, S} = S
-load_source(x::CanonicalKmers) = x.it.seq
 @inline Base.length(it::CanonicalKmers) = length(it.it)
 
 # Constructors

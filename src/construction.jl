@@ -120,7 +120,7 @@ end
         byte = seq[i]
         encoding = BioSequences.ascii_encode(Alphabet(T), byte)
         if encoding > 0x7f
-            throw(BioSequences.EncodeError(Alphabet(T), repr(byte)))
+            throw(BioSequences.EncodeError(Alphabet(T), byte))
         end
         (_, data) = leftshift_carry(data, bps, encoding % UInt)
     end

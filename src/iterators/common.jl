@@ -1,5 +1,9 @@
+# TODO: Make sure to go through this docstring
 """
     AbstractKmerIterator{A <: Alphabet, K}
+
+Abstract type for kmer iterators. The element type is `Kmer{A, K, N}`,
+with the appropriately derived N.
 
 Iterates `Kmer{A, K}`.
 Functions to implement:
@@ -7,7 +11,7 @@ Functions to implement:
 
 Optional functions:
 * `source_type`
-* `load_source`
+* `Base.IteratorSize`, if not `HasLength`
 """
 abstract type AbstractKmerIterator{A <: Alphabet, K} end
 
@@ -21,13 +25,6 @@ end
 Get the type of the data source that kmers are extracted from
 """
 function source_type end
-
-"""
-    load_source(x::AbstractKmerIterator)::source_type(typeof(x))
-
-Get the data source from the kmer iterator.
-"""
-function load_source end
 
 function used_source(R::RecodingScheme, s)
     if R isa AsciiEncode && s isa Union{String, SubString{String}}

@@ -25,6 +25,7 @@ export Kmer,
     shift,
     shift_first,
     pop,
+    pop_first,
 
     # Iterators
     FwKmers,
@@ -124,11 +125,16 @@ export Kmer,
     RNAAlphabet,
     translate,
     complement,
-    reverse_complement
+    reverse_complement,
+    canonical,
+    iscanonical
 
 # Kmers.jl is tightly coupled to BioSequences and relies on much of its internals.
 # Hence, we do not care about carefully importing specific symbols
 using BioSequences
+
+# This is a documented method, not internals
+using Base: tail
 
 """
     Kmers.Unsafe

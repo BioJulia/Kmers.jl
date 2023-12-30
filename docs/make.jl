@@ -1,24 +1,27 @@
 using Documenter, Kmers
 
+DocMeta.setdocmeta!(
+    Kmers,
+    :DocTestSetup,
+    :(using BioSequences, Kmers, Test);
+    recursive=true,
+)
+
 makedocs(;
+    modules=[Kmers],
     format=Documenter.HTML(),
     sitename="Kmers.jl",
     pages=[
         "Home" => "index.md",
-        "Kmer types" => "kmer_types.md",
-        "Constructing kmers" => "construction.md",
-        "Indexing & modifying kmers" => "transforms.md",
-        "Predicates" => "predicates.md",
-        "Random kmers" => "random.md",
-        "Iterating over Kmers" => "iteration.md",
-        "Translation" => "translate.md",
-        #"Pattern matching and searching" => "sequence_search.md",
-        #"Iteration"                      => "iteration.md",
-        #"Counting"                       => "counting.md",
-        #"I/O"                            => "io.md",
-        #"Interfaces"                     => "interfaces.md"
+        "The Kmer type" => "kmers.md",
+        "Translation" => "translation.md",
+        # The kmer type (construction, indexing)
+        # Kmer iteration
+        # Translation (revtrans also)
+        # FAQ (why not compare to bioseq, why no unambig canonical)
     ],
-    authors="Ben J. Ward, The BioJulia Organisation and other contributors.",
+    authors="Jakob Nybo Nissen, Sabrina J. Ward, The BioJulia Organisation and other contributors.",
+    checkdocs=:exports,
 )
 
 deploydocs(;

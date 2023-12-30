@@ -13,20 +13,20 @@ See also: [`DNAKmer`](@ref), [`RNAKmer`](@ref), [`AAKmer`](@ref), [`AbstractKmer
 # Examples
 ```jldoctest
 julia> RNAKmer{5}("ACGUC")
-RNA 5-mer
+RNA 5-mer:
 ACGUC
 
 julia> Kmer{DNAAlphabet{4}, 6}(dna"TGCTTA")
-DNA 6-mer
+DNA 6-mer:
 TGCTTA
 
 julia> AAKmer{5}((lowercase(i) for i in "KLWYR"))
-AminoAcid 5-mer
-TGCTTA
+AminoAcid 5-mer:
+KLWYR
 
 julia> RNAKmer{3}("UAUC") # wrong length
 ERROR:
-[ ... ]
+[...]
 ```
 """
 struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
@@ -62,7 +62,7 @@ for the alphabat
 julia> mer"DEKR"a isa Mer{4}
 true
 
-julia> DNAKmer{2}("TGATCA") isa Mer{6}
+julia> DNAKmer{6}("TGATCA") isa Mer{6}
 true
 
 julia> RNACodon <: Mer{3}
@@ -141,10 +141,10 @@ end
 @inline derive_type(::Type{Kmer{A, K}}) where {A, K} =
     Kmer{A, K, n_coding_elements(Kmer{A, K})}
 
-zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), Val{nsize(T)}())
+@inline zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), Val{nsize(T)}())
 
 # TODO: Should this somehow throw a MethodError if N is already parameterized?
-function zero_kmer(T::Type{Kmer{A, K}}) where {A, K}
+@inline function zero_kmer(T::Type{Kmer{A, K}}) where {A, K}
     T2 = derive_type(Kmer{A, K})
     T2(unsafe, zero_tuple(T2))
 end
@@ -208,12 +208,12 @@ See also: [`push_first`](@ref), [`pop`](@ref), [`shift`](@ref)
 
 # Examples
 ```jldoctest
-julia> shift(mer"UGCUGA"r, RNA_G)
-RNA 7-mer
+julia> push(mer"UGCUGA"r, RNA_G)
+RNA 7-mer:
 UGCUGAG
 
-julia> shift(mer"W"a, 'E')
-AminoAcid 2-mer
+julia> push(mer"W"a, 'E')
+AminoAcid 2-mer:
 WE
 ```
 """
@@ -245,11 +245,11 @@ See also: [`shift_first`](@ref), [`push`](@ref)
 # Examples
 ```jldoctest
 julia> shift(mer"TACC"d, DNA_A)
-DNA 4-mer
+DNA 4-mer:
 ACCA
 
 julia> shift(mer"WKYMLPIIRS"aa, 'F')
-AminoAcid 10-mer
+AminoAcid 10-mer:
 KYMLPIIRSF
 ```
 """
@@ -259,10 +259,10 @@ function shift(kmer::Kmer{A}, s) where {A}
 end
 
 @inline function shift_encoding(kmer::Kmer, encoding::UInt)
+    isempty(kmer) && return kmer
     bps = BioSequences.bits_per_symbol(kmer)
     (_, new_data) = leftshift_carry(kmer.data, bps, encoding)
-    (head, tail...) = new_data
-    typeof(kmer)(unsafe, (head & get_mask(typeof(kmer)), tail...))
+    typeof(kmer)(unsafe, (first(new_data) & get_mask(typeof(kmer)), Base.tail(new_data)...))
 end
 
 """
@@ -280,12 +280,12 @@ See also: [`push`](@ref),  [`pop`](@ref), [`shift`](@ref)
 
 # Examples
 ```jldoctest
-julia> shift(mer"GCU"r, RNA_G)
-RNA 4-mer
+julia> push_first(mer"GCU"r, RNA_G)
+RNA 4-mer:
 GGCU
 
-julia> shift(mer"W"a, 'E')
-AminoAcid 2-mer
+julia> push_first(mer"W"a, 'E')
+AminoAcid 2-mer:
 EW
 ```
 """
@@ -298,10 +298,9 @@ function push_first(kmer::Kmer{A}, s) where {A}
     else
         kmer.data
     end
-    (head, tail...) = new_data
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
-    head |= left_shift(encoding, (elements_in_head(newT) - 1) * bps)
-    newT(unsafe, (head, tail...))
+    head = first(new_data) | left_shift(encoding, (elements_in_head(newT) - 1) * bps)
+    newT(unsafe, (head, tail(new_data)...))
 end
 
 """
@@ -314,11 +313,11 @@ See also: [`shift`](@ref), [`push`](@ref)
 # Examples
 ```jldoctest
 julia> shift_first(mer"TACC"d, DNA_A)
-DNA 4-mer
+DNA 4-mer:
 ATAC
 
 julia> shift_first(mer"WKYMLPIIRS"aa, 'F')
-AminoAcid 10-mer
+AminoAcid 10-mer:
 FWKYMLPIIR
 ```
 """
@@ -328,11 +327,12 @@ function shift_first(kmer::Kmer{A}, s) where {A}
 end
 
 function shift_first_encoding(kmer::Kmer{A}, encoding::UInt) where {A}
+    isempty(kmer) && return kmer
     bps = BioSequences.bits_per_symbol(A())
     (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
-    (head, tail...) = new_data
-    head |= left_shift(encoding, (elements_in_head(typeof(kmer)) - 1) * bps)
-    typeof(kmer)(unsafe, (head, tail...))
+    head =
+        first(new_data) | left_shift(encoding, (elements_in_head(typeof(kmer)) - 1) * bps)
+    typeof(kmer)(unsafe, (head, tail(new_data)...))
 end
 
 """
@@ -342,19 +342,19 @@ Returns a new kmer with the last symbol of the input `kmer` removed.
 Throws an `ArgumentError` if `kmer` is empty.
 
 !!! warn
-    Since the output of this function is a `K+1`-mer, use of this function
+    Since the output of this function is a `K-1`-mer, use of this function
     in a loop may result in type-instability.
 
-See also: [`push`](@ref), [`shift`](@ref)
+See also: [`pop_first`](@ref), [`push`](@ref), [`shift`](@ref)
 
 # Examples
 ```jldoctest
 julia> pop(mer"TCTGTA"d)
-DNA 5-mer
+DNA 5-mer:
 TCTGT
 
 julia> pop(mer"QPSY"a)
-AminoAcid 3-mer
+AminoAcid 3-mer:
 QPS
 
 julia> pop(mer""a)
@@ -368,12 +368,52 @@ function pop(kmer::Kmer{A}) where {A}
     newT = derive_type(Kmer{A, length(kmer) - 1})
     (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
     new_data = if elements_in_head(typeof(kmer)) == 1
-        (head, tail...) = new_data
-        tail
+        tail(new_data)
     else
         new_data
     end
     newT(unsafe, new_data)
+end
+
+"""
+    pop_first(kmer::Kmer{A, K})::Kmer{A, K-1}
+
+Returns a new kmer with the first symbol of the input `kmer` removed.
+Throws an `ArgumentError` if `kmer` is empty.
+
+!!! warn
+    Since the output of this function is a `K-1`-mer, use of this function
+    in a loop may result in type-instability.
+
+See also: [`pop`](@ref), [`push`](@ref), [`shift`](@ref)
+
+# Examples
+```jldoctest
+julia> pop_first(mer"TCTGTA"d)
+DNA 5-mer:
+CTGTA
+
+julia> pop_first(mer"QPSY"a)
+AminoAcid 3-mer:
+PSY
+
+julia> pop_first(mer""a)
+ERROR: ArgumentError:
+[...]
+```
+"""
+function pop_first(kmer::Kmer{A}) where {A}
+    isempty(kmer) && throw(ArgumentError("Cannot pop 0-mer"))
+    data = if elements_in_head(typeof(kmer)) == 1
+        tail(kmer.data)
+    else
+        bps = BioSequences.bits_per_symbol(A())
+        bits_used = 8 * sizeof(UInt) - (bits_unused(typeof(kmer)) + bps)
+        mask = left_shift(UInt(1), bits_used) - UInt(1)
+        (first(kmer.data) & mask, tail(kmer.data)...)
+    end
+    newT = derive_type(Kmer{A, length(kmer) - 1})
+    newT(unsafe, data)
 end
 
 # Get a mask 0x0001111 ... masking away the unused bits of the head element

@@ -21,8 +21,7 @@ end
 function BioSequences.complement(x::Kmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}})
     isempty(x) && return x
     data = map(i -> BioSequences.complement_bitpar(i, Alphabet(x)), x.data)
-    (head, tail...) = data
-    typeof(x)(unsafe, ((head & get_mask(typeof(x))), tail...))
+    typeof(x)(unsafe, ((first(data) & get_mask(typeof(x))), Base.tail(data)...))
 end
 
 # Generic fallback

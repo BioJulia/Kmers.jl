@@ -111,10 +111,10 @@ end
     nbits::Integer,
     carry::T,
 ) where {T <: Unsigned}
-    head, tail... = x
-    (new_carry, new_tail) = leftshift_carry(tail, nbits, carry)
-    new_head = left_shift(head, nbits) | new_carry
-    (left_carry(head, nbits), (new_head, new_tail...))
+    isempty(x) && return x
+    (new_carry, new_tail) = leftshift_carry(tail(x), nbits, carry)
+    new_head = left_shift(first(x), nbits) | new_carry
+    (left_carry(first(x), nbits), (new_head, new_tail...))
 end
 
 @inline function rightshift_carry(
@@ -122,11 +122,11 @@ end
     nbits::Integer,
     carry::T,
 ) where {T <: Unsigned}
-    head, tail... = x
-    new_head = right_shift(head, nbits) | right_carry(carry, nbits)
+    isempty(x) && return x
+    new_head = right_shift(first(x), nbits) | right_carry(carry, nbits)
     mask = left_shift(UInt(1), nbits) - 1
-    tail_carry = head & mask
-    (new_carry, new_tail) = rightshift_carry(tail, nbits, tail_carry)
+    tail_carry = first(x) & mask
+    (new_carry, new_tail) = rightshift_carry(tail(x), nbits, tail_carry)
     (new_carry, (new_head, new_tail...))
 end
 

@@ -11,11 +11,11 @@ and similar also for `FwRNAMers` and `FwAAMers`.
 ```jldoctest
 julia> v = collect(FwDNAMers{3}("AGCGTATA"));
 
-julia eltype(v), length(v)
+julia> eltype(v), length(v)
 (Kmer{DNAAlphabet{2}, 3, 1}, 6)
 
-julia> length(collect(FwRNAMers{3}(rna"UGDCUGAVC")))
-2
+julia> collect(FwRNAMers{3}(rna"UGCDUGAVC"))
+ERROR: cannot encode D in RNAAlphabet{2}
 ```
 """
 struct FwKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
@@ -28,8 +28,7 @@ struct FwKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
     end
 end
 
-source_type(::Type{FwKmers{A, K, S}}) where {A, K, S} = S # TODO: Can be deleted?
-load_source(x::FwKmers) = x.seq # TODO: Can be deleted? Is it unused, here and other defs
+source_type(::Type{FwKmers{A, K, S}}) where {A, K, S} = S
 
 @inline function Base.length(it::FwKmers{A, K, S}) where {A, K, S}
     src = used_source(RecodingScheme(A(), S), it.seq)

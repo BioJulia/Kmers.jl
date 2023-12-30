@@ -1,7 +1,10 @@
 name = "Kmers"
 uuid = "445028e4-d31f-4f27-89ad-17affd83fc22"
-authors = ["Sabrina Jaye Ward <sabrinajward@protonmail.com>"]
-version = "0.1.0"
+authors = [
+    "Jakob Nybo Nissen <jakobnybonissen@gmail.com>",
+    "Sabrina Jaye Ward <sabrinajward@protonmail.com>"
+]
+version = "1.0.0"
 
 [deps]
 BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"
@@ -17,4 +20,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [targets]
-test = ["Test", "Random"]
+test = ["Test", "Random", "BioSequences"]

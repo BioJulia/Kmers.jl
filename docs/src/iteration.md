@@ -37,6 +37,13 @@ FwRNAMers
 FwAAMers
 ```
 
+### `FwRvIterator`
+This iterates over a nucleic acid sequence. For every kmer it encounters, it outputs the kmer and its reverse complement.
+
+```@docs
+FwRvIterator
+```
+
 ### `CanonicalKmers`
 This iterator is similar to [`FwKmers`](@ref), however, for each `Kmer` encountered, it returns the _canonical_ kmer.
 

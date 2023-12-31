@@ -1,5 +1,5 @@
 """
-    UnambiguousKmers{A <: Union{DNAAlphabet{2}, RNAAlphabet{2}}, K, S}
+    UnambiguousKmers{A <: TwoBit, K, S} <: AbstractKmerIterator{A, K}
 
 Iterator of 2-bit nucleic acid kmers. This differs from `FwKmers` in that any kmers
 containing ambiguous nucleotides are skipped, whereas using `FwKmers`, they result
@@ -45,7 +45,7 @@ const UnambiguousDNAMers{K, S} = UnambiguousKmers{DNAAlphabet{2}, K, S}
 const UnambiguousRNAMers{K, S} = UnambiguousKmers{RNAAlphabet{2}, K, S}
 
 @inline function Base.iterate(it::UnambiguousKmers{A, K, S}) where {A, K, S}
-    state = (eltype(it)(unsafe, zero_tuple(eltype(it))), ksize(eltype(it)), 1)
+    state = (eltype(it)(unsafe, zero_tuple(eltype(it))), K, 1)
     iterate_kmer(RecodingScheme(A(), S), it, state)
 end
 
@@ -99,7 +99,7 @@ end
         if encoding == 0xff
             throw(BioSequences.EncodeError(Alphabet(eltype(it)), repr(byte)))
         elseif encoding == 0xf0
-            remaining = ksize(eltype(it))
+            remaining = K
         else
             remaining -= 1
             kmer = shift_encoding(kmer, encoding % UInt)
@@ -119,7 +119,7 @@ end
         encoding = UInt(BioSequences.extract_encoded_element(it.it.seq, index))::UInt
         kmer = shift_encoding(kmer, (trailing_zeros(encoding)) % UInt)
         index += 1
-        remaining = isone(count_ones(encoding)) ? remaining - 1 : ksize(eltype(it))
+        remaining = isone(count_ones(encoding)) ? remaining - 1 : K
     end
     (kmer, (kmer, 1, index))
 end

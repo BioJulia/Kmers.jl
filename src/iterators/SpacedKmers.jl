@@ -1,5 +1,5 @@
 """
-    SpacedKmers{A <: Alphabet, K, J, S}
+    SpacedKmers{A <: Alphabet, K, J, S} <: AbstractKmerIterator{A, K}
 
 Iterator of kmers with step size. `J` signifies the step size, `S`
 the type of the underlying sequence, and the eltype of the iterator
@@ -86,14 +86,14 @@ end
     R::RecodingScheme,
     it::SpacedKmers{A, K},
 ) where {A <: Alphabet, K}
-    length(it.seq) < ksize(eltype(it)) && return nothing
+    length(it.seq) < K && return nothing
     kmer = unsafe_extract(
         R,
         eltype(it),
         used_source(RecodingScheme(A(), source_type(typeof(it))), it.seq),
         1,
     )
-    next_index = 1 + max(stepsize(it), ksize(eltype(it)))
+    next_index = 1 + max(stepsize(it), K)
     (kmer, (kmer, next_index))
 end
 
@@ -105,13 +105,17 @@ end
 ) where {A <: Alphabet, K, J, S <: Bytes}
     src = used_source(RecodingScheme(A(), S), it.seq)
     Base.require_one_based_indexing(src)
-    length(src) < ksize(eltype(it)) && return nothing
+    length(src) < K && return nothing
     kmer = unsafe_extract(R, eltype(it), src, 1)
-    next_index = 1 + max(stepsize(it), ksize(eltype(it)))
+    next_index = 1 + max(stepsize(it), K)
     (kmer, (kmer, next_index))
 end
 
-@inline function iterate_kmer(::RecodingScheme, it::SpacedKmers{A, K, J, S}, state) where {A, K, S, J}
+@inline function iterate_kmer(
+    ::RecodingScheme,
+    it::SpacedKmers{A, K, J, S},
+    state,
+) where {A, K, S, J}
     src = used_source(RecodingScheme(A(), S), it.seq)
     R = RecodingScheme(A(), S)
     Base.require_one_based_indexing(src)

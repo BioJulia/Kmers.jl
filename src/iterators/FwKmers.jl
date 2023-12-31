@@ -1,5 +1,5 @@
 """
-    FwKmers{A <: Alphabet, K, S}
+    FwKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
 
 Iterator of forward kmers. `S` signifies the type of the underlying sequence,
 and the eltype of the iterator is `Kmer{A, K, N}` with the appropriate `N`.
@@ -32,7 +32,7 @@ source_type(::Type{FwKmers{A, K, S}}) where {A, K, S} = S
 
 @inline function Base.length(it::FwKmers{A, K, S}) where {A, K, S}
     src = used_source(RecodingScheme(A(), S), it.seq)
-    max(0, length(src) - ksize(eltype(it)) + 1)
+    max(0, length(src) - K + 1)
 end
 
 # Constructors
@@ -66,9 +66,9 @@ end
 ) where {A <: Alphabet, K, S <: Bytes}
     src = used_source(RecodingScheme(A(), S), it.seq)
     Base.require_one_based_indexing(src)
-    length(src) < ksize(eltype(it)) && return nothing
+    length(src) < K && return nothing
     kmer = unsafe_extract(R, eltype(it), src, 1)
-    (kmer, (kmer, ksize(eltype(it)) + 1))
+    (kmer, (kmer, K + 1))
 end
 
 @inline function iterate_kmer(::GenericRecoding, it::FwKmers, state::Tuple{Kmer, Int})

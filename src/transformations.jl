@@ -47,13 +47,17 @@ function BioSequences.translate(
     allow_ambiguous_codons::Bool=true, # noop in this method
     alternative_start::Bool=false,
 )
+    iszero(ksize(typeof(seq))) && return mer""a
     n_aa, remainder = divrem(length(seq), 3)
     iszero(remainder) ||
         error("LongRNA length is not divisible by three. Cannot translate.")
     N = n_coding_elements(Kmer{AminoAcidAlphabet, n_aa})
     T = Kmer{AminoAcidAlphabet, n_aa, N}
     data = zero_tuple(T)
-    @inbounds for i in 1:n_aa
+    # In the next two lines: If alternative_start, we shift in the encoding of M
+    # to first place, then we skip the first 3 nucleotides
+    (_, data) = leftshift_carry(data, 8, UInt(0x0c) * alternative_start)
+    @inbounds for i in (1 + (3 * alternative_start)):n_aa
         a = seq[3i - 2]
         b = seq[3i - 1]
         c = seq[3i - 0]
@@ -63,18 +67,13 @@ function BioSequences.translate(
         (_, data) =
             leftshift_carry(data, BioSequences.bits_per_symbol(AminoAcidAlphabet()), carry)
     end
-    result = T(unsafe, data)
-    if alternative_start && !iszero(ksize(typeof(seq)))
-        return setindex(result, 1, AA_M)
-    else
-        return result
-    end
+    T(unsafe, data)
 end
 
 function BioSequences.translate(
     seq::Kmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}};
     code::BioSequences.GeneticCode=BioSequences.standard_genetic_code,
-    allow_ambiguous_codons::Bool=true, # noop in this method
+    allow_ambiguous_codons::Bool=true,
     alternative_start::Bool=false,
 )
     n_aa, remainder = divrem(length(seq), 3)
@@ -83,7 +82,10 @@ function BioSequences.translate(
     N = n_coding_elements(Kmer{AminoAcidAlphabet, n_aa})
     T = Kmer{AminoAcidAlphabet, n_aa, N}
     data = zero_tuple(T)
-    @inbounds for i in 1:n_aa
+    # In the next two lines: If alternative_start, we shift in the encoding of M
+    # to first place, then we skip the first 3 nucleotides
+    (_, data) = leftshift_carry(data, 8, UInt(0x0c) * alternative_start)
+    @inbounds for i in (1 + (3 * alternative_start)):n_aa
         a = reinterpret(RNA, seq[3i - 2])
         b = reinterpret(RNA, seq[3i - 1])
         c = reinterpret(RNA, seq[3i - 0])
@@ -98,10 +100,5 @@ function BioSequences.translate(
         (_, data) =
             leftshift_carry(data, BioSequences.bits_per_symbol(AminoAcidAlphabet()), carry)
     end
-    result = T(unsafe, data)
-    if alternative_start && !iszero(ksize(typeof(seq)))
-        return setindex(result, 1, AA_M)
-    else
-        return result
-    end
+    T(unsafe, data)
 end

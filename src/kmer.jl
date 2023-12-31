@@ -143,8 +143,7 @@ end
 
 @inline zero_tuple(T::Type{<:Kmer}) = ntuple(i -> zero(UInt), Val{nsize(T)}())
 
-# TODO: Should this somehow throw a MethodError if N is already parameterized?
-@inline function zero_kmer(T::Type{Kmer{A, K}}) where {A, K}
+@inline function zero_kmer(::Type{<:Kmer{A, K}}) where {A, K}
     T2 = derive_type(Kmer{A, K})
     T2(unsafe, zero_tuple(T2))
 end

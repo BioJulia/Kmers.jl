@@ -9,7 +9,7 @@ DocMeta.setdocmeta!(
 
 makedocs(;
     modules=[Kmers],
-    format=Documenter.HTML(),
+    format=Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true"),
     sitename="Kmers.jl",
     pages=[
         "Home" => "index.md",

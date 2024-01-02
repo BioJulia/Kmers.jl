@@ -26,8 +26,8 @@ struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
 end
 ```
 Where:
-* `A` is the `Alphabet` as defined in BioSequences.jl
-* `K` is the length
+* `A` is the `Alphabet` as defined in BioSequences.jl.
+* `K` is the length.
 * `N` is an extra type parameter derived from the first two,
   which exists only because Julia does not allow computed type parameters.
 
@@ -122,7 +122,7 @@ julia> @time count_aaas(seq)
 
 
 ### Indexing
-Kmers support most normal indexing, such as scalar indexing:
+Kmers.jl supports most normal indexing, such as scalar indexing:
 
 ```jldoctest
 julia> mer"CAGCU"r[3]
@@ -154,8 +154,8 @@ KD
 ### A note on type stability
 !!! warning
     Except scalar indexing which always returns a single symbol, all the operations
-    above a _type unstable_, since the length (and thus type) of the resulting 
-    kmer depends on the input value, not its type.
+    above are _type unstable_, since the length (and thus type) of the resulting 
+    kmer depend on the input value, not its type.
 
 However, type unstable functions may be type-stable, if the indexing value is
 known at compile time, and the Julia compiler uses constant folding:

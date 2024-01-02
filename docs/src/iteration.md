@@ -8,10 +8,10 @@ end
 ```
 ## Iteration
 Most applications of kmers extract multiple kmers from an underlying sequence.
-To facilitate this, Kmers.jl implements a few various basic kmer iterators which are all subtypes of `AbstractKmerIterator`.
+To facilitate this, Kmers.jl implements a few basic kmer iterators which are all subtypes of `AbstractKmerIterator`.
 
 The underlying sequence can be a `BioSequence`, `AbstractString`, or `AbstractVector{UInt8}`.
-In the latter case, if the alphabet of the element type implements `BioSequences.AsciiAlphabet`, the vector will be treated a vector of ASCII characters.
+In the latter case, if the alphabet of the element type implements `BioSequences.AsciiAlphabet`, the vector will be treated as a vector of ASCII characters.
 
 Similarly to the rules when constructing kmers directly, DNA and RNA is treated interchangeably when the underlying sequence is a `BioSequence`, but when the underlying sequence is a string or bytevector, `U` and `T` are considered different, and e.g. uracil cannot be constructed from a sequence containing `T`:
 

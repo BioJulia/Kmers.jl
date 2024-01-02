@@ -1,5 +1,5 @@
 ## Kmers.jl
-Kmers.jl provide the `Kmer <: BioSequence` type which implement the concept of a
+Kmers.jl provides the `Kmer <: BioSequence` type which implements the concept of a
 [k-mer](https://en.wikipedia.org/wiki/K-mer), a biological sequence of exactly length `k`.
 
 
@@ -7,7 +7,7 @@ K-mers are used frequently in bioinformatics because, when k is small and known 
 compile time, these sequences can be efficiently represented as integers and stored
 directly in CPU registers, allowing for much more efficient computation than arbitrary-length sequences.
 
-In Kmers.jl, the `Kmer` type is psrameterized by its length, and its data is stored in an `NTuple`. This makes `Kmers` bitstypes and highly efficient.
+In Kmers.jl, the `Kmer` type is parameterized by its length, and its data is stored in an `NTuple`. This makes `Kmers` bitstypes and highly efficient.
 
 Conceptually, one may use the following analogy:
 * `BioSequence` is like `AbstractVector`

@@ -13,7 +13,7 @@ end
     or Kmers.jl
 
 ## Hashing
-Kmers implement `Base.hash`, yielding a `UInt` value:
+Kmers.jl implements `Base.hash`, yielding a `UInt` value:
 
 ```jldoctest; filter = r"^0x[0-9a-fA-F]+$"
 julia> hash(mer"UGCUGUAC"r)

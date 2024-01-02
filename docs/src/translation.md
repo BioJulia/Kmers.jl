@@ -23,7 +23,7 @@ Also, remember that `Kmer`s are only efficient when short (at most a few hundred
 Kmers.jl implements reverse translation, in which an amino acid sequence is translated to an RNA sequence.
 While this process doesn't occur naturally (as far as we know), it is still useful for some analyses.
 
-Since genetic codes are degenerate, i.e. multiple codons code for the same amino acid, reverse translating a sequence does not return a nucleic acid sequence, but a vector of `CodonSet`:
+Since genetic codes are degenerated, i.e. multiple codons code for the same amino acid, reverse translating a sequence does not return a nucleic acid sequence, but a vector of `CodonSet`:
 
 ```@docs
 reverse_translate

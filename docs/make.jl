@@ -16,6 +16,7 @@ makedocs(;
         "The Kmer type" => "kmers.md",
         "Iteration" => "iteration.md",
         "Translation" => "translation.md",
+        "Hashing" => "hashing.md",
         "FAQ" => "faq.md",
     ],
     authors="Jakob Nybo Nissen, Sabrina J. Ward, The BioJulia Organisation and other contributors.",

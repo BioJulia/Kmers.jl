@@ -120,8 +120,6 @@ end
 @inline bits_unused(T::Type{<:Kmer}) =
     n_unused(T) * BioSequences.bits_per_symbol(Alphabet(T))
 
-@inline BioSequences.Alphabet(::Kmer{A}) where {A} = A()
-
 @inline function n_coding_elements(::Type{<:Kmer{A, K}}) where {A, K}
     cld(BioSequences.bits_per_symbol(A()) * K, 8 * sizeof(UInt))
 end
@@ -168,13 +166,21 @@ function Base.show(io::IO, ::MIME"text/plain", s::Kmer)
     print(io, s)
 end
 
+# TODO: This is only efficient because the compiler, through Herculean effort,
+# is able to completely unroll and inline the indexing operation.
 @inline function _cmp(x::Kmer{A1, K1}, y::Kmer{A2, K2}) where {A1, A2, K1, K2}
-    if K1 < K2
-        -1
-    elseif K2 < K1
-        1
-    else
+    if K1 == K2
         cmp(x.data, y.data)
+    else
+        m = min(K1, K2)
+        a = @inline x[1:m]
+        b = @inline y[1:m]
+        c = cmp(a.data, b.data)
+        if iszero(c)
+            K1 < K2 ? -1 : K2 < K1 ? 1 : 0
+        else
+            c
+        end
     end
 end
 
@@ -184,14 +190,66 @@ end
 Base.cmp(x::Kmer{A}, y::Kmer{A}) where {A} = _cmp(x, y)
 Base.cmp(x::Kmer{<:FourBit}, y::Kmer{<:FourBit}) = _cmp(x, y)
 Base.cmp(x::Kmer{<:TwoBit}, y::Kmer{<:TwoBit}) = _cmp(x, y)
+Base.cmp(x::Kmer{A}, y::Kmer{B}) where {A, B} = throw(MethodError(cmp, (x, y)))
 
-Base.isless(x::Kmer, y::Kmer) = cmp(x, y) == -1
-Base.:(==)(x::Kmer, y::Kmer) = iszero(cmp(x, y))
+Base.isless(x::Kmer, y::Kmer) = @inline(cmp(x, y)) == -1
+Base.:(==)(x::Kmer, y::Kmer) = iszero(@inline cmp(x, y))
 
 Base.:(==)(x::Kmer, y::BioSequence) = throw(MethodError(==, (x, y)))
 Base.:(==)(x::BioSequence, y::Kmer) = throw(MethodError(==, (x, y)))
 
-Base.hash(x::Kmer{A, K, N}, h::UInt) where {A, K, N} = hash(x.data, h ⊻ K)
+Base.hash(x::Kmer, h::UInt) = hash(x.data, h ⊻ ksize(typeof(x)))
+
+# These constants are from the original implementation
+@static if Sys.WORD_SIZE == 32
+    # typemax(UInt32) / golden ratio
+    const FX_CONSTANT = 0x9e3779b9
+elseif Sys.WORD_SIZE == 64
+    # typemax(UInt64) / pi
+    const FX_CONSTANT = 0x517cc1b727220a95
+else
+    error("Invalid word size")
+end
+
+# This implementation is translated from the Rust compiler source code,
+# licenced under MIT. The original source is the Firefox source code,
+# also freely licensed.
+"""
+    fx_hash(x, [h::UInt])::UInt
+
+An implementation of `FxHash`. This hash function is extremely fast, but the hashes
+are of poor quality compared to Julia's default MurmurHash3. In particular:
+* The value of any particular bit in the output depends only on bits in the same,
+  and lower positions
+* The bitpattern zero hashes to zero
+
+However, for many applications, `FxHash` is good enough, where the higher rate of
+hash collisions are offset by the faster speed.
+
+The precise hash value of a given kmer is not guaranteed to be stable across minor
+releases of Kmers.jl, but _is_ guaranteed to be stable across minor versions of
+Julia.
+
+# Examples
+```jldoctest
+julia> x = fx_hash(mer"KWQLDE"a);
+
+julia> y = fx_hash(mer"KWQLDE"a, UInt(1));
+
+julia> x isa UInt
+true
+
+julia> x == y
+false
+```
+"""
+function fx_hash(x::Kmer, h::UInt)
+    for i in x.data
+        h = (bitrotate(h, 5) ⊻ i) * FX_CONSTANT
+    end
+    h
+end
+fx_hash(x) = fx_hash(x, zero(UInt))
 
 """
     push(kmer::Kmer{A, K}, s)::Kmer{A, K+1}

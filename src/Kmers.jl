@@ -18,6 +18,7 @@ export Kmer,
     reverse_translate,
     reverse_translate!,
     @mer_str,
+    fx_hash,
 
     # Immutable operations
     push,

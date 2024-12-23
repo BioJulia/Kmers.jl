@@ -68,6 +68,16 @@ end
     T(unsafe, data)
 end
 
+# For this method, we can copy multiple symbols at once.
+@inline function unsafe_extract(
+    ::Copyable,
+    ::Type{T},
+    seq::Union{LongSequence, LongSubSeq},
+    from_index,
+) where {T <: Kmer}
+    unsafe_shift_from(Copyable(), zero_kmer(T), seq, from_index, Val{ksize(T)}())
+end
+
 @inline function unsafe_extract(
     ::AsciiEncode,
     ::Type{T},
@@ -184,6 +194,34 @@ end
         kmer = shift_encoding(kmer, encoding)
     end
     kmer
+end
+
+@inline function unsafe_shift_from(
+    ::Copyable,
+    kmer::Kmer,
+    seq::Union{LongSequence, LongSubSeq},
+    from::Int,
+    ::Val{S},
+) where {S}
+    bps = BioSequences.bits_per_symbol(seq)
+    remaining = S
+    i = Int(from)::Int
+    data = kmer.data
+    while !iszero(remaining)
+        bi = BioSequences.bitindex(seq, i)
+        off = BioSequences.offset(bi)
+        element = @inbounds seq.data[BioSequences.index(bi)]
+        element = BioSequences.reversebits(element, BioSequences.BitsPerSymbol(seq))
+        n_used_bits = min(remaining * bps, 64 - off) & 63
+        n_used_symbols = div(n_used_bits, bps)
+        shift = 64 - (n_used_bits + off)
+        element >>>= (shift & 63)
+        element &= (UInt(1) << (n_used_bits)) - 1
+        (_, data) = leftshift_carry(data, n_used_bits, element)
+        remaining -= n_used_symbols
+        i += n_used_symbols
+    end
+    typeof(kmer)(unsafe, (first(data) & get_mask(typeof(kmer)), Base.tail(data)...))
 end
 
 @inline function unsafe_shift_from(

@@ -18,14 +18,12 @@ julia> Set(CodonSet(v)) == Set(v)
 true
 
 julia> union(CodonSet(v), CodonSet([mer"GAG"r]))
-Kmers.CodonSet with 4 elements:
+CodonSet with 4 elements:
   GAG
   GGA
   UAG
   UUU
 ```
-
-See also: `push`
 """
 struct CodonSet <: AbstractSet{RNACodon}
     x::UInt64
@@ -33,11 +31,11 @@ struct CodonSet <: AbstractSet{RNACodon}
     CodonSet(x::UInt64, ::Unsafe) = new(x)
 end
 CodonSet() = CodonSet(UInt64(0), Unsafe())
-CodonSet(itr) = foldl(push, itr, init=CodonSet())
+CodonSet(itr) = foldl(push, itr; init=CodonSet())
 
 function Base.iterate(x::CodonSet, s::UInt64=x.x)
-    codon = RNACodon((trailing_zeros(s) % UInt64,))
-    iszero(s) ? nothing : (codon, s & (s-1))
+    codon = RNACodon(unsafe, (trailing_zeros(s) % UInt64,))
+    iszero(s) ? nothing : (codon, s & (s - 1))
 end
 
 function push(s::CodonSet, x::RNACodon)
@@ -52,8 +50,8 @@ Base.filter(f, s::CodonSet) = CodonSet(Iterators.filter(f, s))
 Base.setdiff(a::CodonSet, b::Vararg{CodonSet}) = CodonSet(a.x & ~(union(b...).x), Unsafe())
 
 for (name, f) in [(:union, |), (:intersect, &), (:symdiff, ⊻)]
-    @eval function Base.$(name)(a::CodonSet, b::Vararg{CodonSet}) 
-        CodonSet(mapreduce(i -> i.x, $f, b, init=a.x), Unsafe())
+    @eval function Base.$(name)(a::CodonSet, b::Vararg{CodonSet})
+        CodonSet(mapreduce(i -> i.x, $f, b; init=a.x), Unsafe())
     end
 end
 
@@ -76,7 +74,7 @@ inverse of the mapping through `GeneticCode`
 julia> code = ReverseGeneticCode(BioSequences.candidate_division_sr1_genetic_code);
 
 julia> code[AA_E]
-Kmers.CodonSet with 2 elements:
+CodonSet with 2 elements:
   GAA
   GAG
 
@@ -89,17 +87,17 @@ See also: [`reverse_translate`](@ref)
 """
 struct ReverseGeneticCode <: AbstractDict{AminoAcid, CodonSet}
     name::String
-    sets::NTuple{N_AA-1, CodonSet}
+    sets::NTuple{N_AA - 1, CodonSet}
 end
 
 function ReverseGeneticCode(x::BioSequences.GeneticCode)
     ind(aa::AminoAcid) = reinterpret(UInt8, aa) + 1
 
-    sets = fill(CodonSet(), N_AA-1)
+    sets = fill(CodonSet(), N_AA - 1)
     x_set = CodonSet()
     for i in Int64(0):Int64(63)
         aa = x.tbl[i + 1]
-        codon = RNACodon((i % UInt64,))
+        codon = RNACodon(unsafe, (i % UInt64,))
         sets[ind(aa)] = push(sets[ind(aa)], codon)
         if aa !== AA_Term
             x_set = push(x_set, codon)
@@ -122,9 +120,7 @@ function ReverseGeneticCode(x::BioSequences.GeneticCode)
     ReverseGeneticCode(x.name, Tuple(sets))
 end
 
-const rev_standard_genetic_code = ReverseGeneticCode(
-    BioSequences.standard_genetic_code
-)
+const rev_standard_genetic_code = ReverseGeneticCode(BioSequences.standard_genetic_code)
 
 function Base.getindex(s::ReverseGeneticCode, a::AminoAcid)
     if reinterpret(UInt8, a) > (N_AA - 2) # cannot translate gap
@@ -136,21 +132,29 @@ end
 Base.length(c::ReverseGeneticCode) = length(c.sets)
 function Base.iterate(c::ReverseGeneticCode, s=1)
     s > length(c.sets) && return nothing
-    return (reinterpret(AminoAcid, (s-1)%UInt8) => c.sets[s], s+1)
+    return (reinterpret(AminoAcid, (s - 1) % UInt8) => c.sets[s], s + 1)
 end
 
 """
-    reverse_translate!(v::Vector{CodonSet}, s::AASeq code=rev_standard_genetic_code)
+    reverse_translate!(v::Vector{CodonSet}, s::AASeq, code=rev_standard_genetic_code) -> v
 
 Reverse-translates `s` under the reverse genetic code `code`, putting the result in `v`.
 
 See also: [`reverse_translate`](@ref)
+
+# Examples:
+```jldoctest
+julia> v = CodonSet[];
+
+julia> reverse_translate!(v, aa"KWCL")
+4-element Vector{CodonSet}:
+ CodonSet(0x0000000000000005)
+ CodonSet(0x0400000000000000)
+ CodonSet(0x0a00000000000000)
+ CodonSet(0x50000000f0000000)
+```
 """
-function reverse_translate!(
-    v::Vector{CodonSet},
-    seq::AASeq,
-    code=rev_standard_genetic_code
-)
+function reverse_translate!(v::Vector{CodonSet}, seq::AASeq, code=rev_standard_genetic_code)
     resize!(v, length(seq))
     @inbounds for i in eachindex(v)
         v[i] = code[seq[i]]
@@ -168,21 +172,20 @@ If `s` is an `AASeq`, return `Vector{CodonSet}`.
 # Examples
 ```jldoctest
 julia> reverse_translate(AA_W)
-Kmers.CodonSet with 1 element:
+CodonSet with 1 element:
   UGG
 
 julia> v = reverse_translate(aa"MMLVQ");
 
 julia> typeof(v)
-Vector{Kmers.CodonSet}
+Vector{CodonSet} (alias for Array{CodonSet, 1})
 
 julia> v[4]
-Kmers.CodonSet with 4 elements:
+CodonSet with 4 elements:
   GUA
   GUC
   GUG
   GUU
-[...]
 ```
 
 See also: [`reverse_translate!`](@ref), [`ReverseGeneticCode`](@ref)

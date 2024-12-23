@@ -1,221 +1,103 @@
-
-# Bit-parallel element nucleotide complementation
-@inline function _complement_bitpar(a::A, head::UInt64, tail...) where {A<:NucleicAcidAlphabet}
-    return (BioSequences.complement_bitpar(head, A()), _complement_bitpar(a, tail...)...)
+function Base.reverse(x::Kmer)
+    # ( ABC, DEFG) # reverse each element
+    # (CBA , GFED) # reverse elements
+    # (GFED, CBA ) # rightshift carry a zero
+    # ( GFE, DBCA) # final result
+    Bps = BioSequences.BitsPerSymbol(Alphabet(x))
+    data = map(i -> BioSequences.reversebits(i, Bps), reverse(x.data))
+    (_, data) = rightshift_carry(data, bits_unused(typeof(x)), zero(UInt))
+    typeof(x)(unsafe, data)
 end
 
-@inline _complement_bitpar(a::A) where {A<:NucleicAcidAlphabet} = ()
-
-@inline function pushfirst(x::Kmer{A,K,N}, nt) where {A,K,N}
-    ntbits = UInt64(BioSequences.encode(A(), nt)) << (62 - (64N - 2K))
-    #ntbits = UInt64(@inbounds BioSequences.twobitnucs[reinterpret(UInt8, nt) + 0x01]) << (62 - (64N - 2K))
-    return Kmer{A,K,N}(_rightshift_carry(2, ntbits, x.data...))
+# For this method, we don't need to mask the unused bits, because the complement of
+# 0x0 == DNA_Gap is still DNA_Gap 
+function BioSequences.complement(x::Kmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}})
+    isempty(x) && return x
+    data = map(i -> BioSequences.complement_bitpar(i, Alphabet(x)), x.data)
+    typeof(x)(unsafe, data)
 end
 
-@inline function pushlast(x::Kmer{A,K,N}, nt) where {A,K,N}
-    ntbits = UInt64(BioSequences.encode(A(), nt))
-    #ntbits = UInt64(@inbounds BioSequences.twobitnucs[reinterpret(UInt8, nt) + 0x01])
-    _, newbits = _leftshift_carry(2, ntbits, x.data...)
-    return Kmer{A,K,N}(newbits)
+# For this method we do need to mask unused bits, unlike above
+function BioSequences.complement(x::Kmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}})
+    isempty(x) && return x
+    data = map(i -> BioSequences.complement_bitpar(i, Alphabet(x)), x.data)
+    typeof(x)(unsafe, ((first(data) & get_mask(typeof(x))), Base.tail(data)...))
 end
 
-
-###
-### Transformation methods
-###
-
-"""
-    complement(seq::T) where {T<:Kmer}
-
-Return a kmer's complement kmer.
-
-# Examples
-
-```jldoctest
-julia> complement(Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C))
-DNA 5-mer:
-AATCG
-```
-"""
-@inline function BioSequences.complement(seq::T) where {T<:Kmer}
-    return T(_complement_bitpar(Alphabet(seq), seq.data...))
+# Generic fallback
+function BioSequences.complement(x::Kmer{<:NucleicAcidAlphabet})
+    typeof(x)((complement(i) for i in x))
 end
 
-"""
-    reverse(seq::Kmer{A,K,N}) where {A,K,N}
-
-Return a kmer that is the reverse of the input kmer.
-
-# Examples
-
-```jldoctest
-julia> reverse(Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C))
-DNA 5-mer:
-CGATT
-```
-"""
-@inline function Base.reverse(seq::Kmer{A,K,N}) where {A,K,N}
-    rdata = _reverse(BioSequences.BitsPerSymbol(seq), seq.data...)
-	# rshift should constant-fold.
-	rshift = n_unused(Kmer{A,K,N}) * BioSequences.bits_per_symbol(A())
-    return Kmer{A,K,N}(rightshift_carry(rdata, rshift)) # based on only 2 bit alphabet.
+function BioSequences.reverse_complement(x::Kmer)
+    @inline(reverse(@inline(complement(x))))
 end
 
-"""
-    reverse_complement(seq::Kmer)
-
-Return the kmer that is the reverse complement of the input kmer.
-
-# Examples
-
-```jldoctest
-julia> reverse_complement(Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C))
-DNA 5-mer:
-GCTAA
-```
-"""
-@inline function BioSequences.reverse_complement(seq::Kmer{A,K,N}) where {A,K,N}
-    return complement(reverse(seq))
+function BioSequences.canonical(x::Kmer)
+    rc = reverse_complement(x)
+    ifelse(x < rc, x, rc)
 end
 
-#=
-@inline function reverse_complement2(seq::Kmer{A,K,N}) where {A,K,N}
-    f = x -> complement_bitpar(x, A())
-    rdata = _reverse(f, BioSequences.BitsPerSymbol(seq), seq.data...)
-    return Kmer{A,K,N}(rightshift_carry(rdata, 64N - 2K))
-end
-=#
-
-"""
-    BioSequences.canonical(seq::Kmer{A,K,N}) where {A,K,N}
-
-Return the canonical sequence of `seq`.
-
-A canonical sequence is the numerical lesser of a kmer and its reverse complement.
-This is useful in hashing/counting sequences in data that is not strand specific,
-and thus observing the short sequence is equivalent to observing its reverse complement.
-
-# Examples
-
-```jldoctest
-julia> canonical(Kmer(DNA_T, DNA_T, DNA_A, DNA_G, DNA_C))
-DNA 5-mer:
-GCTAA
-```
-"""
-@inline function BioSequences.canonical(seq::Kmer{A,K,N}) where {A,K,N}
-    if N < 4
-		return min(seq, reverse_complement(seq))
-	else
-		return iscanonical(seq) ? seq : reverse_complement(seq)
-	end
-end
-
-###
-### Old Mer specific specializations of src/biosequence/transformations.jl
-### - not currently transferred to new type.
-
-# TODO: Sort this and decide on transferring to new NTuple based kmers or no.
-
-#=
-function swap(x::T, i, j) where {T<:AbstractMer}
-    i = 2 * length(x) - 2i
-    j = 2 * length(x) - 2j
-    b = encoded_data(x)
-    x = ((b >> i) ⊻ (b >> j)) & encoded_data_type(x)(0x03)
-    return T(b ⊻ ((x << i) | (x << j)))
-end
-
-
-
-function Random.shuffle(x::T) where {T<:AbstractMer}
-    # Fisher-Yates shuffle for mers.
-    j = lastindex(x)
-    for i in firstindex(x):(j - 1)
-        j′ = rand(i:j)
-        x = swap(x, i, j′)
-    end
-    return x
-end
-=#
-
-throw_translate_err(K) = error("Cannot translate Kmer of size $K not divisible by 3")
-
-@inline function setup_translate(seq::Kmer{<:NucleicAcidAlphabet, K}) where K
-    naa, rem = divrem(K, 3)
-    iszero(rem) || throw_translate_err(K)
-    kmertype(AAKmer{naa})
-end
-
-# This sets the first amino acid to methionine, returning the data tuple
-@inline function set_methionine_data(data::Tuple{Vararg{UInt64}}, ::Val{K}) where K
-    offset = ((K - 1) * 8) & 63
-    mask = ~(UInt64(0xff) << offset) # mask off existing AA in pos 1
-    addition = UInt64(0x0c) << offset # 0x0c is encoded methionine
-    chunk, rest... = data
-    chunk = (chunk & mask) | addition
-    return (chunk, rest...)
-end
+BioSequences.iscanonical(x::Kmer) = x <= reverse_complement(x)
 
 function BioSequences.translate(
-    seq::Union{RNAKmer, DNAKmer};
-    code=BioSequences.standard_genetic_code,
-    allow_ambiguous_codons::Bool = true, # a noop for this method
-    alternative_start::Bool = false
-)   
-    T = setup_translate(seq)
-    data = blank_ntuple(T)
-    for i in 1:ksize(T)
-        a = seq[3*i - 2]
-        b = seq[3*i - 1]
-        c = seq[3*i - 0]
+    seq::Kmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}};
+    code::BioSequences.GeneticCode=BioSequences.standard_genetic_code,
+    allow_ambiguous_codons::Bool=true, # noop in this method
+    alternative_start::Bool=false,
+)
+    iszero(ksize(typeof(seq))) && return mer""a
+    n_aa, remainder = divrem(length(seq), 3)
+    iszero(remainder) ||
+        error("LongRNA length is not divisible by three. Cannot translate.")
+    N = n_coding_elements(Kmer{AminoAcidAlphabet, n_aa})
+    T = Kmer{AminoAcidAlphabet, n_aa, N}
+    data = zero_tuple(T)
+    # In the next two lines: If alternative_start, we shift in the encoding of M
+    # to first place, then we skip the first 3 nucleotides
+    (_, data) = leftshift_carry(data, 8, UInt(0x0c) * alternative_start)
+    @inbounds for i in (1 + (3 * alternative_start)):n_aa
+        a = seq[3i - 2]
+        b = seq[3i - 1]
+        c = seq[3i - 0]
         codon = BioSequences.unambiguous_codon(a, b, c)
         aa = code[codon]
-        # Next line is equivalent to encode, but without checking.
-        # We assume genetic codes do not code to invalid data.
-        enc_data = reinterpret(UInt8, aa) % UInt64
-        data = leftshift_carry(data, 8, enc_data)
+        carry = UInt(reinterpret(UInt8, aa))
+        (_, data) =
+            leftshift_carry(data, BioSequences.bits_per_symbol(AminoAcidAlphabet()), carry)
     end
-    # This is probably not needed for kmers, but kept for compatibility.
-    # It does slightly slow down translation, even when not taken.
-    if alternative_start && !iszero(ksize(T))
-        data = set_methionine_data(data, Val(ksize(T)))
-    end
-    return T(data)
+    T(unsafe, data)
 end
 
-# See the function above for comments, or the equivalent function
-# in BioSequences
 function BioSequences.translate(
-    seq::Kmer{<:NucleicAcidAlphabet};
-    code=BioSequences.standard_genetic_code,
-    allow_ambiguous_codons::Bool = true,
-    alternative_start::Bool = false
-)    
-    T = setup_translate(seq)
-    data = blank_ntuple(T)
-    for i in 1:ksize(T)
-        a = reinterpret(RNA, seq[3*i - 2])
-        b = reinterpret(RNA, seq[3*i - 1])
-        c = reinterpret(RNA, seq[3*i - 0])
-        aa = if BioSequences.isambiguous(a) | BioSequences.isambiguous(b) | BioSequences.isambiguous(c)
-            aa_ = BioSequences.try_translate_ambiguous_codon(code, a, b, c)
-            if aa_ === nothing
-                if allow_ambiguous_codons
-                    aa_ = AA_X
-                else
-                    error("codon ", a, b, c, " cannot be unambiguously translated")
-                end
-            end
-            aa_
-        else
+    seq::Kmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}};
+    code::BioSequences.GeneticCode=BioSequences.standard_genetic_code,
+    allow_ambiguous_codons::Bool=true,
+    alternative_start::Bool=false,
+)
+    n_aa, remainder = divrem(length(seq), 3)
+    iszero(remainder) ||
+        error("LongRNA length is not divisible by three. Cannot translate.")
+    N = n_coding_elements(Kmer{AminoAcidAlphabet, n_aa})
+    T = Kmer{AminoAcidAlphabet, n_aa, N}
+    data = zero_tuple(T)
+    # In the next two lines: If alternative_start, we shift in the encoding of M
+    # to first place, then we skip the first 3 nucleotides
+    (_, data) = leftshift_carry(data, 8, UInt(0x0c) * alternative_start)
+    @inbounds for i in (1 + (3 * alternative_start)):n_aa
+        a = reinterpret(RNA, seq[3i - 2])
+        b = reinterpret(RNA, seq[3i - 1])
+        c = reinterpret(RNA, seq[3i - 0])
+        aa = if isgap(a) | isgap(b) | isgap(c)
+            error("Cannot translate nucleotide sequences with gaps.")
+        elseif iscertain(a) & iscertain(b) & iscertain(c)
             code[BioSequences.unambiguous_codon(a, b, c)]
+        else
+            BioSequences.try_translate_ambiguous_codon(code, a, b, c, allow_ambiguous_codons)
         end
-        enc_data = reinterpret(UInt8, aa) % UInt64
-        data = leftshift_carry(data, 8, enc_data)
+        carry = UInt(reinterpret(UInt8, aa))
+        (_, data) =
+            leftshift_carry(data, BioSequences.bits_per_symbol(AminoAcidAlphabet()), carry)
     end
-    if alternative_start && !iszero(ksize(T))
-        data = set_methionine_data(data, Val(ksize(T)))
-    end
-    return T(data)
+    T(unsafe, data)
 end

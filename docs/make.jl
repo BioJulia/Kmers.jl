@@ -1,29 +1,33 @@
 using Documenter, Kmers
 
-makedocs(
-    format = Documenter.HTML(),
-    sitename = "Kmers.jl",
-    pages = [
-        "Home"                           => "index.md",
-        "Kmer types"                     => "kmer_types.md",
-        "Constructing kmers"             => "construction.md",
-        "Indexing & modifying kmers"     => "transforms.md",
-        "Predicates"                     => "predicates.md",
-        "Random kmers"                   => "random.md",
-        "Iterating over Kmers"           => "iteration.md",
-        "Translation"                    => "translate.md",
-        #"Pattern matching and searching" => "sequence_search.md",
-        #"Iteration"                      => "iteration.md",
-        #"Counting"                       => "counting.md",
-        #"I/O"                            => "io.md",
-        #"Interfaces"                     => "interfaces.md"
-    ],
-    authors = "Ben J. Ward, The BioJulia Organisation and other contributors."
+DocMeta.setdocmeta!(
+    Kmers,
+    :DocTestSetup,
+    :(using BioSequences, Kmers, Test);
+    recursive=true,
 )
 
-deploydocs(
-    repo = "github.com/BioJulia/Kmers.jl.git",
-    push_preview = true,
-    deps = nothing,
-    make = nothing
+makedocs(;
+    modules=[Kmers],
+    format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true"),
+    sitename="Kmers.jl",
+    pages=[
+        "Home" => "index.md",
+        "The Kmer type" => "kmers.md",
+        "Iteration" => "iteration.md",
+        "Translation" => "translation.md",
+        "Hashing" => "hashing.md",
+        "K-mer replacements" => "replacements.md",
+        "FAQ" => "faq.md",
+        "Cookbook" => ["MinHash" => "minhash.md", "Kmer composition" => "composition.md"],
+    ],
+    authors="Jakob Nybo Nissen, Sabrina J. Ward, The BioJulia Organisation and other contributors.",
+    checkdocs=:exports,
+)
+
+deploydocs(;
+    repo="github.com/BioJulia/Kmers.jl.git",
+    push_preview=true,
+    deps=nothing,
+    make=nothing,
 )

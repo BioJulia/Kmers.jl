@@ -891,4 +891,15 @@ end
     end
 end
 
+@testset "Random kmers" begin
+    @testset "Complete alphabets" begin
+    end
+
+    @testset "Incomplete alphabets" begin
+    end
+
+    @testset "Four-bit alphabets" begin
+    end
+end
+
 end # module

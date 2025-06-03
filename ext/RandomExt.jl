@@ -23,11 +23,11 @@ using Kmers: Kmer,
 
 # TODO: Add back this AA sampler and the fourbit function to BioSequences.jl
 const PROTEOGENIC_AA_ENCODINGS = let
-    mem = Memory{UInt8}(undef, 20)
+    mem = Vector{UInt8}(undef, 20)
     for (i, sym) in enumerate(aa"ACDEFGHIKLMNPQRSTVWY")
         mem[i] = encode(AminoAcidAlphabet(), sym)
     end
-    mem
+    Tuple(mem)
 end
 
 # TODO: Should this be in the core package?

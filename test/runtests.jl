@@ -897,21 +897,20 @@ end
 @testset "Random kmers" begin
     @testset "Complete alphabets" begin
 
-        @test rand(StableRNG(SEED), DNAKmer{10}) == mer"AATGCGTTTG"d
-        @test rand(StableRNG(SEED), DNAKmer{10, 1}) == mer"AATGCGTTTG"d
-
-        rng = StableRNG(SEED)
-        @test rand(rng, RNAKmer{4}) == mer"UUUU"
+        @test rand(StableRNG(SEED), DNAKmer{10}) == mer"GATAAACTTG"d
+        @test rand(StableRNG(SEED), DNAKmer{10, 1}) == mer"GATAAACTTG"d
+        @test rand(StableRNG(SEED), RNAKmer{4}) == mer"CUUG"r
+        @test rand(StableRNG(SEED), DNAKmer{4}) == mer"CTTG"d
     end
 
     @testset "Incomplete alphabets" begin
-        @test rand(StableRNG(SEED), AAKmer{10}) == mer"WSPTYQCIQV"a
+        @test rand(StableRNG(SEED), AAKmer{10}) == mer"WFTEYAFNSW"a
         @test rand(StableRNG(SEED), AAKmer{0, 0}) == mer""a
     end
 
     @testset "Four-bit alphabets" begin
-        @test rand(StableRNG(SEED), Kmer{DNAAlphabet{4}, 12}) == mer"CTGCACTGTTTC"d
-        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 12}) == mer"CUGCACUGUUUC"r
+        @test rand(StableRNG(SEED), Kmer{DNAAlphabet{4}, 12}) == Kmer{DNAAlphabet{4}, 12}("GGCGCTGAAATG")
+        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 12}) == Kmer{RNAAlphabet{4}, 12}("GGCGCUGAAAUG")
     end
 
     @testset "Instances" begin

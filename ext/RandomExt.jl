@@ -53,45 +53,45 @@ end
 function random_kmer(rng::AbstractRNG, T::Type{<:Kmer{N}}) where {N <: FourBit}
     nce = n_coding_elements(T)
     iszero(nce) && return zero_kmer(T)
-    tail = ntuple(i -> random_fourbit_encoding(), nce - 1)
-    head = random_fourbit_encoding() & get_mask(T)
+    tail = ntuple(i -> random_fourbit_encoding(rng), nce - 1)
+    head = random_fourbit_encoding(rng) & get_mask(T)
     return T(unsafe, (head, tail...))
 end
 
 function random_kmer(rng::AbstractRNG, T::Type{<:Kmer{AminoAcidAlphabet}})
     kmer = zero_kmer(T)
     for _ in 1:ksize(T)
-        kmer = shift_encoding(kmer, rand(PROTEOGENIC_AA_ENCODINGS) % UInt)
+        kmer = shift_encoding(kmer, rand(rng, PROTEOGENIC_AA_ENCODINGS) % UInt)
     end
     return kmer
 end
 
 function random_kmer(rng::AbstractRNG, T::Type{<:Kmer}, ::Val{true})
     bits = bits_per_symbol(T) * ksize(T)
-    return T(unsafe, random_tuples(Val(bits)))
+    return T(unsafe, random_tuples(rng, Val(bits)))
 end
 
 function random_kmer(rng::AbstractRNG, T::Type{<:Kmer}, ::Val{false})
     letters = symbols(Alphabet(T))
     isempty(letters) && throw(ArgumentError("Alphabet cannot be empty"))
     kmer = zero_kmer(T)
-    for i in 1:ksize(T)
+    for _ in 1:ksize(T)
         kmer = shift(kmer, rand(rng, letters))
     end
     return kmer
 end
 
-function random_tuples(::Val{bits}) where {bits}
+function random_tuples(rng, ::Val{bits}) where {bits}
     iszero(bits) && return ()
     usize = 8 * sizeof(UInt)
-    tail = ntuple(i -> rand(UInt), cld(bits, usize) - 1)
-    head = rand(UInt) & (UInt(1) << mod(bits, usize) - UInt(1))
+    tail = ntuple(i -> rand(rng, UInt), cld(bits, usize) - 1)
+    head = rand(rng, UInt) & (UInt(1) << mod(bits, usize) - UInt(1))
     return (head, tail...)
 end
 
-function random_fourbit_encoding()
+function random_fourbit_encoding(rng)
     enc = 0x1111111111111111 % UInt
-    mask = rand(UInt)
+    mask = rand(rng, UInt)
     enc = ((enc & mask) << 1) | (enc & ~mask)
     mask >>>= 1
     return ((enc & mask) << 2) | (enc & ~mask)

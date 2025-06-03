@@ -235,6 +235,20 @@ end
     end
 end
 
+@testset "As integer" begin
+    u1 = as_integer(mer"TAGCGA"d)
+    u2 = as_integer(mer"TAGCGC"d)
+    @test u1 != u2
+    @test u1 isa Unsigned
+    @test u2 isa Unsigned
+
+    d = Set{UInt8}()
+    for s in Iterators.product(repeat(["ACGU"], 4)...)
+        push!(d, as_integer(RNAKmer{4}(join(s))))
+    end
+    @test length(d) == 256
+end
+
 @testset "Access" begin
     @testset "Scalar indexing" begin
         m = mer"TGATGCTAGTAGTATTCTATAG"d

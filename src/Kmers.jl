@@ -20,6 +20,7 @@ export Kmer,
     @mer_str,
     fx_hash,
     derive_type,
+    as_integer,
 
     # Immutable operations
     push,

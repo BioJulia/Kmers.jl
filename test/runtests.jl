@@ -2,10 +2,13 @@ module TestKmers
 
 using Test
 using Random
+using StableRNGs
 using Kmers
 using BioSequences
 using BioSymbols
 using StringViews
+
+const SEED = 0xccfb2d5055d8c990
 
 include("utils.jl")
 
@@ -910,6 +913,42 @@ end
         mer = Kmer{CharAlphabet, 5, 3}("中国¨Å!")
         @test ushift(Kmers.GenericRecoding(), mer, seq, 6, Val(3)) ==
               Kmer{CharAlphabet, 5, 3}("Å!人大æ")
+    end
+end
+
+@testset "Random kmers" begin
+    @testset "Complete alphabets" begin
+
+        @test rand(StableRNG(SEED), DNAKmer{10}) == mer"GATAAACTTG"d
+        @test rand(StableRNG(SEED), DNAKmer{10, 1}) == mer"GATAAACTTG"d
+        @test rand(StableRNG(SEED), DNAKmer{0}) == mer""d
+        @test rand(StableRNG(SEED), DNAKmer{41}) == mer"TTACGTTCAGGGGCAGTCGAGATCGGCTCCGGATAAACTTG"d
+        @test rand(StableRNG(SEED), RNAKmer{4}) == mer"CUUG"r
+        @test rand(StableRNG(SEED), DNAKmer{4}) == mer"CTTG"d
+    end
+
+    @testset "Incomplete alphabets" begin
+        @test rand(StableRNG(SEED), AAKmer{10}) == mer"WFTEYAFNSW"a
+        @test rand(StableRNG(SEED), AAKmer{0, 0}) == mer""a
+    end
+
+    @testset "Four-bit alphabets" begin
+        @test rand(StableRNG(SEED), Kmer{DNAAlphabet{4}, 12}) == Kmer{DNAAlphabet{4}, 12}("GGCGCTGAAATG")
+        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 12}) == Kmer{RNAAlphabet{4}, 12}("GGCGCUGAAAUG")
+        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 33}) == Kmer{RNAAlphabet{4}, 33}("GGGACGGCGCUGAAAUGAAAGCCGGAACUAGUA")
+    end
+
+    @testset "Custom alphabets" begin
+        @test rand(StableRNG(SEED), Kmer{CharAlphabet, 7}) == Kmer{CharAlphabet, 7}("~t2\$0\x037")
+        @test rand(StableRNG(SEED), Kmer{CharAlphabet, 0}) == Kmer{CharAlphabet, 0}("")
+
+        @test rand(StableRNG(SEED), Kmer{CharAlphabet, 51}) == Kmer{CharAlphabet, 51}(
+            "~t2\$0\x0373@\$K8/Ryuz\x144\x18x\e\x11\nmW&[{\tO7XY'O\r?\0c2P\n=\x03^)Bu\x02s"
+        )
+    end
+
+    @testset "Instances" begin
+        @test rand(StableRNG(SEED), mer"PKWSJMVTYWB"a) == AA_J
     end
 end
 

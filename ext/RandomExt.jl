@@ -8,7 +8,8 @@ using BioSequences: Alphabet,
     bits_per_symbol,
     iscomplete,
     DefaultAASampler,
-    encode
+    encode,
+    symbols
 
 using Kmers: Kmer,
     get_mask,

@@ -247,6 +247,14 @@ end
         push!(d, as_integer(RNAKmer{4}(join(s))))
     end
     @test length(d) == 256
+
+    u3 = as_integer(mer"TGATGCTGTAGTCGTGA"d)
+    @test u3 isa Unsigned
+
+    u4 = as_integer(mer"KWPLKWPHWLM"a)
+    @test u4 isa Unsigned
+
+    @test_throws ArgumentError as_integer(mer"AAAAAAAAAAAAAAAAAAAAAAAA"a)
 end
 
 @testset "Access" begin

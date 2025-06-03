@@ -256,6 +256,74 @@ function fx_hash(x::Kmer, h::UInt)
 end
 fx_hash(x) = fx_hash(x, zero(UInt))
 
+Base.adjoint(x::Kmer) = x
+
+"""
+    as_integer(x::Kmer)::Unsigned
+
+Get the encoded integer representation of kmer `x`. The returned value is an
+unsigned integer between `UInt8` and `UInt128`, with the smallest type chosen
+which can fit the coding bits.
+Throws an exception if passed kmers with more than 128 bits.
+
+!!! warning
+    The value of the encoded representation is an implementation detail, and may
+    change in minor versions of Kmers.jl.
+    However, the returned type is guaranteed to be stable. Furthermore, for a given
+    version of Kmers.jl, the value is guaranteed to be stable for a given kmer.
+    If the alphabet of the kmer has unique encodings for each symbol, the integer
+    returned is guaranteed to be the unique representation among all kmers of
+    the same length.
+
+# Examples
+```jldoctest
+julia> as_integer(mer"AACT"d)
+0x07
+
+julia> as_integer(mer"CT"d)
+0x07
+
+julia> as_integer(mer"KWPQHVY"a)
+0x000b110e05081312
+
+julia> as_integer(mer"VEEKEGVLIKLRK"a)
+0x0000001306060b0607130a090b0a010b
+
+julia> Kmers.as_integer(AAKmer{17}("A"^17))
+ERROR: ArgumentError: Must have at most 128 bits in encoding
+[...]
+```
+"""
+function as_integer(x::Kmer{A, K}) where {A, K}
+    bits = K * BioSequences.bits_per_symbol(x)
+    su = sizeof(UInt)
+    t = x.data
+    if bits <= 8
+        t[1] % UInt8
+    elseif bits <= 16
+        t[1] % UInt16
+    elseif bits <= 32
+        t[1] % UInt32
+    elseif bits <= 64
+        if su == 8
+            t[1]
+        else
+            (t[1] % UInt64) << 32 | t[2]
+        end
+    elseif bits <= 128
+        if su == 8
+            (t[1] % UInt128) << 64 | (t[2] % UInt128)
+        else
+            (t[1] % UInt128) << 96 |
+            (t[2] % UInt128) << 64 |
+            (t[3] % UInt128) << 32 |
+            (t[4] % UInt128)
+        end
+    else
+        throw(ArgumentError("Must have at most 128 bits in encoding"))
+    end
+end
+
 """
     push(kmer::Kmer{A, K}, s)::Kmer{A, K+1}
 

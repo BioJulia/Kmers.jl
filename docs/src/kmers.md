@@ -192,6 +192,7 @@ RNAKmer
 AAKmer
 DNACodon
 RNACodon
+as_integer
 pop
 pop_first
 push

@@ -2,10 +2,13 @@ module TestKmers
 
 using Test
 using Random
+using StableRNGs
 using Kmers
 using BioSequences
 using BioSymbols
 using StringViews
+
+const SEED = 0xccfb2d5055d8c990
 
 include("utils.jl")
 
@@ -893,12 +896,26 @@ end
 
 @testset "Random kmers" begin
     @testset "Complete alphabets" begin
+
+        @test rand(StableRNG(SEED), DNAKmer{10}) == mer"AATGCGTTTG"d
+        @test rand(StableRNG(SEED), DNAKmer{10, 1}) == mer"AATGCGTTTG"d
+
+        rng = StableRNG(SEED)
+        @test rand(rng, RNAKmer{4}) == mer"UUUU"
     end
 
     @testset "Incomplete alphabets" begin
+        @test rand(StableRNG(SEED), AAKmer{10}) == mer"WSPTYQCIQV"a
+        @test rand(StableRNG(SEED), AAKmer{0, 0}) == mer""a
     end
 
     @testset "Four-bit alphabets" begin
+        @test rand(StableRNG(SEED), Kmer{DNAAlphabet{4}, 12}) == mer"CTGCACTGTTTC"d
+        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 12}) == mer"CUGCACUGUUUC"r
+    end
+
+    @testset "Instances" begin
+        @test rand(StableRNG(SEED), mer"PKWSJMVTYWB"a) == AA_J
     end
 end
 

@@ -37,10 +37,10 @@ maybe_derive_type(T::Type{Kmer{A, K}}) where {A, K} = derive_type(T)
 function Random.rand(rng::AbstractRNG, s::SamplerTrivial{T}) where {T <: Kmer}
     iszero(ksize(T)) && throw(ArgumentError("collection must be non-empty"))
     kmer = s[]
-    return @inbounds kmer[rand(1:length(kmer))]
+    return @inbounds kmer[rand(rng, 1:length(kmer))]
 end
 
-function Random.rand(rng::AbstractRNG, s::SamplerType{T}) where {T <: Kmer}
+function Random.rand(rng::AbstractRNG, ::SamplerType{T}) where {T <: Kmer}
     Tc = maybe_derive_type(T)
     isconcretetype(Tc) || throw(ArgumentError("Cannot sample from abstract K-mer type"))
     return random_kmer(rng, Tc)

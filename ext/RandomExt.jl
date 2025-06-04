@@ -47,11 +47,11 @@ function Random.rand(rng::AbstractRNG, ::SamplerType{T}) where {T <: Kmer}
     return random_kmer(rng, Tc)
 end
 
-function random_kmer(rng::AbstractRNG, T::Type{<:Kmer})
+@inline function random_kmer(rng::AbstractRNG, T::Type{<:Kmer})
     return random_kmer(rng, T, iscomplete(Alphabet(T)))
 end
 
-function random_kmer(rng::AbstractRNG, T::Type{<:Kmer{N}}) where {N <: FourBit}
+@inline function random_kmer(rng::AbstractRNG, T::Type{<:Kmer{N}}) where {N <: FourBit}
     nce = n_coding_elements(T)
     iszero(nce) && return zero_kmer(T)
     tail = ntuple(i -> random_fourbit_encoding(rng), nce - 1)
@@ -59,7 +59,7 @@ function random_kmer(rng::AbstractRNG, T::Type{<:Kmer{N}}) where {N <: FourBit}
     return T(unsafe, (head, tail...))
 end
 
-function random_kmer(rng::AbstractRNG, T::Type{<:Kmer{AminoAcidAlphabet}})
+@inline function random_kmer(rng::AbstractRNG, T::Type{<:Kmer{AminoAcidAlphabet}})
     kmer = zero_kmer(T)
     for _ in 1:ksize(T)
         kmer = shift_encoding(kmer, rand(rng, PROTEOGENIC_AA_ENCODINGS) % UInt)
@@ -67,7 +67,7 @@ function random_kmer(rng::AbstractRNG, T::Type{<:Kmer{AminoAcidAlphabet}})
     return kmer
 end
 
-function random_kmer(rng::AbstractRNG, T::Type{<:Kmer}, ::Val{true})
+@inline function random_kmer(rng::AbstractRNG, T::Type{<:Kmer}, ::Val{true})
     bits = bits_per_symbol(T) * ksize(T)
     return T(unsafe, random_tuples(rng, Val(bits)))
 end
@@ -82,13 +82,22 @@ function random_kmer(rng::AbstractRNG, T::Type{<:Kmer}, ::Val{false})
     return kmer
 end
 
-function random_tuples(rng, ::Val{bits}) where {bits}
-    iszero(bits) && return ()
+@inline function random_tuples(rng::AbstractRNG, v::Val{bits}) where {bits}
+    usize = 8 * sizeof(UInt)
+    random_tuples(rng, v, Val{iszero(mod(bits, usize))}())
+end
+
+@inline function random_tuples(rng::AbstractRNG, ::Val{bits}, ::Val{true}) where bits
+    ntuple(i -> rand(rng, UInt), cld(bits, 8 * sizeof(UInt)))
+end
+
+@inline function random_tuples(rng::AbstractRNG, ::Val{bits}, ::Val{false}) where bits
     usize = 8 * sizeof(UInt)
     tail = ntuple(i -> rand(rng, UInt), cld(bits, usize) - 1)
     head = rand(rng, UInt) & (UInt(1) << mod(bits, usize) - UInt(1))
     return (head, tail...)
 end
+
 
 function random_fourbit_encoding(rng)
     enc = 0x1111111111111111 % UInt

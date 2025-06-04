@@ -952,4 +952,18 @@ end
     end
 end
 
+@testset "Counting" begin
+    @testset "Count GC" begin
+        @test count(isGC, mer"TATCGGAGA"d) == 4
+        @test count(isGC, mer"TATATATAAAAA"d) == 0
+        @test count(isGC, mer"AGCGATGCTGATGAGAGAGTCGTGTCGCTGTGATGATGAGGAGCTTAG"d) == 25
+
+        @test count(isGC, mer"AUGUCGUAG"r) == 4
+        @test count(isGC, mer""r) == 0
+        @test count(isGC, mer"AUGUCGGAGAGGAGCGAGAGAGGGCGCGGAUGUAGUGGCUGUAGGAG"r) == 29
+
+        @test_throws MethodError count(isGC, mer"ATATA"a) # amino acid mer
+    end
+end
+
 end # module

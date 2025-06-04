@@ -119,6 +119,7 @@ include("construction.jl")
 include("indexing.jl")
 include("transformations.jl")
 include("revtrans.jl")
+include("counting.jl")
 
 include("iterators/common.jl")
 include("iterators/FwKmers.jl")

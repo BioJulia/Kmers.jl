@@ -287,25 +287,39 @@ Kmer{A1}(x::Kmer{A2, K, N}) where {A1, A2, K, N} = Kmer{A1, K, N}(x)
 ################################################
 
 function BioSequences.LongSequence{A}(kmer::Kmer{A}) where {A <: Alphabet}
-    ratio = div(sizeof(UInt64), sizeof(UInt))
-    data = zeros(UInt64, cld(n_coding_elements(typeof(kmer)), ratio))
-    @inbounds for i in 1:n_coding_elements(typeof(kmer))
-        target = cld(i, ratio)
-        src = kmer.data[i] % UInt64
-        if ratio == 2 && iseven(i)
-            src <<= 32
-        end
-        data[target] |= src
-    end
-    bps = BioSequences.BitsPerSymbol(A())
-    @inbounds for i in eachindex(data)
-        data[i] = BioSequences.reversebits(data[i], bps)
-    end
+    sizeof(UInt) == 8 || error("32-bit systems not supported yet")
+    isempty(kmer) && return LongSequence{A}()
+    data = Vector{UInt64}(undef, n_coding_elements(typeof(kmer)))
     bu = bits_unused(typeof(kmer))
-    @inbounds if !iszero(bu)
-        data[end] = data[end] >> bu
+    if iszero(bu)
+        _fill_unshift!(kmer, data)
+    else
+        _fill_shift!(kmer, data)
     end
     LongSequence{A}(data, length(kmer) % UInt)
+end
+
+@inline function _fill_unshift!(kmer::Kmer, data::Vector{UInt64})
+    bps = BioSequences.BitsPerSymbol(Alphabet(kmer))
+    @inbounds for i in eachindex(kmer.data)
+        data[i] = BioSequences.reversebits(kmer.data[i], bps)
+    end
+end
+
+@inline function _fill_shift!(kmer::Kmer, data::Vector{UInt64})
+    bps = BioSequences.BitsPerSymbol(Alphabet(kmer))
+    nce = length(kmer.data)
+    bu = bits_unused(typeof(kmer))
+    left_mask = UInt(1) << (64 - bu) - UInt(1)
+    right_mask = ~left_mask
+    leftsh = bu
+    rightsh = 64 - bu
+    @inbounds for i in 1:length(kmer.data) - 1
+        chunk = left_shift((kmer.data[i] & left_mask), leftsh)
+        chunk |= right_shift(kmer.data[i + 1] & right_mask, rightsh)
+        data[i] = BioSequences.reversebits(chunk, bps)
+    end
+    @inbounds data[nce] = BioSequences.reversebits(left_shift((kmer.data[nce] & left_mask), leftsh), bps)
 end
 
 # TODO: Do we want specialized constructors to contruct cross-alphabet longseqs

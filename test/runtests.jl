@@ -447,6 +447,24 @@ end
     end
 end
 
+@testset "Construct other BioSequences from Kmers" begin
+    for mer in Any[
+        mer"AGCGATGCTGATGAGAGAGTCGTGTCGCTGTGATGATGAGGAGCTTAG"d,
+        mer"PLAKCVMARQKW"a,
+        mer""a,
+        mer"AGCTGATAGTGA"d,
+        mer"AUGUCUGCUGAUAUGUA"r,
+        mer"AGCGATGAGAGAGTCGTGTCGGAGGAGCTTAG"d,
+        mer"RRLCYEKVWSTSVKGTCLWVCSLNTEEQLDMFVLNMEWCRFHHVYKQTAQPFMVTMEPGNHYSPVSMTLMRCQIGGMYVWQTCIDTPFPQLKCVIANSPS"a,
+        mer"RRLCYEKVWSTSVKTPAKWHNSPS"a,
+    ]
+        ls = LongSequence(mer)
+        @test Alphabet(ls) == Alphabet(mer)
+        @test string(ls) == string(mer)
+        @test ls == LongSequence{typeof(Alphabet(mer))}(string(mer))
+    end
+end
+
 @testset "Translation" begin
     @testset "Forward translation" begin
         # Empty

@@ -205,6 +205,10 @@ Base.:(==)(x::BioSequence, y::Kmer) = throw(MethodError(==, (x, y)))
 
 Base.hash(x::Kmer, h::UInt) = hash(x.data, h ⊻ ksize(typeof(x)))
 
+if Sys.WORD_SIZE != 64
+    error("Kmer.jl only supports 64-bit systems")
+end
+
 # These constants are from the original implementation
 @static if Sys.WORD_SIZE == 32
     # typemax(UInt32) / golden ratio
@@ -264,23 +268,25 @@ Base.adjoint(x::Kmer) = x
 Get the encoded integer representation of kmer `x`. The returned value is an
 unsigned integer between `UInt8` and `UInt128`, with the smallest type chosen
 which can fit the coding bits.
-Throws an exception if passed kmers with more than 128 bits.
+Throws an `ArgumentError` if passed kmers with more than 128 bits.
 
 !!! warning
     The value of the encoded representation is an implementation detail, and may
     change in minor versions of Kmers.jl.
-    However, the returned type is guaranteed to be stable. Furthermore, for a given
-    version of Kmers.jl, the value is guaranteed to be stable for a given kmer.
-    If the alphabet of the kmer has unique encodings for each symbol, the integer
-    returned is guaranteed to be the unique representation among all kmers of
-    the same length.
+    However, the value has the following guarantees:
+    * For a given kmer and version of Kmers.jl, the value is deterministic.
+    * If the alphabet has unique encodings for each symbol, then two kmers of
+      the same length are guaranteed to have distinct encodings.
+    * The integer has no more bits than the total number of bits in the encoding
+      of the kmer, and the smallest possible unsigned bitstype integer type is
+      used.
 
 # Examples
 ```jldoctest
 julia> as_integer(mer"AACT"d)
 0x07
 
-julia> as_integer(mer"CT"d)
+julia> as_integer(mer"CT"d) # different K, same encoding
 0x07
 
 julia> as_integer(mer"KWPQHVY"a)
@@ -294,7 +300,8 @@ ERROR: ArgumentError: Must have at most 128 bits in encoding
 [...]
 ```
 """
-function as_integer(x::Kmer{A, K}) where {A, K}
+@inline function as_integer(x::Kmer{A, K}) where {A, K}
+    isempty(x) && return 0x00
     bits = K * BioSequences.bits_per_symbol(x)
     su = sizeof(UInt)
     t = x.data
@@ -305,22 +312,65 @@ function as_integer(x::Kmer{A, K}) where {A, K}
     elseif bits <= 32
         t[1] % UInt32
     elseif bits <= 64
-        if su == 8
-            t[1]
-        else
-            (t[1] % UInt64) << 32 | t[2]
-        end
+        t[1]
     elseif bits <= 128
-        if su == 8
-            (t[1] % UInt128) << 64 | (t[2] % UInt128)
-        else
-            (t[1] % UInt128) << 96 |
-            (t[2] % UInt128) << 64 |
-            (t[3] % UInt128) << 32 |
-            (t[4] % UInt128)
-        end
+        # NB: This is NOT equivalent to a reinterpret, because we guarantee that
+        # only the lower `bits` bits are set, which does not correspond to the
+        # internal representation of a kmer.
+        ((t[1] % UInt128) << 64) | (t[2] % UInt128)
     else
         throw(ArgumentError("Must have at most 128 bits in encoding"))
+    end
+end
+
+"""
+    from_integer(T::Type{<:Kmer}, u)::T
+
+Construct a kmer of type `T` from the unsigned bit-integer `u`.
+The value of the returned kmer cannot be relied on, but it is guaranteed that
+the roundtripping a value produced by `as_integer` will work, and will
+result in the same kmer.
+
+`T` must have at most 128 bits coding bits, and `u` must have no more than 128 bits. 
+Since not all bits of `u` may be used when constructing the kmer, different
+integers may return the same kmer.
+
+# Examples
+```jldoctest
+julia> kmer = mer"TGATCGTAGAGTGTA"d;
+
+julia> u = as_integer(kmer); typeof(u)
+UInt32
+
+julia> from_integer(typeof(kmer), u) === kmer
+true
+```
+"""
+function from_integer end
+
+@inline function from_integer(T::Type{<:Kmer{A, K}}, u::Unsigned) where {A, K}
+    from_integer(derive_type(T), u)
+end
+
+@inline function from_integer(T::Type{<:Kmer{A, K, N}}, u::BitUnsigned) where {A, K, N}
+    check_kmer(T)
+    bits = K * BioSequences.bits_per_symbol(A())
+    iszero(bits) && return zero_kmer(T)
+    su = sizeof(u) * 8
+    if bits > 128
+        throw(ArgumentError("Kmer type must contain at most 128 bits"))
+    end
+    if bits <= 64
+        u = (u % UInt) & get_mask(T)
+        return T(unsafe, (u,))
+    else
+        # NB: This is NOT equivalent to a reinterpret, because we guarantee that
+        # only the lower `bits` bits are set, which does not correspond to the
+        # internal representation of a kmer.
+        # And also because of the masking to ensure no non-coding bits are set.
+        a = ((u >> 64) % UInt) & get_mask(T)
+        b = u % UInt
+        return T(unsafe, (a, b))
     end
 end
 

@@ -2,7 +2,8 @@ module RandomExt
 
 using Random: Random, AbstractRNG, rand, default_rng, Sampler, SamplerTrivial, SamplerType
 
-using BioSequences: Alphabet,
+using BioSequences:
+    Alphabet,
     @aa_str,
     AminoAcidAlphabet,
     bits_per_symbol,
@@ -11,7 +12,8 @@ using BioSequences: Alphabet,
     encode,
     symbols
 
-using Kmers: Kmer,
+using Kmers:
+    Kmer,
     get_mask,
     ksize,
     unsafe,
@@ -87,17 +89,16 @@ end
     random_tuples(rng, v, Val{iszero(mod(bits, usize))}())
 end
 
-@inline function random_tuples(rng::AbstractRNG, ::Val{bits}, ::Val{true}) where bits
+@inline function random_tuples(rng::AbstractRNG, ::Val{bits}, ::Val{true}) where {bits}
     ntuple(i -> rand(rng, UInt), cld(bits, 8 * sizeof(UInt)))
 end
 
-@inline function random_tuples(rng::AbstractRNG, ::Val{bits}, ::Val{false}) where bits
+@inline function random_tuples(rng::AbstractRNG, ::Val{bits}, ::Val{false}) where {bits}
     usize = 8 * sizeof(UInt)
     tail = ntuple(i -> rand(rng, UInt), cld(bits, usize) - 1)
     head = rand(rng, UInt) & (UInt(1) << mod(bits, usize) - UInt(1))
     return (head, tail...)
 end
-
 
 function random_fourbit_encoding(rng)
     enc = 0x1111111111111111 % UInt

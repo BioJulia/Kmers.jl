@@ -1,6 +1,6 @@
 name = "Kmers"
 uuid = "445028e4-d31f-4f27-89ad-17affd83fc22"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["Jakob Nybo Nissen <jakobnybonissen@gmail.com>", "Sabrina Jaye Ward <sabrinajward@protonmail.com>"]
 
 [deps]

@@ -238,26 +238,63 @@ end
     end
 end
 
-@testset "As integer" begin
-    u1 = as_integer(mer"TAGCGA"d)
-    u2 = as_integer(mer"TAGCGC"d)
-    @test u1 != u2
-    @test u1 isa Unsigned
-    @test u2 isa Unsigned
+@testset "Integer conversion" begin
+    @testset "As integer" begin
+        u1 = as_integer(mer"TAGCGA"d)
+        u2 = as_integer(mer"TAGCGC"d)
+        @test u1 != u2
+        @test u1 isa Unsigned
+        @test u2 isa Unsigned
 
-    d = Set{UInt8}()
-    for s in Iterators.product(repeat(["ACGU"], 4)...)
-        push!(d, as_integer(RNAKmer{4}(join(s))))
+        d = Set{UInt8}()
+        for s in Iterators.product(repeat(["ACGU"], 4)...)
+            push!(d, as_integer(RNAKmer{4}(join(s))))
+        end
+        @test length(d) == 256
+
+        u3 = as_integer(mer"TGATGCTGTAGTCGTGA"d)
+        @test u3 isa Unsigned
+
+        u4 = as_integer(mer"KWPLKWPHWLM"a)
+        @test u4 isa Unsigned
+
+        @test_throws ArgumentError as_integer(mer"AAAAAAAAAAAAAAAAAAAAAAAA"a)
+
+        # Test only lower bits are set
+        u5 = as_integer(mer"KWPLKWPHWLM"a)
+        @test u5 < 0x10000000000000000000000
     end
-    @test length(d) == 256
 
-    u3 = as_integer(mer"TGATGCTGTAGTCGTGA"d)
-    @test u3 isa Unsigned
+    @testset "From integer" begin
+        # Works, even with bits in the non-coding fields
+        @test from_integer(DNAKmer{3}, 0xff) === mer"TTT"d
+        @test from_integer(AAKmer{9}, 0x1a1a1a1a1a1a1a1a1a1a1a1a1a) === mer"*********"a
 
-    u4 = as_integer(mer"KWPLKWPHWLM"a)
-    @test u4 isa Unsigned
+        # Works when integer type does not match
+        @test from_integer(RNAKmer{9}, typemax(UInt)) isa RNAKmer{9}
+        @test from_integer(AAKmer{2}, typemax(UInt128)) isa AAKmer{2}
+        @test from_integer(AAKmer{14}, 0xff) isa AAKmer{14}
 
-    @test_throws ArgumentError as_integer(mer"AAAAAAAAAAAAAAAAAAAAAAAA"a)
+        # Errors if bit type or kmer is too wide
+        @test_throws ArgumentError from_integer(DNAKmer{67}, 0x01)
+        @test_throws ArgumentError from_integer(AAKmer{20}, UInt(0))
+        @test_throws ArgumentError from_integer(Kmer{DNAAlphabet{4}, 35, 3}, 0x01)
+
+        # Round-trip
+        for mer in Any[
+            mer"TAGTCGTGTAA"d,
+            mer"TA"d,
+            mer""r,
+            mer"UUCGUAGUAGUA"r,
+            mer"KWPOLR"a,
+            mer"R"a,
+            mer"PLOIWRTKSNIACGTY"a,
+            mer"TAGTGCTGTAGATATGGCGCGTGATGATGATGATTGCTGTGTAATAGTA"d,
+        ]
+            u = as_integer(mer)
+            @test from_integer(typeof(mer), u) === mer
+        end
+    end
 end
 
 @testset "Access" begin
@@ -939,10 +976,12 @@ end
         @test rand(StableRNG(SEED), DNAKmer{10}) == mer"GATAAACTTG"d
         @test rand(StableRNG(SEED), DNAKmer{10, 1}) == mer"GATAAACTTG"d
         @test rand(StableRNG(SEED), DNAKmer{0}) == mer""d
-        @test rand(StableRNG(SEED), DNAKmer{41}) == mer"TTACGTTCAGGGGCAGTCGAGATCGGCTCCGGATAAACTTG"d
+        @test rand(StableRNG(SEED), DNAKmer{41}) ==
+              mer"TTACGTTCAGGGGCAGTCGAGATCGGCTCCGGATAAACTTG"d
         @test rand(StableRNG(SEED), RNAKmer{4}) == mer"CUUG"r
         @test rand(StableRNG(SEED), DNAKmer{4}) == mer"CTTG"d
-        @test rand(StableRNG(SEED), DNAKmer{64}) == mer"GGGGCAGTCGAGATCGGCTCCGGATAAACTTGCATACAAGGCGTAGAGAAGAGTTTTACGTTCA"d
+        @test rand(StableRNG(SEED), DNAKmer{64}) ==
+              mer"GGGGCAGTCGAGATCGGCTCCGGATAAACTTGCATACAAGGCGTAGAGAAGAGTTTTACGTTCA"d
     end
 
     @testset "Incomplete alphabets" begin
@@ -952,18 +991,23 @@ end
     end
 
     @testset "Four-bit alphabets" begin
-        @test rand(StableRNG(SEED), Kmer{DNAAlphabet{4}, 12}) == Kmer{DNAAlphabet{4}, 12}("GGCGCTGAAATG")
-        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 12}) == Kmer{RNAAlphabet{4}, 12}("GGCGCUGAAAUG")
-        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 33}) == Kmer{RNAAlphabet{4}, 33}("GGGACGGCGCUGAAAUGAAAGCCGGAACUAGUA")
-        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 32}) == Kmer{RNAAlphabet{4}, 32}("AAAGCCGGAACUAGUAGGACGGCGCUGAAAUG")
+        @test rand(StableRNG(SEED), Kmer{DNAAlphabet{4}, 12}) ==
+              Kmer{DNAAlphabet{4}, 12}("GGCGCTGAAATG")
+        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 12}) ==
+              Kmer{RNAAlphabet{4}, 12}("GGCGCUGAAAUG")
+        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 33}) ==
+              Kmer{RNAAlphabet{4}, 33}("GGGACGGCGCUGAAAUGAAAGCCGGAACUAGUA")
+        @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 32}) ==
+              Kmer{RNAAlphabet{4}, 32}("AAAGCCGGAACUAGUAGGACGGCGCUGAAAUG")
     end
 
     @testset "Custom alphabets" begin
-        @test rand(StableRNG(SEED), Kmer{CharAlphabet, 7}) == Kmer{CharAlphabet, 7}("~t2\$0\x037")
+        @test rand(StableRNG(SEED), Kmer{CharAlphabet, 7}) ==
+              Kmer{CharAlphabet, 7}("~t2\$0\x037")
         @test rand(StableRNG(SEED), Kmer{CharAlphabet, 0}) == Kmer{CharAlphabet, 0}("")
 
         @test rand(StableRNG(SEED), Kmer{CharAlphabet, 51}) == Kmer{CharAlphabet, 51}(
-            "~t2\$0\x0373@\$K8/Ryuz\x144\x18x\e\x11\nmW&[{\tO7XY'O\r?\0c2P\n=\x03^)Bu\x02s"
+            "~t2\$0\x0373@\$K8/Ryuz\x144\x18x\e\x11\nmW&[{\tO7XY'O\r?\0c2P\n=\x03^)Bu\x02s",
         )
     end
 

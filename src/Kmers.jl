@@ -21,6 +21,7 @@ export Kmer,
     fx_hash,
     derive_type,
     as_integer,
+    from_integer,
 
     # Immutable operations
     push,
@@ -110,8 +111,9 @@ const unsafe = Unsafe()
 
 const FourBit = Union{DNAAlphabet{4}, RNAAlphabet{4}}
 const TwoBit = Union{DNAAlphabet{2}, RNAAlphabet{2}}
-const BitInteger =
-    Union{Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64, Int128, UInt128}
+
+const BitUnsigned = Union{UInt8, UInt16, UInt32, UInt64, UInt128}
+const BitInteger = Union{BitUnsigned, Int8, Int16, Int32, Int64, Int128}
 
 include("tuple_bitflipping.jl")
 include("kmer.jl")

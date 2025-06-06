@@ -357,9 +357,6 @@ end
     bits = K * BioSequences.bits_per_symbol(A())
     iszero(bits) && return zero_kmer(T)
     su = sizeof(u) * 8
-    if su > 128
-        throw(ArgumentError("Cannot use integers larger than 128 bits"))
-    end
     if bits > 128
         throw(ArgumentError("Kmer type must contain at most 128 bits"))
     end

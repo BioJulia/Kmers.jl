@@ -324,7 +324,7 @@ ERROR: ArgumentError: Must have at most 128 bits in encoding
 end
 
 """
-    from_integer(T::Type{<:Kmer}, u::Unsigned)::T
+    from_integer(T::Type{<:Kmer}, u)::T
 
 Construct a kmer of type `T` from the unsigned bit-integer `u`.
 The value of the returned kmer cannot be relied on, but it is guaranteed that
@@ -339,7 +339,7 @@ integers may return the same kmer.
 ```jldoctest
 julia> kmer = mer"TGATCGTAGAGTGTA"d;
 
-julia> u = as_integer(kmer); typeof(kmer)
+julia> u = as_integer(kmer); typeof(u)
 UInt32
 
 julia> from_integer(typeof(kmer), u) === kmer
@@ -352,7 +352,7 @@ function from_integer end
     from_integer(derive_type(T), u)
 end
 
-@inline function from_integer(T::Type{<:Kmer{A, K, N}}, u::Unsigned) where {A, K, N}
+@inline function from_integer(T::Type{<:Kmer{A, K, N}}, u::BitUnsigned) where {A, K, N}
     check_kmer(T)
     bits = K * BioSequences.bits_per_symbol(A())
     iszero(bits) && return zero_kmer(T)

@@ -21,6 +21,7 @@ export Kmer,
     fx_hash,
     derive_type,
     as_integer,
+    from_integer,
 
     # Immutable operations
     push,

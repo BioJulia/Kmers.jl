@@ -314,12 +314,13 @@ end
     right_mask = ~left_mask
     leftsh = bu
     rightsh = 64 - bu
-    @inbounds for i in 1:length(kmer.data) - 1
+    @inbounds for i in 1:(length(kmer.data) - 1)
         chunk = left_shift((kmer.data[i] & left_mask), leftsh)
         chunk |= right_shift(kmer.data[i + 1] & right_mask, rightsh)
         data[i] = BioSequences.reversebits(chunk, bps)
     end
-    @inbounds data[nce] = BioSequences.reversebits(left_shift((kmer.data[nce] & left_mask), leftsh), bps)
+    @inbounds data[nce] =
+        BioSequences.reversebits(left_shift((kmer.data[nce] & left_mask), leftsh), bps)
 end
 
 # TODO: Do we want specialized constructors to contruct cross-alphabet longseqs

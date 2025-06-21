@@ -111,26 +111,29 @@ end
 @assert UInt == UInt64
 
 function Kmer{A, K, N}(x::DynamicKmer) where {A <: Alphabet, K, N}
+    check_kmer(Kmer{A, K, N})
     length(x) == K || error("Must construct kmer from length K DynamicKmer")
     # This is now a compile time constant
     noncoding = 8 * sizeof(x) - BioSequences.bits_per_symbol(x) * K
     return if N == 0
         Kmer{A, K, N}(unsafe, ())
     elseif N == 1
-        u = right_shift(x.x % UInt64, noncoding)
+        u = right_shift(x.x, noncoding) % UInt
         Kmer{A, K, N}(unsafe, (u,))
-    elseif N == 2
-        u = right_shift(x.x, noncoding)
-        t1 = (u >> 64) % UInt64
-        t2 = u % UInt64
-        Kmer{A, K, N}(unsafe, (t1, t2))
     else
-        error("Unreachable")
+        u = right_shift(x.x, noncoding)
+        Nu = div(sizeof(x), sizeof(UInt))
+        B = sizeof(x) * 8
+        t = ntuple(Nu) do i
+            right_shift(u, B - i * 8 * sizeof(UInt)) % UInt
+        end
+        Kmer{A, K, N}(unsafe, t)
     end
 end
 
 const HASH_MASK = 0x6ff6e9f0462d5162 % UInt
 
+Base.copy(x::DynamicKmer) = x
 Base.hash(x::DynamicKmer, h::UInt64) = hash(x.x, h ⊻ HASH_MASK)
 Base.:(==)(a::DynamicKmer, b::DynamicKmer) = a.x == b.x
 Base.isless(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = isless(a.x, b.x)
@@ -171,10 +174,33 @@ end
 
 BioSequences.iscanonical(x::DynamicKmer) = x <= reverse_complement(x)
 
-# _n_gc
+function BioSequences._n_gc(x::DynamicKmer{<:NucleicAcidAlphabet})
+    u = x.x & ~length_mask(typeof(x))
+    return BioSequences.gc_bitcount(u, Alphabet(x))
+end
+
+function Kmers.as_integer(x::DynamicKmer)
+    shift = (8 * sizeof(x) - coding_bits(x))
+    return right_shift(x.x, shift)
+end
+
+function Kmers.from_integer(
+        T::Type{DynamicKmer{A, U}}, x::U, len::Int
+    ) where {A <: Alphabet, U <: Unsigned}
+    if (len % UInt) > (capacity(T) % UInt)
+        error("Length too large for dynamic kmer")
+    end
+    bps = BioSequences.bits_per_symbol(A())
+    shift = 8 * sizeof(U) - len * bps
+    u = left_shift(x, shift)
+    return _new_dynamic_kmer(A, u | (len % U))
+end
 
 # Counting
 
 # Construction utils!!!
+#  - Can we hook into unsafe extract?
+#
 
-# As integer, from integer. Should we guarantee the encoding scheme?
+
+# Convert RNA/DNA types

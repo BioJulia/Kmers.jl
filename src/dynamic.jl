@@ -1,3 +1,28 @@
+"""
+    DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
+
+Dynamic kmers are immutable, bitstype `BioSequence`s similar to `Kmer`s.
+However, unlike the `Kmer` type, the length of a dynamic kmer is a run time
+value, and not a compile time value.
+
+Dynamic kmers are slightly less efficient than regular kmers.
+They are useful when a workload includes kmers of varying sizes, where the
+length specialization of the `Kmer` type would cause excessive compilation
+and/or type instability.
+
+See also: [`DynamicDNAKmer`](@ref), [`Kmer`](@ref)
+
+# Examples
+```jldoctest
+julia> m = DynamicRNAKmer{UInt32}(rna"AUGCUGA")
+7nt RNA Sequence:
+AUGCUGA
+
+julia> reverse_complement(m)
+7nt RNA Sequence:
+UCAGCAU
+```
+"""
 struct DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
     # Lower L bits: Length
     # Upper bits, from top to bottom: bits
@@ -13,8 +38,13 @@ end
 
 utype(::Type{<:DynamicKmer{A, U}}) where {A, U} = U
 
+"Alias for DynamicKmer{DNAAlphabet{2}, <:Unsigned}"
 const DynamicDNAKmer{U} = (DynamicKmer{DNAAlphabet{2}, U} where {U <: Unsigned})
+
+"Alias for DynamicKmer{RNAAlphabet{2}, <:Unsigned}"
 const DynamicRNAKmer{U} = (DynamicKmer{RNAAlphabet{2}, U} where {U <: Unsigned})
+
+"Alias for DynamicKmer{AminoAcidAlphabet, <:Unsigned}"
 const DynamicAAKmer{U} = (DynamicKmer{AminoAcidAlphabet, U} where {U <: Unsigned})
 
 Base.@constprop :aggressive Base.@assume_effects :foldable function max_coding_bits(
@@ -59,7 +89,7 @@ end
 end
 
 @inline function coding_mask(x::DynamicKmer)
-    return top_mask(typeof(x), coding_bits(x))
+    return iszero(x.x) ? x.x : top_mask(typeof(x), coding_bits(x))
 end
 
 capacity(T::Type{<:DynamicKmer}) = div(max_coding_bits(T), BioSequences.bits_per_symbol(Alphabet(T)))
@@ -297,4 +327,31 @@ end
     return _new_dynamic_kmer(typeof(A), (len % U) | u)
 end
 
-# Counting
+"""
+    shift_encoding(x::DynamicKmer{A, U}, encoding::U)::typeof(x)
+
+Add `encoding`, a valid encoding in the alphabet of the `x`,
+and of the same integer type as that used in `x`,
+to the end of dynamic kmer `x` and discarding the first symbol in `x`.
+
+It is the user's responsibility to ensure that `encoding` is valid.
+
+# Examples
+```jldoctest
+julia> enc = UInt32(0x0a); # encoding of DNA_Y in 4-bit alphabets
+
+julia> kmer = DynamicKmer{DNAAlphabet{4}, UInt32}("TAGA");
+
+julia> Kmers.shift_encoding(kmer, enc)
+4nt DNA Sequence:
+AGAY
+```
+"""
+function shift_encoding(x::DynamicKmer{A, U}, encoding::U) where {A <: Alphabet, U <: Unsigned}
+    mask = length_mask(typeof(x))
+    u = x.x & ~mask
+    u = left_shift(u, BioSequences.bits_per_symbol(x))
+    u |= left_shift(encoding, noncoding_bits(x))
+    u | (x.x & mask)
+    _new_dynamic_kmer(A, u | (x.x & mask))
+end

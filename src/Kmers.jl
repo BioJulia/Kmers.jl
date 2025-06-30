@@ -123,8 +123,8 @@ const BitInteger = Union{BitUnsigned, Int8, Int16, Int32, Int64, Int128}
 
 include("tuple_bitflipping.jl")
 include("kmer.jl")
-include("dynamic.jl")
 include("construction.jl")
+include("dynamic.jl")
 include("indexing.jl")
 include("transformations.jl")
 include("revtrans.jl")

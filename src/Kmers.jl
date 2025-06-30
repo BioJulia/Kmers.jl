@@ -23,6 +23,12 @@ export Kmer,
     as_integer,
     from_integer,
 
+    # Dynamic
+    DynamicKmer,
+    DynamicDNAKmer,
+    DynamicRNAKmer,
+    DynamicAAKmer,
+
     # Immutable operations
     push,
     push_first,

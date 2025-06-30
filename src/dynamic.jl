@@ -4,7 +4,6 @@ struct DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
     # E.g. A = 2bit and U = UInt8, TG is stored:
     #  11 10 00                    10
     #  T  G  unused (always zero)  length
-
     x::U
 
     global function _new_dynamic_kmer(::Type{A}, x::U) where {A, U}
@@ -12,9 +11,11 @@ struct DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
     end
 end
 
-const DynamicDNAKmer{U} = DynamicKmer{DNAAlphabet{2}, U}
-const DynamicRNAKmer{U} = DynamicKmer{RNAAlphabet{2}, U}
-const DynamicAAKmer{U} = DynamicKmer{AminoAcidAlphabet, U}
+utype(::Type{<:DynamicKmer{A, U}}) where {A, U} = U
+
+const DynamicDNAKmer{U} = (DynamicKmer{DNAAlphabet{2}, U} where {U <: Unsigned})
+const DynamicRNAKmer{U} = (DynamicKmer{RNAAlphabet{2}, U} where {U <: Unsigned})
+const DynamicAAKmer{U} = (DynamicKmer{AminoAcidAlphabet, U} where {U <: Unsigned})
 
 Base.@constprop :aggressive Base.@assume_effects :foldable function max_coding_bits(
         ::Type{DynamicKmer{A, U}}
@@ -74,23 +75,6 @@ function BioSequences.extract_encoded_element(x::DynamicKmer, i::Integer)
 end
 
 Base.length(x::DynamicKmer) = (x.x & length_mask(typeof(x))) % Int
-
-function DynamicKmer{A, U}(itr) where {A <: Alphabet, U <: Unsigned}
-    T = DynamicKmer{A, U}
-    bps = BioSequences.bits_per_symbol(T)
-    shift = 8 * sizeof(T)
-    u = zero(U)
-    cap = capacity(T)
-    len = 0
-    for i in itr
-        len += 1
-        shift -= bps
-        len > cap && error("Iterator size exceeds maximum capacity of dynamic kmer")
-        enc = BioSequences.encode(A(), i) % U
-        u |= left_shift(enc, shift)
-    end
-    return _new_dynamic_kmer(A, (len % U) | u)
-end
 
 function DynamicKmer{A, U}(kmer::Kmer{A}) where {A <: Alphabet, U <: Unsigned}
     T = DynamicKmer{A, U}
@@ -196,11 +180,121 @@ function Kmers.from_integer(
     return _new_dynamic_kmer(A, u | (len % U))
 end
 
+## More construction utils
+function DynamicKmer{T1, U}(x::DynamicKmer{T2, U}) where {
+        B,
+        T1 <: NucleicAcidAlphabet{B},
+        T2 <: NucleicAcidAlphabet{B},
+        U <: Unsigned,
+    }
+    return _new_dynamic_kmer(T1, x.x)
+end
+
+function DynamicKmer{T1}(x::DynamicKmer{T2}) where {
+        B,
+        T1 <: NucleicAcidAlphabet{B},
+        T2 <: NucleicAcidAlphabet{B},
+    }
+    return _new_dynamic_kmer(T1, x.x)
+end
+
+# Constructor dispatchtes to RecodingScheme
+function DynamicKmer{A, U}(x) where {A <: Alphabet, U <: Unsigned}
+    return build_dynamic_kmer(RecodingScheme(A(), typeof(x)), DynamicKmer{A, U}, x)
+end
+
+# Generic fallback for arbitrary iterables
+function build_dynamic_kmer(::RecodingScheme, ::Type{T}, x) where {T}
+    bps = BioSequences.bits_per_symbol(T)
+    shift = 8 * sizeof(T)
+    U = utype(T)
+    u = zero(U)
+    cap = capacity(T)
+    len = 0
+    A = Alphabet(T)
+    for i in x
+        len += 1
+        shift -= bps
+        len > cap && error("Iterator size exceeds maximum capacity of dynamic kmer")
+        enc = BioSequences.encode(A, i) % U
+        u |= left_shift(enc, shift)
+    end
+    return _new_dynamic_kmer(A, (len % U) | u)
+end
+
+# Here, we can extract the encoding directly
+function build_dynamic_kmer(::Copyable, ::Type{T}, x::BioSequence) where {T}
+    len = length(x)
+    len > capacity(T) && error("Iterator size exceeds maximum capacity of dynamic kmer")
+    bps = BioSequences.bits_per_symbol(T)
+    shift = 8 * sizeof(T)
+    U = utype(T)
+    u = zero(U)
+    A = Alphabet(T)
+    for i in eachindex(x)
+        shift -= bps
+        enc = BioSequences.extract_encoded_element(x, i) % U
+        u |= left_shift(enc, shift)
+    end
+    return _new_dynamic_kmer(typeof(A), (len % U) | u)
+end
+
+@inline function build_dynamic_kmer(
+        R::AsciiEncode,
+        ::Type{T},
+        s::Union{String, SubString{String}},
+    ) where {T}
+    return build_dynamic_kmer(R, T, codeunits(s))
+end
+
+@inline function build_dynamic_kmer(::AsciiEncode, ::Type{T}, x::AbstractVector{UInt8}) where {T}
+    len = length(x)
+    len > capacity(T) && error("Iterator size exceeds maximum capacity of dynamic kmer")
+    U = utype(T)
+    u = zero(U)
+    shift = 8 * sizeof(T)
+    bps = BioSequences.bits_per_symbol(T)
+    A = Alphabet(T)
+    for i in eachindex(x)
+        byte = x[i]
+        encoding = BioSequences.ascii_encode(A, byte)
+        if encoding > 0x7f
+            throw(BioSequences.EncodeError(A, byte))
+        end
+        shift -= bps
+        u |= left_shift(encoding % U, shift)
+    end
+    return _new_dynamic_kmer(typeof(A), (len % U) | u)
+end
+
+@inline function build_dynamic_kmer(::TwoToFour, ::Type{T}, x::BioSequence) where {T}
+    len = length(x)
+    len > capacity(T) && error("Iterator size exceeds maximum capacity of dynamic kmer")
+    U = utype(T)
+    u = zero(U)
+    shift = 8 * sizeof(T)
+    for i in eachindex(x)
+        shift -= 4
+        encoding = left_shift(one(U), BioSequences.extract_encoded_element(x, i) % U)
+        u |= left_shift(encoding % U, shift)
+    end
+    return _new_dynamic_kmer(typeof(Alphabet(T)), (len % U) | u)
+end
+
+@inline function build_dynamic_kmer(::FourToTwo, ::Type{T}, x::BioSequence) where {T}
+    len = length(x)
+    len > capacity(T) && error("Iterator size exceeds maximum capacity of dynamic kmer")
+    U = utype(T)
+    u = zero(U)
+    shift = 8 * sizeof(T)
+    A = Alphabet(T)
+    for i in eachindex(x)
+        shift -= 2
+        encoding = BioSequences.extract_encoded_element(x, i) % U
+        isone(count_ones(encoding)) || throw_uncertain(A, eltype(x), encoding)
+        u |= left_shift(trailing_zeros(encoding) % U, shift)
+    end
+    return _new_dynamic_kmer(typeof(A), (len % U) | u)
+end
+
 # Counting
-
-# Construction utils!!!
-#  - Can we hook into unsafe extract?
-#
-
-
-# Convert RNA/DNA types

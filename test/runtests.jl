@@ -1030,4 +1030,8 @@ end
     end
 end
 
+@testset "Dynamic kmers" begin
+    include("dynamic.jl")
+end
+
 end # module

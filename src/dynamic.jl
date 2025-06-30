@@ -246,10 +246,10 @@ function build_dynamic_kmer(::RecodingScheme, ::Type{T}, x) where {T}
         len += 1
         shift -= bps
         len > cap && error("Iterator size exceeds maximum capacity of dynamic kmer")
-        enc = BioSequences.encode(A, i) % U
+        enc = BioSequences.encode(A, convert(eltype(T), i)) % U
         u |= left_shift(enc, shift)
     end
-    return _new_dynamic_kmer(A, (len % U) | u)
+    return _new_dynamic_kmer(typeof(A), (len % U) | u)
 end
 
 # Here, we can extract the encoding directly

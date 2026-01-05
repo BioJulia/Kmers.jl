@@ -15,8 +15,8 @@
                     end
                     kmer = Kmer{A{N}}(seq)
                     @test (
-                        translate(seq; alternative_start=alternative) ==
-                        translate(kmer; alternative_start=alternative)
+                        translate(seq; alternative_start = alternative) ==
+                            translate(kmer; alternative_start = alternative)
                     )
                 end
             end
@@ -26,7 +26,7 @@
     # Throws when ambiguous
     @test_throws Exception translate(
         Kmer{RNAAlphabet{4}}("AUGCCGCMA"),
-        allow_ambiguous_codons=false,
+        allow_ambiguous_codons = false,
     )
 
     # Not divisible by 3
@@ -139,9 +139,9 @@ end # CodonSet
     CodonSet = Kmers.CodonSet
     code2 = ReverseGeneticCode(BioSequences.trematode_mitochondrial_genetic_code)
     for (rvcode, fwcode) in [
-        (Kmers.rev_standard_genetic_code, BioSequences.standard_genetic_code),
-        (code2, BioSequences.trematode_mitochondrial_genetic_code),
-    ]
+            (Kmers.rev_standard_genetic_code, BioSequences.standard_genetic_code),
+            (code2, BioSequences.trematode_mitochondrial_genetic_code),
+        ]
         @test reverse_translate(aa"", rvcode) == CodonSet[]
         observed = Dict{AminoAcid, CodonSet}()
         for aa in symbols(AminoAcidAlphabet())
@@ -152,7 +152,7 @@ end # CodonSet
 
         # Length and iteration of ReverseGeneticCode
         @test length(rvcode) == length(symbols(AminoAcidAlphabet())) - 1 # all but AA_Gap
-        @test sort!(collect(rvcode); by=first) == sort!(collect(observed); by=first)
+        @test sort!(collect(rvcode); by = first) == sort!(collect(observed); by = first)
 
         flipped = Dict(v => k for (k, v) in observed)
         for (codonset, aa) in flipped
@@ -165,7 +165,7 @@ end # CodonSet
             # forward translated.
             aa in (AA_O, AA_U) && continue
             for codon in codonset
-                @test only(translate(LongRNA{2}(codon); code=fwcode)) == aa
+                @test only(translate(LongRNA{2}(codon); code = fwcode)) == aa
             end
         end
 
@@ -175,37 +175,37 @@ end # CodonSet
 
         # Ambiguous amino acids
         for (ambig, elements) in [
-            (AA_J, [AA_I, AA_L]),
-            (AA_Z, [AA_E, AA_Q]),
-            (AA_B, [AA_D, AA_N]),
-            (
-                AA_X,
-                [
-                    AA_A,
-                    AA_R,
-                    AA_N,
-                    AA_D,
-                    AA_C,
-                    AA_Q,
-                    AA_E,
-                    AA_G,
-                    AA_H,
-                    AA_I,
-                    AA_L,
-                    AA_K,
-                    AA_M,
-                    AA_F,
-                    AA_P,
-                    AA_S,
-                    AA_T,
-                    AA_W,
-                    AA_Y,
-                    AA_V,
-                ],
-            ),
-        ]
+                (AA_J, [AA_I, AA_L]),
+                (AA_Z, [AA_E, AA_Q]),
+                (AA_B, [AA_D, AA_N]),
+                (
+                    AA_X,
+                    [
+                        AA_A,
+                        AA_R,
+                        AA_N,
+                        AA_D,
+                        AA_C,
+                        AA_Q,
+                        AA_E,
+                        AA_G,
+                        AA_H,
+                        AA_I,
+                        AA_L,
+                        AA_K,
+                        AA_M,
+                        AA_F,
+                        AA_P,
+                        AA_S,
+                        AA_T,
+                        AA_W,
+                        AA_Y,
+                        AA_V,
+                    ],
+                ),
+            ]
             c1 = only(reverse_translate(LongAA([ambig]), rvcode))
-            c2 = foldl(elements; init=CodonSet()) do old, aa
+            c2 = foldl(elements; init = CodonSet()) do old, aa
                 union(old, reverse_translate(aa, rvcode))
             end
             @test c1 == c2

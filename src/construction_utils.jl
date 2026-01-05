@@ -25,55 +25,55 @@ AGCT
 ```
 """
 @inline function unsafe_extract(
-    ::TwoToFour,
-    ::Type{T},
-    seq::BioSequence,
-    from_index,
-) where {T <: Kmer}
+        ::TwoToFour,
+        ::Type{T},
+        seq::BioSequence,
+        from_index,
+    ) where {T <: Kmer}
     data = zero_tuple(T)
     for i in from_index:(from_index + ksize(T) - 1)
         encoding = left_shift(UInt(1), UInt(BioSequences.extract_encoded_element(seq, i)))
         (_, data) = leftshift_carry(data, 4, encoding)
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 @inline function unsafe_extract(
-    ::FourToTwo,
-    ::Type{T},
-    seq::BioSequence,
-    from_index,
-) where {T <: Kmer}
+        ::FourToTwo,
+        ::Type{T},
+        seq::BioSequence,
+        from_index,
+    ) where {T <: Kmer}
     data = zero_tuple(T)
     for i in from_index:(from_index + ksize(T) - 1)
         encoding = UInt(BioSequences.extract_encoded_element(seq, i))::UInt
         isone(count_ones(encoding)) || throw_uncertain(Alphabet(T), eltype(seq), encoding)
         (_, data) = leftshift_carry(data, 2, trailing_zeros(encoding) % UInt)
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 @inline function unsafe_extract(
-    ::Copyable,
-    ::Type{T},
-    seq::BioSequence,
-    from_index,
-) where {T <: Kmer}
+        ::Copyable,
+        ::Type{T},
+        seq::BioSequence,
+        from_index,
+    ) where {T <: Kmer}
     data = zero_tuple(T)
     bps = BioSequences.bits_per_symbol(Alphabet(seq))
     for i in from_index:(from_index + ksize(T) - 1)
         encoding = UInt(BioSequences.extract_encoded_element(seq, i))::UInt
         (_, data) = leftshift_carry(data, bps, encoding)
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 @inline function unsafe_extract(
-    ::AsciiEncode,
-    ::Type{T},
-    seq::AbstractVector{UInt8},
-    from_index,
-) where {T <: Kmer}
+        ::AsciiEncode,
+        ::Type{T},
+        seq::AbstractVector{UInt8},
+        from_index,
+    ) where {T <: Kmer}
     data = zero_tuple(T)
     bps = BioSequences.bits_per_symbol(Alphabet(T))
     @inbounds for i in from_index:(from_index + ksize(T) - 1)
@@ -84,15 +84,15 @@ end
         end
         (_, data) = leftshift_carry(data, bps, encoding % UInt)
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 @inline function unsafe_extract(
-    ::GenericRecoding,
-    ::Type{T},
-    seq,
-    from_index,
-) where {T <: Kmer}
+        ::GenericRecoding,
+        ::Type{T},
+        seq,
+        from_index,
+    ) where {T <: Kmer}
     data = zero_tuple(T)
     bps = BioSequences.bits_per_symbol(Alphabet(T))
     @inbounds for i in 0:(ksize(T) - 1)
@@ -100,7 +100,7 @@ end
         encoding = UInt(BioSequences.encode(Alphabet(T), symbol))
         (_, data) = leftshift_carry(data, bps, encoding)
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 ##########################
@@ -130,7 +130,7 @@ AGAY
     isempty(kmer) && return kmer
     bps = BioSequences.bits_per_symbol(kmer)
     (_, new_data) = leftshift_carry(kmer.data, bps, encoding)
-    typeof(kmer)(unsafe, (first(new_data) & get_mask(typeof(kmer)), Base.tail(new_data)...))
+    return typeof(kmer)(unsafe, (first(new_data) & get_mask(typeof(kmer)), Base.tail(new_data)...))
 end
 
 ###########################
@@ -159,71 +159,71 @@ TGGC
 ```
 """
 @inline function unsafe_shift_from(
-    ::GenericRecoding,
-    kmer::Kmer,
-    seq,
-    from::Int,
-    ::Val{S},
-) where {S}
+        ::GenericRecoding,
+        kmer::Kmer,
+        seq,
+        from::Int,
+        ::Val{S},
+    ) where {S}
     for i in 0:(S - 1)
         symbol = @inbounds seq[from + i]
         kmer = shift(kmer, convert(eltype(kmer), symbol))
     end
-    kmer
+    return kmer
 end
 
 @inline function unsafe_shift_from(
-    ::Copyable,
-    kmer::Kmer,
-    seq::BioSequence,
-    from::Int,
-    ::Val{S},
-) where {S}
+        ::Copyable,
+        kmer::Kmer,
+        seq::BioSequence,
+        from::Int,
+        ::Val{S},
+    ) where {S}
     for i in 0:(S - 1)
         encoding = UInt(BioSequences.extract_encoded_element(seq, from + i))
         kmer = shift_encoding(kmer, encoding)
     end
-    kmer
+    return kmer
 end
 
 @inline function unsafe_shift_from(
-    ::TwoToFour,
-    kmer::Kmer{<:NucleicAcidAlphabet{4}},
-    seq::BioSequence{<:NucleicAcidAlphabet{2}},
-    from::Int,
-    ::Val{S},
-) where {S}
+        ::TwoToFour,
+        kmer::Kmer{<:NucleicAcidAlphabet{4}},
+        seq::BioSequence{<:NucleicAcidAlphabet{2}},
+        from::Int,
+        ::Val{S},
+    ) where {S}
     for i in 0:(S - 1)
         encoding =
             left_shift(UInt(1), UInt(BioSequences.extract_encoded_element(seq, from + i)))
         kmer = shift_encoding(kmer, encoding)
     end
-    kmer
+    return kmer
 end
 
 @inline function unsafe_shift_from(
-    ::FourToTwo,
-    kmer::Kmer{<:NucleicAcidAlphabet{2}},
-    seq::BioSequence{<:NucleicAcidAlphabet{4}},
-    from::Int,
-    ::Val{S},
-) where {S}
+        ::FourToTwo,
+        kmer::Kmer{<:NucleicAcidAlphabet{2}},
+        seq::BioSequence{<:NucleicAcidAlphabet{4}},
+        from::Int,
+        ::Val{S},
+    ) where {S}
     for i in 0:(S - 1)
         encoding = UInt(BioSequences.extract_encoded_element(seq, from + i))::UInt
         isone(count_ones(encoding)) ||
             throw_uncertain(Alphabet(kmer), eltype(seq), encoding)
         kmer = shift_encoding(kmer, trailing_zeros(encoding) % UInt)
     end
-    kmer
+    return kmer
 end
 
 @inline function unsafe_shift_from(
-    ::AsciiEncode,
-    kmer::Kmer,
-    seq::AbstractVector{UInt8},
-    from::Int,
-    ::Val{S},
-) where {S}
+        ::AsciiEncode,
+        kmer::Kmer,
+        seq::AbstractVector{UInt8},
+        from::Int,
+        ::Val{S},
+    ) where {S}
     for i in 0:(S - 1)
         byte = @inbounds seq[from + i]
         encoding = BioSequences.ascii_encode(Alphabet(typeof(kmer)), byte)
@@ -232,5 +232,5 @@ end
         end
         kmer = shift_encoding(kmer, encoding % UInt)
     end
-    kmer
+    return kmer
 end

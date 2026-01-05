@@ -28,7 +28,7 @@ struct FwRvIterator{A <: NucleicAcidAlphabet, K, S}
     function FwRvIterator{A, K, S}(seq::S) where {A, K, S}
         K isa Int || error("K must be an Int")
         K > 0 || error("K must be at least 1")
-        new{A, K, S}(seq)
+        return new{A, K, S}(seq)
     end
 end
 
@@ -46,13 +46,13 @@ Base.eltype(T::Type{<:FwRvIterator{A, K}}) where {A, K} =
 
 @inline function Base.length(it::FwRvIterator{A, K, S}) where {A, K, S}
     src = used_source(RecodingScheme(A(), S), it.seq)
-    max(0, length(src) - K + 1)
+    return max(0, length(src) - K + 1)
 end
 
 FwRvIterator{A, K}(s) where {A <: Alphabet, K} = FwRvIterator{A, K, typeof(s)}(s)
 
 @inline function Base.iterate(it::FwRvIterator{A, K, S}, state...) where {A, K, S}
-    iterate_kmer(RecodingScheme(A(), S), it, state...)
+    return iterate_kmer(RecodingScheme(A(), S), it, state...)
 end
 
 # For the first kmer, we extract it, then reverse complement.
@@ -62,53 +62,53 @@ end
     length(it.seq) < K && return nothing
     fw = unsafe_extract(R, kmertype(it), it.seq, 1)
     rv = reverse_complement(fw)
-    ((fw, rv), (fw, rv, K + 1))
+    return ((fw, rv), (fw, rv, K + 1))
 end
 
 # Here, we need to convert to an abstractvector
 @inline function iterate_kmer(
-    R::AsciiEncode,
-    it::FwRvIterator{A, K, S},
-) where {A <: NucleicAcidAlphabet, K, S}
+        R::AsciiEncode,
+        it::FwRvIterator{A, K, S},
+    ) where {A <: NucleicAcidAlphabet, K, S}
     src = used_source(RecodingScheme(A(), S), it.seq)
     Base.require_one_based_indexing(src)
     length(src) < K && return nothing
     fw = unsafe_extract(R, kmertype(it), src, 1)
     rv = reverse_complement(fw)
-    ((fw, rv), (fw, rv, K + 1))
+    return ((fw, rv), (fw, rv, K + 1))
 end
 
 @inline function iterate_kmer(
-    ::GenericRecoding,
-    it::FwRvIterator,
-    state::Tuple{Kmer, Kmer, Int},
-)
+        ::GenericRecoding,
+        it::FwRvIterator,
+        state::Tuple{Kmer, Kmer, Int},
+    )
     (fw, rv, i) = state
     i > length(it.seq) && return nothing
     symbol = convert(eltype(fw), @inbounds it.seq[i])
     fw = shift(fw, symbol)
     rv = shift_first(rv, complement(symbol))
-    ((fw, rv), (fw, rv, i + 1))
+    return ((fw, rv), (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
-    ::Copyable,
-    it::FwRvIterator{<:TwoBit, K, <:BioSequence{<:TwoBit}},
-    state::Tuple{Kmer, Kmer, Int},
-) where {K}
+        ::Copyable,
+        it::FwRvIterator{<:TwoBit, K, <:BioSequence{<:TwoBit}},
+        state::Tuple{Kmer, Kmer, Int},
+    ) where {K}
     (fw, rv, i) = state
     i > length(it.seq) && return nothing
     encoding = UInt(BioSequences.extract_encoded_element(it.seq, i))
     fw = shift_encoding(fw, encoding)
     rv = shift_first_encoding(rv, encoding ⊻ 0x03)
-    ((fw, rv), (fw, rv, i + 1))
+    return ((fw, rv), (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
-    ::Copyable,
-    it::FwRvIterator{<:FourBit, K, <:BioSequence{<:FourBit}},
-    state::Tuple{Kmer, Kmer, Int},
-) where {K}
+        ::Copyable,
+        it::FwRvIterator{<:FourBit, K, <:BioSequence{<:FourBit}},
+        state::Tuple{Kmer, Kmer, Int},
+    ) where {K}
     (fw, rv, i) = state
     i > length(it.seq) && return nothing
     encoding = UInt(BioSequences.extract_encoded_element(it.seq, i))
@@ -116,7 +116,7 @@ end
     rc_encoding =
         reinterpret(UInt8, complement(reinterpret(eltype(rv), encoding % UInt8))) % UInt
     rv = shift_first_encoding(rv, rc_encoding)
-    ((fw, rv), (fw, rv, i + 1))
+    return ((fw, rv), (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(::TwoToFour, it::FwRvIterator, state::Tuple{Kmer, Kmer, Int})
@@ -125,14 +125,14 @@ end
     encoding = UInt(BioSequences.extract_encoded_element(it.seq, i))
     fw = shift_encoding(fw, left_shift(UInt(1), encoding))
     rv = shift_first_encoding(rv, left_shift(UInt(1), encoding ⊻ 0x03))
-    ((fw, rv), (fw, rv, i + 1))
+    return ((fw, rv), (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
-    ::FourToTwo,
-    it::FwRvIterator{A, K, <:BioSequence},
-    state::Tuple{Kmer, Kmer, Int},
-) where {A, K}
+        ::FourToTwo,
+        it::FwRvIterator{A, K, <:BioSequence},
+        state::Tuple{Kmer, Kmer, Int},
+    ) where {A, K}
     (fw, rv, i) = state
     i > length(it.seq) && return nothing
     encoding = UInt(BioSequences.extract_encoded_element(it.seq, i))::UInt
@@ -140,14 +140,14 @@ end
     enc = trailing_zeros(encoding) % UInt
     fw = shift_encoding(fw, enc)
     rv = shift_first_encoding(rv, enc ⊻ 0x03)
-    ((fw, rv), (fw, rv, i + 1))
+    return ((fw, rv), (fw, rv, i + 1))
 end
 
 @inline function iterate_kmer(
-    ::AsciiEncode,
-    it::FwRvIterator{A},
-    state::Tuple{Kmer, Kmer, Int},
-) where {A}
+        ::AsciiEncode,
+        it::FwRvIterator{A},
+        state::Tuple{Kmer, Kmer, Int},
+    ) where {A}
     src = used_source(RecodingScheme(A(), source_type(typeof(it))), it.seq)
     Base.require_one_based_indexing(src)
     (fw, rv, i) = state
@@ -165,12 +165,12 @@ end
     else
         error(
             "Complementing encoding of a Nucleotide AsciiAlphabet which is neither 2 or 4 " *
-            "bits have not been implemented yet.",
+                "bits have not been implemented yet.",
         )
     end
     fw = shift_encoding(fw, encoding % UInt)
     rv = shift_first_encoding(rv, rc_encoding % UInt)
-    ((fw, rv), (fw, rv, i + 1))
+    return ((fw, rv), (fw, rv, i + 1))
 end
 
 """
@@ -205,10 +205,10 @@ source_type(::Type{CanonicalKmers{A, K, S}}) where {A, K, S} = S
 
 # Constructors
 function CanonicalKmers{A, K}(s::S) where {S, A <: NucleicAcidAlphabet, K}
-    CanonicalKmers{A, K, S}(FwRvIterator{A, K}(s))
+    return CanonicalKmers{A, K, S}(FwRvIterator{A, K}(s))
 end
 function CanonicalKmers{A, K, S}(s::S) where {S, A <: NucleicAcidAlphabet, K}
-    CanonicalKmers{A, K, S}(FwRvIterator{A, K}(s))
+    return CanonicalKmers{A, K, S}(FwRvIterator{A, K}(s))
 end
 
 "`CanonicalDNAMers{K, S}`: Alias for `CanonicalKmers{DNAAlphabet{2}, K, S}`"
@@ -221,5 +221,5 @@ const CanonicalRNAMers{K, S} = CanonicalKmers{RNAAlphabet{2}, K, S}
     it = iterate(it.it, state...)
     isnothing(it) && return nothing
     ((fw, rv), state) = it
-    (fw < rv ? fw : rv, state)
+    return (fw < rv ? fw : rv, state)
 end

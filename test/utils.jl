@@ -1,9 +1,9 @@
 function random_seq(A::Alphabet, n::Integer)
-    randseq(A, SamplerUniform(symbols(A)), n)
+    return randseq(A, SamplerUniform(symbols(A)), n)
 end
 
 # Return a random DNA/RNA sequence of the given length.
-function random_seq(n::Integer, nts, probs, outtype=String)
+function random_seq(n::Integer, nts, probs, outtype = String)
     cumprobs = cumsum(probs)
     x = Vector{Char}(undef, n)
     for i in 1:n
@@ -19,11 +19,11 @@ function random_seq(::Type{A}, n::Integer) where {A <: Alphabet}
     return LongSequence{A}(random_seq(n, nts, probs))
 end
 
-function random_dna(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
+function random_dna(n, probs = [0.24, 0.24, 0.24, 0.24, 0.04])
     return random_seq(n, ['A', 'C', 'G', 'T', 'N'], probs)
 end
 
-function random_rna(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
+function random_rna(n, probs = [0.24, 0.24, 0.24, 0.24, 0.04])
     return random_seq(n, ['A', 'C', 'G', 'U', 'N'], probs)
 end
 
@@ -57,15 +57,15 @@ function random_aa(len)
     )
 end
 
-function random_dna_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
+function random_dna_symbols(n, probs = [0.24, 0.24, 0.24, 0.24, 0.04])
     return random_seq(n, ['A', 'C', 'G', 'T', 'N'], probs, Vector{DNA})
 end
 
-function random_rna_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
+function random_rna_symbols(n, probs = [0.24, 0.24, 0.24, 0.24, 0.04])
     return random_seq(n, ['A', 'C', 'G', 'U', 'N'], probs, Vector{RNA})
 end
 
-function random_aa_symbols(n, probs=[0.24, 0.24, 0.24, 0.24, 0.04])
+function random_aa_symbols(n, probs = [0.24, 0.24, 0.24, 0.24, 0.04])
     return random_seq(
         n,
         [

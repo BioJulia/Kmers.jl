@@ -11,11 +11,11 @@ Functions to implement:
 abstract type AbstractKmerIterator{A <: Alphabet, K} end
 
 function Base.eltype(::Type{<:AbstractKmerIterator{A, K}}) where {A, K}
-    Kmer{A, K, n_coding_elements(Kmer{A, K})}
+    return Kmer{A, K, n_coding_elements(Kmer{A, K})}
 end
 
 function used_source(::AsciiEncode, s::AbstractString)
-    is_ascii(typeof(s)) ? codeunits(s) : s
+    return is_ascii(typeof(s)) ? codeunits(s) : s
 end
 used_source(::RecodingScheme, s) = s
 

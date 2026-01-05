@@ -29,7 +29,7 @@ function composition(record::FASTARecord)
     counts = zeros(UInt32, 256)
     frequencies = zeros(Float32, 256)
     for kmer in FwDNAMers{4}(sequence(record))
-        @inbounds counts[only(encoded_data(kmer)) + 1] += 1
+        @inbounds counts[as_integer(kmer)::UInt8 + 1] += 1
     end
     factor = 1 / sum(counts; init=zero(eltype(counts)))
     for i in eachindex(counts, frequencies)

@@ -4,7 +4,7 @@
     index = div((i + n_unused(T) - 1) % UInt, per_word_capacity(T) % UInt) + 1
     offset = mod(((elements_in_head(T) - i) * bps) % UInt, 8 * sizeof(UInt))
     mask = UInt(1) << bps - 1
-    right_shift(@inbounds(seq.data[index]), offset) & mask
+    return right_shift(@inbounds(seq.data[index]), offset) & mask
 end
 
 # This is usually type unstable, but in user code, users may use constant-folded ranges,
@@ -26,7 +26,7 @@ end
     else
         data
     end
-    T(unsafe, (first(new_data) & get_mask(T), tail(new_data)...))
+    return T(unsafe, (first(new_data) & get_mask(T), tail(new_data)...))
 end
 
 # Same as above: This needs to be able to inline if the indices are known statically
@@ -42,7 +42,7 @@ end
         (_, data) =
             leftshift_carry(data, nbits, BioSequences.extract_encoded_element(kmer, i))
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 function Base.getindex(kmer::Kmer{A}, indices::AbstractVector{<:Integer}) where {A}
@@ -56,11 +56,11 @@ function Base.getindex(kmer::Kmer{A}, indices::AbstractVector{<:Integer}) where 
         (_, data) =
             leftshift_carry(data, nbits, BioSequences.extract_encoded_element(kmer, i))
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 @inline function BioSequences.bitindex(kmer::Kmer, i::Integer)
-    BioSequences.bitindex(kmer, UInt(i)::UInt)
+    return BioSequences.bitindex(kmer, UInt(i)::UInt)
 end
 
 @inline function BioSequences.bitindex(kmer::Kmer, i::UInt)::Tuple{UInt, UInt}
@@ -69,7 +69,7 @@ end
     num = (UInt(i) - UInt(1) + n_unused(typeof(kmer)) % UInt) * bps
     (i, o) = divrem(num, bpe)
     o = bpe - o - bps
-    i + 1, o
+    return i + 1, o
 end
 
 @inline function Base.setindex(kmer::Kmer, i::Integer, s)
@@ -82,5 +82,5 @@ end
     mask = left_shift(UInt(1) << bps - 1, o)
     element &= ~mask
     element |= left_shift(encoding, o)
-    typeof(kmer)(unsafe, @inbounds Base.setindex(kmer.data, element, i))
+    return typeof(kmer)(unsafe, @inbounds Base.setindex(kmer.data, element, i))
 end

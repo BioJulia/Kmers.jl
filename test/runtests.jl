@@ -154,11 +154,11 @@ const ALPHABETS = [
     @testset "Construct from Biosequences" begin
         @testset "Construct from LongSequence" begin
             for seq in [
-                dna"TAGGCA",
-                rna"UUCUGUGAGUCC",
-                aa"TTCGGAA",
-                LongSequence{CharAlphabet}("HELLO"),
-            ]
+                    dna"TAGGCA",
+                    rna"UUCUGUGAGUCC",
+                    aa"TTCGGAA",
+                    LongSequence{CharAlphabet}("HELLO"),
+                ]
                 for sq in [seq, view(seq, 2:lastindex(seq))]
                     A = typeof(Alphabet(sq))
                     @test Kmer{A, length(sq)}(sq) == Kmer{A, length(sq)}(string(sq))
@@ -262,13 +262,13 @@ end
 
         # Test only lower bits are set
         u5 = as_integer(mer"KWPLKWPHWLM"a)
-        @test u5 < 0x10000000000000000000000
+        @test u5 < 0x00000000010000000000000000000000
     end
 
     @testset "From integer" begin
         # Works, even with bits in the non-coding fields
         @test from_integer(DNAKmer{3}, 0xff) === mer"TTT"d
-        @test from_integer(AAKmer{9}, 0x1a1a1a1a1a1a1a1a1a1a1a1a1a) === mer"*********"a
+        @test from_integer(AAKmer{9}, 0x0000001a1a1a1a1a1a1a1a1a1a1a1a1a) === mer"*********"a
 
         # Works when integer type does not match
         @test from_integer(RNAKmer{9}, typemax(UInt)) isa RNAKmer{9}
@@ -282,15 +282,15 @@ end
 
         # Round-trip
         for mer in Any[
-            mer"TAGTCGTGTAA"d,
-            mer"TA"d,
-            mer""r,
-            mer"UUCGUAGUAGUA"r,
-            mer"KWPOLR"a,
-            mer"R"a,
-            mer"PLOIWRTKSNIACGTY"a,
-            mer"TAGTGCTGTAGATATGGCGCGTGATGATGATGATTGCTGTGTAATAGTA"d,
-        ]
+                mer"TAGTCGTGTAA"d,
+                mer"TA"d,
+                mer""r,
+                mer"UUCGUAGUAGUA"r,
+                mer"KWPOLR"a,
+                mer"R"a,
+                mer"PLOIWRTKSNIACGTY"a,
+                mer"TAGTGCTGTAGATATGGCGCGTGATGATGATGATTGCTGTGTAATAGTA"d,
+            ]
             u = as_integer(mer)
             @test from_integer(typeof(mer), u) === mer
         end
@@ -437,16 +437,16 @@ end
 
 @testset "Biological operations" begin
     for s in [
-        dna"",
-        aa"",
-        LongDNA{2}(dna"TAGTGCA"),
-        LongRNA{2}(rna"UGCUGUAA"),
-        dna"TGASWKHVAAN--A",
-        rna"UAGUCUYMNS",
-        aa"LKHWSYYVQN",
-        LongSequence{CharAlphabet}("LKDSJ"),
-        LongSequence{CharAlphabet}("κ𝚶⊸∑Γ"),
-    ]
+            dna"",
+            aa"",
+            LongDNA{2}(dna"TAGTGCA"),
+            LongRNA{2}(rna"UGCUGUAA"),
+            dna"TGASWKHVAAN--A",
+            rna"UAGUCUYMNS",
+            aa"LKHWSYYVQN",
+            LongSequence{CharAlphabet}("LKDSJ"),
+            LongSequence{CharAlphabet}("κ𝚶⊸∑Γ"),
+        ]
         m = Kmer{typeof(Alphabet(s)), length(s)}(s)
 
         # Reverse
@@ -486,15 +486,15 @@ end
 
 @testset "Construct other BioSequences from Kmers" begin
     for mer in Any[
-        mer"AGCGATGCTGATGAGAGAGTCGTGTCGCTGTGATGATGAGGAGCTTAG"d,
-        mer"PLAKCVMARQKW"a,
-        mer""a,
-        mer"AGCTGATAGTGA"d,
-        mer"AUGUCUGCUGAUAUGUA"r,
-        mer"AGCGATGAGAGAGTCGTGTCGGAGGAGCTTAG"d,
-        mer"RRLCYEKVWSTSVKGTCLWVCSLNTEEQLDMFVLNMEWCRFHHVYKQTAQPFMVTMEPGNHYSPVSMTLMRCQIGGMYVWQTCIDTPFPQLKCVIANSPS"a,
-        mer"RRLCYEKVWSTSVKTPAKWHNSPS"a,
-    ]
+            mer"AGCGATGCTGATGAGAGAGTCGTGTCGCTGTGATGATGAGGAGCTTAG"d,
+            mer"PLAKCVMARQKW"a,
+            mer""a,
+            mer"AGCTGATAGTGA"d,
+            mer"AUGUCUGCUGAUAUGUA"r,
+            mer"AGCGATGAGAGAGTCGTGTCGGAGGAGCTTAG"d,
+            mer"RRLCYEKVWSTSVKGTCLWVCSLNTEEQLDMFVLNMEWCRFHHVYKQTAQPFMVTMEPGNHYSPVSMTLMRCQIGGMYVWQTCIDTPFPQLKCVIANSPS"a,
+            mer"RRLCYEKVWSTSVKTPAKWHNSPS"a,
+        ]
         ls = LongSequence(mer)
         @test Alphabet(ls) == Alphabet(mer)
         @test string(ls) == string(mer)
@@ -524,11 +524,11 @@ end
 
         # Compare to LongSequence
         for s in [
-            rna"UCGUAGUUCGAUUCUAUGCUGUAGUGGCAA",
-            rna"UCGUAGGCGUAUUGCGCAAAGCGC",
-            rna"UGCUAGUGUUCGAAA",
-            rna"UCGUUAGUAAAA",
-        ]
+                rna"UCGUAGUUCGAUUCUAUGCUGUAGUGGCAA",
+                rna"UCGUAGGCGUAUUGCGCAAAGCGC",
+                rna"UGCUAGUGUUCGAAA",
+                rna"UCGUUAGUAAAA",
+            ]
             for A in [DNAAlphabet{4}, RNAAlphabet{2}, DNAAlphabet{2}, RNAAlphabet{4}]
                 ss = LongSequence{A}(s)
                 @test collect(translate(ss)) == collect(translate(Kmer{A, length(s)}(s)))
@@ -536,10 +536,10 @@ end
         end
 
         for s in [
-            rna"UGCUGAWKVUDUGWUGUDHUAGUGCNUBGKUGCMGGSWC",
-            rna"UCGUAGUCKGUCGUYCUGAGGWUGCUGANNUGCUGA",
-            rna"CAGGCCAGWGCUGSSSCUGSMGKYVUCUAS",
-        ]
+                rna"UGCUGAWKVUDUGWUGUDHUAGUGCNUBGKUGCMGGSWC",
+                rna"UCGUAGUCKGUCGUYCUGAGGWUGCUGANNUGCUGA",
+                rna"CAGGCCAGWGCUGSSSCUGSMGKYVUCUAS",
+            ]
             for A in [DNAAlphabet{4}, RNAAlphabet{4}]
                 ss = LongSequence{A}(s)
                 @test collect(translate(ss)) == collect(translate(Kmer{A, length(s)}(s)))
@@ -574,7 +574,7 @@ end
             s = isempty(cset) ? mer"AAA"r : first(cset)
             @test delete(cset, s) == delete!(copy(set), s)
             @test filter(i -> first(i) == DNA_A, cset) ==
-                  filter(i -> first(i) == DNA_A, set)
+                filter(i -> first(i) == DNA_A, set)
         end
 
         for (si, ci) in zip(sets, csets), (sj, cj) in zip(sets, csets)
@@ -628,7 +628,7 @@ end
                 if aa ∈ (AA_O, AA_U, AA_B, AA_J, AA_X, AA_Z)
                     continue
                 end
-                @test only(translate(LongSequence(codon); code=fw_code)) === aa
+                @test only(translate(LongSequence(codon); code = fw_code)) === aa
             end
         end
     end
@@ -643,14 +643,14 @@ end
     end
 
     for s in [
-        dna"",
-        aa"",
-        LongDNA{2}(dna"TAGTGCA"),
-        LongRNA{2}(rna"UGCUGUAA"),
-        dna"TGASWKHVAAN--A",
-        rna"UAGUCUYMNS",
-        aa"LKHWSYYVQN",
-    ]
+            dna"",
+            aa"",
+            LongDNA{2}(dna"TAGTGCA"),
+            LongRNA{2}(rna"UGCUGUAA"),
+            dna"TGASWKHVAAN--A",
+            rna"UAGUCUYMNS",
+            aa"LKHWSYYVQN",
+        ]
         test_print(s, string(s))
     end
 end
@@ -659,7 +659,7 @@ end
     @testset "Forward iteration" begin
         @testset "Aliases" begin
             @test FwKmers{DNAAlphabet{2}, 3}(dna"TAGA") isa
-                  FwKmers{DNAAlphabet{2}, 3, LongDNA{4}}
+                FwKmers{DNAAlphabet{2}, 3, LongDNA{4}}
             @test FwDNAMers{4}(rna"UAGC") isa FwKmers{DNAAlphabet{2}, 4, LongRNA{4}}
             @test FwRNAMers{4}(dna"TACA") isa FwKmers{RNAAlphabet{2}, 4, LongDNA{4}}
             @test FwAAMers{4}(aa"LKCY") isa FwKmers{AminoAcidAlphabet, 4, LongAA}
@@ -673,15 +673,15 @@ end
 
         @testset "Conversible alphabets" begin
             for (seqs, alphabets) in [
-                (
-                    [LongDNA{2}("TGATGGCGTAGTA"), LongRNA{2}("UCGUGCUA"), LongDNA{2}("")],
-                    [DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}],
-                ), # From two-bit
-                (
-                    [dna"TAGTCTGAC", rna"UAGUCGAUUAGGCC"],
-                    [DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}],
-                ), # From four-bit
-            ]
+                    (
+                        [LongDNA{2}("TGATGGCGTAGTA"), LongRNA{2}("UCGUGCUA"), LongDNA{2}("")],
+                        [DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}],
+                    ), # From two-bit
+                    (
+                        [dna"TAGTCTGAC", rna"UAGUCGAUUAGGCC"],
+                        [DNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{2}, RNAAlphabet{4}],
+                    ), # From four-bit
+                ]
                 for seq in seqs, alphabet in alphabets
                     v1 = collect(FwKmers{alphabet, 3}(seq))
                     v2 = [Kmer{alphabet, 3, 1}(seq[i:(i + 2)]) for i in 1:(length(seq) - 2)]
@@ -702,7 +702,7 @@ end
                         v1 = collect(FwKmers{A, 4}(seqq))
                         v2 = [
                             Kmer{A, 4, 1}(filtered[i:(i + 3)]) for
-                            i in 1:(length(filtered) - 3)
+                                i in 1:(length(filtered) - 3)
                         ]
                         @test v1 == v2
                     end
@@ -733,7 +733,7 @@ end
         s = dna"TGATGTCGTAGTGAgtagtaCCA"
         it = FwKmers{GenericNucAlphabet, 8}(s)
         @test collect(it) ==
-              [Kmer{GenericNucAlphabet, 8}(s[i:(i + 7)]) for i in 1:(length(s) - 7)]
+            [Kmer{GenericNucAlphabet, 8}(s[i:(i + 7)]) for i in 1:(length(s) - 7)]
     end
 
     @testset "FwRvIterator" begin
@@ -742,7 +742,7 @@ end
             T = Kmers.derive_type(Kmer{A, len})
             [
                 (T(s[i:(i + len - 1)]), T(reverse_complement(s[i:(i + len - 1)]))) for
-                i in 1:(length(s) - len + 1)
+                    i in 1:(length(s) - len + 1)
             ]
         end
 
@@ -754,7 +754,7 @@ end
                 srcs_ = push!(copy(srcs), String(typeof(dst)(LongDNA{2}(s))))
                 for src in srcs_
                     @test collect(FwRvIterator{typeof(Alphabet(dst)), 4}(src)) ==
-                          naive_fwrv(dst, 4)
+                        naive_fwrv(dst, 4)
                 end
             end
         end
@@ -773,11 +773,11 @@ end
 
         @testset "Iteration" begin
             for s in [
-                dna"TAGCTAGGACA",
-                rna"UAGUCGUGAGA",
-                "TAGCTAGAGGA",
-                collect(codeunits("ATGCGAGGA")),
-            ]
+                    dna"TAGCTAGGACA",
+                    rna"UAGUCGUGAGA",
+                    "TAGCTAGAGGA",
+                    collect(codeunits("ATGCGAGGA")),
+                ]
                 seq = LongDNA{2}(s)
                 cns = [canonical(seq[i:(i + 4)]) for i in 1:(length(seq) - 4)]
                 for A in [DNAAlphabet{2}, DNAAlphabet{4}]
@@ -790,7 +790,7 @@ end
             it = CanonicalKmers{GenericNucAlphabet, 6}(s)
             @test collect(it) == [
                 canonical(Kmer{GenericNucAlphabet, 6}(s[i:(i + 5)])) for
-                i in 1:(length(s) - 5)
+                    i in 1:(length(s) - 5)
             ]
 
             s = "TAGTGTCGATGATC"
@@ -832,7 +832,7 @@ end
         v = collect(it)
         v2 = [
             (DNAKmer{4}(s[i:(i + 3)]), i) for
-            i in 1:(length(s) - 3) if all(iscertain, s[i:(i + 3)])
+                i in 1:(length(s) - 3) if all(iscertain, s[i:(i + 3)])
         ]
         @test v == v2
 
@@ -854,10 +854,10 @@ end
         end
 
         for (s, A) in Any[
-            ("TA-NGAKATCGAWTAGA", DNAAlphabet{4}),
-            ("AUGCUGAUGAGUCGUAG", RNAAlphabet{2}),
-            ("KLMYUPOKQMMNLVYRW", AminoAcidAlphabet),
-        ]
+                ("TA-NGAKATCGAWTAGA", DNAAlphabet{4}),
+                ("AUGCUGAUGAGUCGUAG", RNAAlphabet{2}),
+                ("KLMYUPOKQMMNLVYRW", AminoAcidAlphabet),
+            ]
             test_naive_spaced(A, s, 3, 2)
             test_naive_spaced(A, s, 2, 4)
             test_naive_spaced(A, codeunits(s), 3, 3)
@@ -871,13 +871,13 @@ end
 
     @testset "Each codon" begin
         for s in Any[
-            "TAGCGATAT",
-            b"UAUGCUGAA",
-            dna"TAGGCTATA",
-            LongDNA{2}(dna"TAGCTAGAGGA"),
-            rna"UGAUUCGUUGA",
-            LongRNA{2}(rna"UAGUCGUGAGUA"),
-        ]
+                "TAGCGATAT",
+                b"UAUGCUGAA",
+                dna"TAGGCTATA",
+                LongDNA{2}(dna"TAGCTAGAGGA"),
+                rna"UGAUUCGUUGA",
+                LongRNA{2}(rna"UAGUCGUGAGUA"),
+            ]
             @test each_codon(DNA, s) === SpacedDNAMers{3, 3}(s)
             @test each_codon(RNA, s) === SpacedRNAMers{3, 3}(s)
             if s isa BioSequence{<:DNAAlphabet}
@@ -901,13 +901,13 @@ end
 @testset "fx_hash" begin
     if UInt == UInt64
         for (kmer, h) in Any[
-            (mer"TAG"a, 0x55dbbe22bb3e4a13),
-            (mer"KPWAK"a, 0x10203d1c885b7467),
-            (mer"TAGCTAG"d, 0xa76409341339d05a),
-            (mer""a, 0x0000000000000000),
-            (mer""r, 0x0000000000000000),
-            (mer"UGAUGCA"r, 0xdd7c97ae4ca204b4),
-        ]
+                (mer"TAG"a, 0x55dbbe22bb3e4a13),
+                (mer"KPWAK"a, 0x10203d1c885b7467),
+                (mer"TAGCTAG"d, 0xa76409341339d05a),
+                (mer""a, 0x0000000000000000),
+                (mer""r, 0x0000000000000000),
+                (mer"UGAUGCA"r, 0xdd7c97ae4ca204b4),
+            ]
             @test fx_hash(kmer) === h
         end
     end
@@ -918,30 +918,30 @@ end
         seq = dna"TTGCTAGGGATTCGAGGATCCTCTAGAGCGCGGCACGATCTTAGCAC"
         unsafe_extract = Kmers.unsafe_extract
         @test unsafe_extract(Kmers.FourToTwo(), DNAKmer{6, 1}, seq, 3) ==
-              DNAKmer{6}(seq[3:8])
+            DNAKmer{6}(seq[3:8])
         @test unsafe_extract(Kmers.FourToTwo(), DNAKmer{36, 2}, seq, 2) ==
-              DNAKmer{36}(seq[2:37])
+            DNAKmer{36}(seq[2:37])
 
         seq = LongDNA{2}(seq)
         @test unsafe_extract(Kmers.TwoToFour(), Kmer{DNAAlphabet{4}, 6, 1}, seq, 3) ==
-              Kmer{DNAAlphabet{4}, 6}(seq[3:8])
+            Kmer{DNAAlphabet{4}, 6}(seq[3:8])
         @test unsafe_extract(Kmers.TwoToFour(), Kmer{DNAAlphabet{4}, 36, 3}, seq, 2) ==
-              Kmer{DNAAlphabet{4}, 36}(seq[2:37])
+            Kmer{DNAAlphabet{4}, 36}(seq[2:37])
 
         @test unsafe_extract(Kmers.Copyable(), DNAKmer{6, 1}, seq, 3) ==
-              DNAKmer{6}(seq[3:8])
+            DNAKmer{6}(seq[3:8])
         @test unsafe_extract(Kmers.Copyable(), DNAKmer{36, 2}, seq, 2) ==
-              DNAKmer{36}(seq[2:37])
+            DNAKmer{36}(seq[2:37])
 
         seq = codeunits(String(seq))
         @test unsafe_extract(Kmers.AsciiEncode(), DNAKmer{6, 1}, seq, 3) ==
-              DNAKmer{6}(seq[3:8])
+            DNAKmer{6}(seq[3:8])
         @test unsafe_extract(Kmers.AsciiEncode(), DNAKmer{36, 2}, seq, 2) ==
-              DNAKmer{36}(seq[2:37])
+            DNAKmer{36}(seq[2:37])
 
         seq = LongSequence{CharAlphabet}("中国¨Å!人大æ网")
         @test unsafe_extract(Kmers.GenericRecoding(), Kmer{CharAlphabet, 3, 2}, seq, 4) ==
-              Kmer{CharAlphabet, 3}("Å!人")
+            Kmer{CharAlphabet, 3}("Å!人")
     end
 
     @testset "Unsafe shift from" begin
@@ -950,7 +950,7 @@ end
         seq = dna"TTGCTAGGGATTCGAGGATCCTCTAGAGCGCGGCACGATCTTAGCAC"
         mer = Kmer{DNAAlphabet{4}, 9}("TAGwKwADH")
         @test ushift(Kmers.Copyable(), mer, seq, 4, Val(3)) ==
-              Kmer{DNAAlphabet{4}, 9}("wKwADHCTA")
+            Kmer{DNAAlphabet{4}, 9}("wKwADHCTA")
 
         mer = mer"TAGCATCG"d
         @test ushift(Kmers.FourToTwo(), mer, seq, 4, Val(3)) == mer"CATCGCTA"d
@@ -958,7 +958,7 @@ end
         seq = LongDNA{2}(seq)
         mer = Kmer{DNAAlphabet{4}, 9}("TAGwKwADH")
         @test ushift(Kmers.TwoToFour(), mer, seq, 2, Val(3)) ==
-              Kmer{DNAAlphabet{4}, 9}("wKwADHTGC")
+            Kmer{DNAAlphabet{4}, 9}("wKwADHTGC")
 
         seq = codeunits(String(seq))
         mer = mer"KWPLCVAKVM"a
@@ -967,7 +967,7 @@ end
         seq = LongSequence{CharAlphabet}("中国¨Å!人大æ网")
         mer = Kmer{CharAlphabet, 5, 3}("中国¨Å!")
         @test ushift(Kmers.GenericRecoding(), mer, seq, 6, Val(3)) ==
-              Kmer{CharAlphabet, 5, 3}("Å!人大æ")
+            Kmer{CharAlphabet, 5, 3}("Å!人大æ")
     end
 end
 
@@ -977,11 +977,11 @@ end
         @test rand(StableRNG(SEED), DNAKmer{10, 1}) == mer"GATAAACTTG"d
         @test rand(StableRNG(SEED), DNAKmer{0}) == mer""d
         @test rand(StableRNG(SEED), DNAKmer{41}) ==
-              mer"TTACGTTCAGGGGCAGTCGAGATCGGCTCCGGATAAACTTG"d
+            mer"TTACGTTCAGGGGCAGTCGAGATCGGCTCCGGATAAACTTG"d
         @test rand(StableRNG(SEED), RNAKmer{4}) == mer"CUUG"r
         @test rand(StableRNG(SEED), DNAKmer{4}) == mer"CTTG"d
         @test rand(StableRNG(SEED), DNAKmer{64}) ==
-              mer"GGGGCAGTCGAGATCGGCTCCGGATAAACTTGCATACAAGGCGTAGAGAAGAGTTTTACGTTCA"d
+            mer"GGGGCAGTCGAGATCGGCTCCGGATAAACTTGCATACAAGGCGTAGAGAAGAGTTTTACGTTCA"d
     end
 
     @testset "Incomplete alphabets" begin
@@ -992,18 +992,18 @@ end
 
     @testset "Four-bit alphabets" begin
         @test rand(StableRNG(SEED), Kmer{DNAAlphabet{4}, 12}) ==
-              Kmer{DNAAlphabet{4}, 12}("GGCGCTGAAATG")
+            Kmer{DNAAlphabet{4}, 12}("GGCGCTGAAATG")
         @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 12}) ==
-              Kmer{RNAAlphabet{4}, 12}("GGCGCUGAAAUG")
+            Kmer{RNAAlphabet{4}, 12}("GGCGCUGAAAUG")
         @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 33}) ==
-              Kmer{RNAAlphabet{4}, 33}("GGGACGGCGCUGAAAUGAAAGCCGGAACUAGUA")
+            Kmer{RNAAlphabet{4}, 33}("GGGACGGCGCUGAAAUGAAAGCCGGAACUAGUA")
         @test rand(StableRNG(SEED), Kmer{RNAAlphabet{4}, 32}) ==
-              Kmer{RNAAlphabet{4}, 32}("AAAGCCGGAACUAGUAGGACGGCGCUGAAAUG")
+            Kmer{RNAAlphabet{4}, 32}("AAAGCCGGAACUAGUAGGACGGCGCUGAAAUG")
     end
 
     @testset "Custom alphabets" begin
         @test rand(StableRNG(SEED), Kmer{CharAlphabet, 7}) ==
-              Kmer{CharAlphabet, 7}("~t2\$0\x037")
+            Kmer{CharAlphabet, 7}("~t2\$0\x037")
         @test rand(StableRNG(SEED), Kmer{CharAlphabet, 0}) == Kmer{CharAlphabet, 0}("")
 
         @test rand(StableRNG(SEED), Kmer{CharAlphabet, 51}) == Kmer{CharAlphabet, 51}(

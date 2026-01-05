@@ -16,7 +16,7 @@ StringViewsExt = "StringViews"
 RandomExt = "Random"
 
 [compat]
-BioSequences = "~3.4.1"
+BioSequences = "~3.4.1, 3.5"
 BioSymbols = "5.1.3"
 Random = "1.10"
 StableRNGs = "1"

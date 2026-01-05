@@ -21,6 +21,8 @@ AUGCUGA
 julia> reverse_complement(m)
 7nt RNA Sequence:
 UCAGCAU
+
+julia> DNAKmer{7}(m)
 ```
 """
 struct DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
@@ -119,7 +121,7 @@ function DynamicKmer{A, U}(kmer::Kmer{A}) where {A <: Alphabet, U <: Unsigned}
 end
 
 function Kmer{A, K}(x::DynamicKmer{A}) where {A <: Alphabet, K}
-    return derive_type(Kmer{A, K})(x)
+    return @inline derive_type(Kmer{A, K})(x)
 end
 
 @assert UInt == UInt64
@@ -132,14 +134,14 @@ function Kmer{A, K, N}(x::DynamicKmer) where {A <: Alphabet, K, N}
     return if N == 0
         Kmer{A, K, N}(unsafe, ())
     elseif N == 1
-        u = right_shift(x.x, noncoding) % UInt
-        Kmer{A, K, N}(unsafe, (u,))
+        u1 = right_shift(x.x, noncoding) % UInt
+        Kmer{A, K, N}(unsafe, (u1,))
     else
-        u = right_shift(x.x, noncoding)
+        un = right_shift(x.x, noncoding)
         Nu = div(sizeof(x), sizeof(UInt))
         B = sizeof(x) * 8
         t = ntuple(Nu) do i
-            right_shift(u, B - i * 8 * sizeof(UInt)) % UInt
+            right_shift(un, B - i * 8 * sizeof(UInt)) % UInt
         end
         Kmer{A, K, N}(unsafe, t)
     end
@@ -149,6 +151,7 @@ const HASH_MASK = 0x6ff6e9f0462d5162 % UInt
 
 Base.copy(x::DynamicKmer) = x
 Base.hash(x::DynamicKmer, h::UInt64) = hash(x.x, h ⊻ HASH_MASK)
+fx_hash(x::DynamicKmer, u::UInt64) = (bitrotate(x.x, 5) ⊻ x.x) * FX_CONSTANT
 Base.:(==)(a::DynamicKmer, b::DynamicKmer) = a.x == b.x
 Base.isless(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = isless(a.x, b.x)
 Base.cmp(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = cmp(a.x, b.x)
@@ -193,11 +196,43 @@ function BioSequences._n_gc(x::DynamicKmer{<:NucleicAcidAlphabet})
     return BioSequences.gc_bitcount(u, Alphabet(x))
 end
 
+"""
+    as_integer(x::DynamicKmer{A, U})::U
+
+Similar to `as_integer` for kmers, but is guaranteed to return a value of `U`,
+and the number of coding bits is known at runtime.
+"""
 function Kmers.as_integer(x::DynamicKmer)
     shift = (8 * sizeof(x) - coding_bits(x))
     return right_shift(x.x, shift)
 end
 
+"""
+    from_integer(T::Type{<:DynamicKmer{A, U}}, u::U, len::Int)::T
+
+Similar to `from_integer` for `Kmer`, but the length of the resulting `DynamicKmer`
+must be passed as an argument. Will error if `len` is larger than the maximal size
+supported by `T`.
+
+If `u` is obtained from a `DynamicKmer` with a length different from `len`,
+the resulting `DynamicKmer` is reproducible, but not correct and may change between
+versions.
+
+# Examples
+```jldoctest
+julia> d = DynamicDNAKmer{UInt32}(dna"TAGTGCTGTAGGC")
+13nt DNA Sequence:
+TAGTGCTGTAGGC
+
+julia> u = as_integer(d);
+
+julia> from_integer(typeof(d), u, 13) === d
+true
+
+julia> from_integer(typeof(d), u, 12) == d
+false
+```
+"""
 function Kmers.from_integer(
         T::Type{DynamicKmer{A, U}}, x::U, len::Int
     ) where {A <: Alphabet, U <: Unsigned}
@@ -267,6 +302,20 @@ function build_dynamic_kmer(::Copyable, ::Type{T}, x::BioSequence) where {T}
         u |= left_shift(enc, shift)
     end
     return _new_dynamic_kmer(typeof(A), (len % U) | u)
+end
+
+# More efficient, since the internal representation is even closer.
+function build_dynamic_kmer(::Copyable, ::Type{T}, x::Kmer) where {T}
+    len = length(x)
+    len > capacity(T) && error("Kmer size exceeds maximum capacity of dynamic kmer")
+    A = Alphabet(T)
+    tup = BioSequences.encoded_data(x)
+    # This is only valid on little-endian machines, but Kmers fails to compile
+    # on big-endian ones anyway
+    u = length(tup) == 1 ? (tup[1] % utype(T)) : reinterpret(UInt128, tup)
+    u = left_shift(u, 8 * sizeof(u) - length(x) * BioSequences.bits_per_symbol(A))
+    u |= len % typeof(u)
+    return _new_dynamic_kmer(typeof(A), u)
 end
 
 @inline function build_dynamic_kmer(
@@ -355,3 +404,5 @@ function shift_encoding(x::DynamicKmer{A, U}, encoding::U) where {A <: Alphabet,
     u | (x.x & mask)
     return _new_dynamic_kmer(A, u | (x.x & mask))
 end
+
+Base.adjoint(x::DynamicKmer) = x

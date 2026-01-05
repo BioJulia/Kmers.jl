@@ -353,5 +353,5 @@ function shift_encoding(x::DynamicKmer{A, U}, encoding::U) where {A <: Alphabet,
     u = left_shift(u, BioSequences.bits_per_symbol(x))
     u |= left_shift(encoding, noncoding_bits(x))
     u | (x.x & mask)
-    _new_dynamic_kmer(A, u | (x.x & mask))
+    return _new_dynamic_kmer(A, u | (x.x & mask))
 end

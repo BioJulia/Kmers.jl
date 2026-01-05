@@ -23,10 +23,10 @@ using BioSequences
 
     # Two to four alphabet
     for s in Any[
-        dna"ATGCTGTGACCA",
-        dna"ATGTCGA",
-        dna"",
-    ]
+            dna"ATGCTGTGACCA",
+            dna"ATGTCGA",
+            dna"",
+        ]
         for A in Any[DNAAlphabet, RNAAlphabet]
             for (srcB, dstB) in [(2, 4), (4, 2)]
                 src = LongSequence{A{srcB}}(s)

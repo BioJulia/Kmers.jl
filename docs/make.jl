@@ -4,14 +4,14 @@ DocMeta.setdocmeta!(
     Kmers,
     :DocTestSetup,
     :(using BioSequences, Kmers, Test);
-    recursive=true,
+    recursive = true,
 )
 
 makedocs(;
-    modules=[Kmers],
-    format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true"),
-    sitename="Kmers.jl",
-    pages=[
+    modules = [Kmers],
+    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
+    sitename = "Kmers.jl",
+    pages = [
         "Home" => "index.md",
         "The Kmer type" => "kmers.md",
         "Iteration" => "iteration.md",
@@ -22,13 +22,13 @@ makedocs(;
         "FAQ" => "faq.md",
         "Cookbook" => ["MinHash" => "minhash.md", "Kmer composition" => "composition.md"],
     ],
-    authors="Jakob Nybo Nissen, Sabrina J. Ward, The BioJulia Organisation and other contributors.",
-    checkdocs=:exports,
+    authors = "Jakob Nybo Nissen, Sabrina J. Ward, The BioJulia Organisation and other contributors.",
+    checkdocs = :exports,
 )
 
 deploydocs(;
-    repo="github.com/BioJulia/Kmers.jl.git",
-    push_preview=true,
-    deps=nothing,
-    make=nothing,
+    repo = "github.com/BioJulia/Kmers.jl.git",
+    push_preview = true,
+    deps = nothing,
+    make = nothing,
 )

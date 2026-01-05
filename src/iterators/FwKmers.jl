@@ -31,7 +31,7 @@ struct FwKmers{A <: Alphabet, K, S} <: AbstractKmerIterator{A, K}
     function FwKmers{A, K, S}(seq::S) where {A, K, S}
         K isa Int || error("K must be an Int")
         K > 0 || error("K must be at least 1")
-        new{A, K, S}(seq)
+        return new{A, K, S}(seq)
     end
 end
 
@@ -39,7 +39,7 @@ source_type(::Type{FwKmers{A, K, S}}) where {A, K, S} = S
 
 @inline function Base.length(it::FwKmers{A, K, S}) where {A, K, S}
     src = used_source(RecodingScheme(A(), S), it.seq)
-    max(0, length(src) - K + 1)
+    return max(0, length(src) - K + 1)
 end
 
 # Constructors
@@ -55,26 +55,26 @@ const FwRNAMers{K, S} = FwKmers{RNAAlphabet{2}, K, S}
 const FwAAMers{K, S} = FwKmers{AminoAcidAlphabet, K, S}
 
 @inline function Base.iterate(it::FwKmers{A, K, S}, state...) where {A, K, S}
-    iterate_kmer(RecodingScheme(A(), S), it, state...)
+    return iterate_kmer(RecodingScheme(A(), S), it, state...)
 end
 
 # For the first kmer, we just forward to `unsafe_extract`
 @inline function iterate_kmer(R::RecodingScheme, it::FwKmers)
     length(it.seq) < ksize(eltype(it)) && return nothing
     kmer = unsafe_extract(R, eltype(it), it.seq, 1)
-    (kmer, (kmer, ksize(eltype(it)) + 1))
+    return (kmer, (kmer, ksize(eltype(it)) + 1))
 end
 
 # Here, we need to convert to an abstractvector
 @inline function iterate_kmer(
-    R::AsciiEncode,
-    it::FwKmers{A, K, S},
-) where {A <: Alphabet, K, S}
+        R::AsciiEncode,
+        it::FwKmers{A, K, S},
+    ) where {A <: Alphabet, K, S}
     src = used_source(RecodingScheme(A(), S), it.seq)
     Base.require_one_based_indexing(src)
     length(src) < K && return nothing
     kmer = unsafe_extract(R, eltype(it), src, 1)
-    (kmer, (kmer, K + 1))
+    return (kmer, (kmer, K + 1))
 end
 
 @inline function iterate_kmer(::GenericRecoding, it::FwKmers, state::Tuple{Kmer, Int})
@@ -82,7 +82,7 @@ end
     i > length(it.seq) && return nothing
     symbol = @inbounds it.seq[i]
     new_kmer = shift(kmer, convert(eltype(kmer), symbol))
-    (new_kmer, (new_kmer, nextind(it.seq, i)))
+    return (new_kmer, (new_kmer, nextind(it.seq, i)))
 end
 
 @inline function iterate_kmer(::Copyable, it::FwKmers, state::Tuple{Kmer, Int})
@@ -90,7 +90,7 @@ end
     i > length(it.seq) && return nothing
     encoding = UInt(BioSequences.extract_encoded_element(it.seq, i))
     new_kmer = shift_encoding(kmer, encoding)
-    (new_kmer, (new_kmer, nextind(it.seq, i)))
+    return (new_kmer, (new_kmer, nextind(it.seq, i)))
 end
 
 @inline function iterate_kmer(::TwoToFour, it::FwKmers, state::Tuple{Kmer, Int})
@@ -98,14 +98,14 @@ end
     i > length(it.seq) && return nothing
     encoding = left_shift(UInt(1), UInt(BioSequences.extract_encoded_element(it.seq, i)))
     new_kmer = shift_encoding(kmer, encoding)
-    (new_kmer, (new_kmer, nextind(it.seq, i)))
+    return (new_kmer, (new_kmer, nextind(it.seq, i)))
 end
 
 @inline function iterate_kmer(
-    ::FourToTwo,
-    it::FwKmers{A, K, <:BioSequence},
-    state::Tuple{Kmer, Int},
-) where {A, K}
+        ::FourToTwo,
+        it::FwKmers{A, K, <:BioSequence},
+        state::Tuple{Kmer, Int},
+    ) where {A, K}
     (kmer, i) = state
     i > length(it.seq) && return nothing
     encoding = UInt(BioSequences.extract_encoded_element(it.seq, i))::UInt

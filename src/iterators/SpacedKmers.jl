@@ -28,7 +28,7 @@ struct SpacedKmers{A <: Alphabet, K, J, S} <: AbstractKmerIterator{A, K}
         K > 0 || error("K must be at least 1")
         J isa Int || error("J must be an Int")
         J > 0 || error("J must be at least 1")
-        new{A, K, J, S}(seq)
+        return new{A, K, J, S}(seq)
     end
 end
 
@@ -38,7 +38,7 @@ stepsize(::SpacedKmers{A, K, J}) where {A, K, J} = J
 @inline function Base.length(it::SpacedKmers{A, K, J}) where {A, K, J}
     src = used_source(RecodingScheme(A(), source_type(typeof(it))), it.seq)
     L = length(src)
-    L < K ? 0 : div((L - K), J) + 1
+    return L < K ? 0 : div((L - K), J) + 1
 end
 
 SpacedKmers{A, K, J}(s) where {A <: Alphabet, K, J} = SpacedKmers{A, K, J, typeof(s)}(s)
@@ -81,7 +81,7 @@ each_codon(s::BioSequence{<:DNAAlphabet}) = SpacedDNAMers{3, 3}(s)
 each_codon(s::BioSequence{<:RNAAlphabet}) = SpacedRNAMers{3, 3}(s)
 
 @inline function Base.iterate(it::SpacedKmers{A}, state...) where {A}
-    iterate_kmer(RecodingScheme(A(), source_type(typeof(it))), it, state...)
+    return iterate_kmer(RecodingScheme(A(), source_type(typeof(it))), it, state...)
 end
 
 # TODO: Maybe in all kmer iterators, instantiate it with the source type,
@@ -90,9 +90,9 @@ end
 # However, this means we instantiate e.g. a FwKmers{A, K, S} and change S
 # in the source type in the constructor
 @inline function iterate_kmer(
-    R::RecodingScheme,
-    it::SpacedKmers{A, K},
-) where {A <: Alphabet, K}
+        R::RecodingScheme,
+        it::SpacedKmers{A, K},
+    ) where {A <: Alphabet, K}
     length(it.seq) < K && return nothing
     kmer = unsafe_extract(
         R,
@@ -101,28 +101,28 @@ end
         1,
     )
     next_index = 1 + max(stepsize(it), K)
-    (kmer, (kmer, next_index))
+    return (kmer, (kmer, next_index))
 end
 
 # Here, we need to convert to an abstractvector
 # TODO: This function and the one above can be merged with the FwKmers one?
 @inline function iterate_kmer(
-    R::AsciiEncode,
-    it::SpacedKmers{A, K, J, S},
-) where {A <: Alphabet, K, J, S}
+        R::AsciiEncode,
+        it::SpacedKmers{A, K, J, S},
+    ) where {A <: Alphabet, K, J, S}
     src = used_source(RecodingScheme(A(), S), it.seq)
     Base.require_one_based_indexing(src)
     length(src) < K && return nothing
     kmer = unsafe_extract(R, eltype(it), src, 1)
     next_index = 1 + max(stepsize(it), K)
-    (kmer, (kmer, next_index))
+    return (kmer, (kmer, next_index))
 end
 
 @inline function iterate_kmer(
-    ::RecodingScheme,
-    it::SpacedKmers{A, K, J, S},
-    state,
-) where {A, K, S, J}
+        ::RecodingScheme,
+        it::SpacedKmers{A, K, J, S},
+        state,
+    ) where {A, K, S, J}
     src = used_source(RecodingScheme(A(), S), it.seq)
     R = RecodingScheme(A(), S)
     Base.require_one_based_indexing(src)
@@ -135,5 +135,5 @@ end
     else
         kmer = unsafe_shift_from(R, kmer, src, i, Val{J}())
     end
-    (kmer, (kmer, next_i))
+    return (kmer, (kmer, next_i))
 end

@@ -6,46 +6,46 @@ function Base.reverse(x::Kmer)
     Bps = BioSequences.BitsPerSymbol(Alphabet(x))
     data = map(i -> BioSequences.reversebits(i, Bps), reverse(x.data))
     (_, data) = rightshift_carry(data, bits_unused(typeof(x)), zero(UInt))
-    typeof(x)(unsafe, data)
+    return typeof(x)(unsafe, data)
 end
 
 # For this method, we don't need to mask the unused bits, because the complement of
-# 0x0 == DNA_Gap is still DNA_Gap 
+# 0x0 == DNA_Gap is still DNA_Gap
 function BioSequences.complement(x::Kmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}})
     isempty(x) && return x
     data = map(i -> BioSequences.complement_bitpar(i, Alphabet(x)), x.data)
-    typeof(x)(unsafe, data)
+    return typeof(x)(unsafe, data)
 end
 
 # For this method we do need to mask unused bits, unlike above
 function BioSequences.complement(x::Kmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}})
     isempty(x) && return x
     data = map(i -> BioSequences.complement_bitpar(i, Alphabet(x)), x.data)
-    typeof(x)(unsafe, ((first(data) & get_mask(typeof(x))), Base.tail(data)...))
+    return typeof(x)(unsafe, ((first(data) & get_mask(typeof(x))), Base.tail(data)...))
 end
 
 # Generic fallback
 function BioSequences.complement(x::Kmer{<:NucleicAcidAlphabet})
-    typeof(x)((complement(i) for i in x))
+    return typeof(x)((complement(i) for i in x))
 end
 
 function BioSequences.reverse_complement(x::Kmer)
-    @inline(reverse(@inline(complement(x))))
+    return @inline(reverse(@inline(complement(x))))
 end
 
 function BioSequences.canonical(x::Kmer)
     rc = reverse_complement(x)
-    ifelse(x < rc, x, rc)
+    return ifelse(x < rc, x, rc)
 end
 
 BioSequences.iscanonical(x::Kmer) = x <= reverse_complement(x)
 
 function BioSequences.translate(
-    seq::Kmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}};
-    code::BioSequences.GeneticCode=BioSequences.standard_genetic_code,
-    allow_ambiguous_codons::Bool=true, # noop in this method
-    alternative_start::Bool=false,
-)
+        seq::Kmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}};
+        code::BioSequences.GeneticCode = BioSequences.standard_genetic_code,
+        allow_ambiguous_codons::Bool = true, # noop in this method
+        alternative_start::Bool = false,
+    )
     iszero(ksize(typeof(seq))) && return mer""a
     n_aa, remainder = divrem(length(seq), 3)
     iszero(remainder) ||
@@ -66,15 +66,15 @@ function BioSequences.translate(
         (_, data) =
             leftshift_carry(data, BioSequences.bits_per_symbol(AminoAcidAlphabet()), carry)
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 function BioSequences.translate(
-    seq::Kmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}};
-    code::BioSequences.GeneticCode=BioSequences.standard_genetic_code,
-    allow_ambiguous_codons::Bool=true,
-    alternative_start::Bool=false,
-)
+        seq::Kmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}};
+        code::BioSequences.GeneticCode = BioSequences.standard_genetic_code,
+        allow_ambiguous_codons::Bool = true,
+        alternative_start::Bool = false,
+    )
     n_aa, remainder = divrem(length(seq), 3)
     iszero(remainder) ||
         error("LongRNA length is not divisible by three. Cannot translate.")
@@ -99,5 +99,5 @@ function BioSequences.translate(
         (_, data) =
             leftshift_carry(data, BioSequences.bits_per_symbol(AminoAcidAlphabet()), carry)
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end

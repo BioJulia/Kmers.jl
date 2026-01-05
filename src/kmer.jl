@@ -46,7 +46,7 @@ struct Kmer{A <: Alphabet, K, N} <: BioSequence{A}
     # This unsafe method do not clip the head
     function Kmer{A, K, N}(::Unsafe, data::NTuple{N, UInt}) where {A <: Alphabet, K, N}
         check_kmer(Kmer{A, K, N})
-        new{A, K, N}(data)
+        return new{A, K, N}(data)
     end
 end
 
@@ -101,7 +101,7 @@ This function should compile to a noop in case the parameterization is good.
         throw(ArgumentError("Bad kmer parameterisation. K must be greater than 0."))
     end
     n = cld((K * BioSequences.bits_per_symbol(A())) % UInt, (sizeof(UInt) * 8) % UInt) % Int
-    if !(N isa Int)
+    return if !(N isa Int)
         throw(ArgumentError("N must be an Int"))
     elseif n !== N
         # This has been significantly changed conceptually from before. Now we
@@ -121,19 +121,19 @@ end
     n_unused(T) * BioSequences.bits_per_symbol(Alphabet(T))
 
 @inline function n_coding_elements(::Type{<:Kmer{A, K}}) where {A, K}
-    cld(BioSequences.bits_per_symbol(A()) * K, 8 * sizeof(UInt))
+    return cld(BioSequences.bits_per_symbol(A()) * K, 8 * sizeof(UInt))
 end
 
 @inline function per_word_capacity(::Type{<:Kmer{A}}) where {A}
-    div(8 * sizeof(UInt), BioSequences.bits_per_symbol(A()))
+    return div(8 * sizeof(UInt), BioSequences.bits_per_symbol(A()))
 end
 
 @inline function capacity(::Type{<:Kmer{A, K, N}}) where {A, K, N}
-    per_word_capacity(Kmer{A, K, N}) * N
+    return per_word_capacity(Kmer{A, K, N}) * N
 end
 
 @inline function elements_in_head(::Type{<:Kmer{A, K, N}}) where {A, K, N}
-    per_word_capacity(Kmer{A, K, N}) - n_unused(Kmer{A, K, N})
+    return per_word_capacity(Kmer{A, K, N}) - n_unused(Kmer{A, K, N})
 end
 
 """
@@ -148,7 +148,7 @@ Compute the fully parameterized kmer type from only the parameters `A` and `K`.
 
 @inline function zero_kmer(::Type{<:Kmer{A, K}}) where {A, K}
     T2 = derive_type(Kmer{A, K})
-    T2(unsafe, zero_tuple(T2))
+    return T2(unsafe, zero_tuple(T2))
 end
 
 ##################
@@ -168,13 +168,13 @@ Base.summary(x::Kmer{A, K, N}) where {A, K, N} = string(eltype(x), ' ', K, "-mer
 
 function Base.show(io::IO, ::MIME"text/plain", s::Kmer)
     println(io, summary(s), ':')
-    print(io, s)
+    return print(io, s)
 end
 
 # TODO: This is only efficient because the compiler, through Herculean effort,
 # is able to completely unroll and inline the indexing operation.
 @inline function _cmp(x::Kmer{A1, K1}, y::Kmer{A2, K2}) where {A1, A2, K1, K2}
-    if K1 == K2
+    return if K1 == K2
         cmp(x.data, y.data)
     else
         m = min(K1, K2)
@@ -256,7 +256,7 @@ function fx_hash(x::Kmer, h::UInt)
     for i in x.data
         h = (bitrotate(h, 5) ⊻ i) * FX_CONSTANT
     end
-    h
+    return h
 end
 fx_hash(x) = fx_hash(x, zero(UInt))
 
@@ -268,7 +268,9 @@ Base.adjoint(x::Kmer) = x
 Get the encoded integer representation of kmer `x`. The returned value is an
 unsigned integer between `UInt8` and `UInt128`, with the smallest type chosen
 which can fit the coding bits.
-Throws an `ArgumentError` if passed kmers with more than 128 bits.
+The coding bits of a kmer is derived from its type, and is a statically known
+for type-stable code.
+Throws an `ArgumentError` if passed a kmer of a type that uses more than 128 bits.
 
 !!! warning
     The value of the encoded representation is an implementation detail, and may
@@ -305,7 +307,7 @@ ERROR: ArgumentError: Must have at most 128 bits in encoding
     bits = K * BioSequences.bits_per_symbol(x)
     su = sizeof(UInt)
     t = x.data
-    if bits <= 8
+    return if bits <= 8
         t[1] % UInt8
     elseif bits <= 16
         t[1] % UInt16
@@ -324,16 +326,21 @@ ERROR: ArgumentError: Must have at most 128 bits in encoding
 end
 
 """
-    from_integer(T::Type{<:Kmer}, u)::T
+    from_integer(T::Type{<:Kmer}, u::Unsigned)::T
 
 Construct a kmer of type `T` from the unsigned bit-integer `u`.
 The value of the returned kmer cannot be relied on, but it is guaranteed that
 the roundtripping a value produced by `as_integer` will work, and will
 result in the same kmer.
 
-`T` must have at most 128 bits coding bits, and `u` must have no more than 128 bits. 
-Since not all bits of `u` may be used when constructing the kmer, different
-integers may return the same kmer.
+`T` must `B <= 128` coding bits, which is the length of an instance of `T`.
+multiplied by the bits per biosymbol of `T`.
+Only the lowest `B` bits of `u` will be used, so values of `u` that differ in the
+unused bits will return the same kmer.
+
+Any bit-unsigned type with up to 128 bits may be used for `u`.
+E.g. if `u = as_integer(k::Kmer)::UInt8`, then `from_integer(u) === from_integer(UInt64(u))`
+is guaranteed.
 
 # Examples
 ```jldoctest
@@ -344,19 +351,21 @@ UInt32
 
 julia> from_integer(typeof(kmer), u) === kmer
 true
+
+julia> from_integer(typeof(kmer), UInt128(u)) === kmer
+true
 ```
 """
 function from_integer end
 
 @inline function from_integer(T::Type{<:Kmer{A, K}}, u::Unsigned) where {A, K}
-    from_integer(derive_type(T), u)
+    return from_integer(derive_type(T), u)
 end
 
 @inline function from_integer(T::Type{<:Kmer{A, K, N}}, u::BitUnsigned) where {A, K, N}
     check_kmer(T)
     bits = K * BioSequences.bits_per_symbol(A())
     iszero(bits) && return zero_kmer(T)
-    su = sizeof(u) * 8
     if bits > 128
         throw(ArgumentError("Kmer type must contain at most 128 bits"))
     end
@@ -410,7 +419,7 @@ function push(kmer::Kmer, s)
     # leftshift_carry the new encoding in.
     encoding = UInt(BioSequences.encode(A, convert(eltype(kmer), s)))
     (_, new_data) = leftshift_carry(new_data, bps, encoding)
-    newT(unsafe, new_data)
+    return newT(unsafe, new_data)
 end
 
 """
@@ -435,7 +444,7 @@ KYMLPIIRSF
 """
 function shift(kmer::Kmer{A}, s) where {A}
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
-    shift_encoding(kmer, encoding)
+    return shift_encoding(kmer, encoding)
 end
 
 """
@@ -473,7 +482,7 @@ function push_first(kmer::Kmer{A}, s) where {A}
     end
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
     head = first(new_data) | left_shift(encoding, (elements_in_head(newT) - 1) * bps)
-    newT(unsafe, (head, tail(new_data)...))
+    return newT(unsafe, (head, tail(new_data)...))
 end
 
 """
@@ -496,7 +505,7 @@ FWKYMLPIIR
 """
 function shift_first(kmer::Kmer{A}, s) where {A}
     encoding = UInt(BioSequences.encode(A(), convert(eltype(kmer), s)))
-    shift_first_encoding(kmer, encoding)
+    return shift_first_encoding(kmer, encoding)
 end
 
 function shift_first_encoding(kmer::Kmer{A}, encoding::UInt) where {A}
@@ -505,7 +514,7 @@ function shift_first_encoding(kmer::Kmer{A}, encoding::UInt) where {A}
     (_, new_data) = rightshift_carry(kmer.data, bps, zero(UInt))
     head =
         first(new_data) | left_shift(encoding, (elements_in_head(typeof(kmer)) - 1) * bps)
-    typeof(kmer)(unsafe, (head, tail(new_data)...))
+    return typeof(kmer)(unsafe, (head, tail(new_data)...))
 end
 
 """
@@ -545,7 +554,7 @@ function pop(kmer::Kmer{A}) where {A}
     else
         new_data
     end
-    newT(unsafe, new_data)
+    return newT(unsafe, new_data)
 end
 
 """
@@ -586,11 +595,11 @@ function pop_first(kmer::Kmer{A}) where {A}
         (first(kmer.data) & mask, tail(kmer.data)...)
     end
     newT = derive_type(Kmer{A, length(kmer) - 1})
-    newT(unsafe, data)
+    return newT(unsafe, data)
 end
 
 # Get a mask 0x0001111 ... masking away the unused bits of the head element
 # in the UInt tuple
 @inline function get_mask(T::Type{<:Kmer})
-    UInt(1) << (8 * sizeof(UInt) - bits_unused(T)) - 1
+    return UInt(1) << (8 * sizeof(UInt) - bits_unused(T)) - 1
 end

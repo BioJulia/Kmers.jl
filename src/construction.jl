@@ -200,13 +200,13 @@ end
 
 function Kmer{A, K, N}(x) where {A, K, N}
     check_kmer(Kmer{A, K, N})
-    build_kmer(RecodingScheme(A(), typeof(x)), Kmer{A, K, N}, x)
+    return build_kmer(RecodingScheme(A(), typeof(x)), Kmer{A, K, N}, x)
 end
 
 # BioSequences support indexing and fast length checks
 @inline function build_kmer(R::RecodingScheme, ::Type{T}, s::BioSequence) where {T}
     length(s) == ksize(T) || error("Length of sequence must be K elements to build Kmer")
-    unsafe_extract(R, T, s, 1)
+    return unsafe_extract(R, T, s, 1)
 end
 
 # LongSequence with compatible alphabet: Extract whole coding elements
@@ -215,7 +215,7 @@ end
     bps = BioSequences.BitsPerSymbol(Alphabet(T))
     data = ntuple(i -> BioSequences.reversebits(@inbounds(s.data[i]), bps), Val{nsize(T)}())
     (_, data) = rightshift_carry(data, bits_unused(T), zero(UInt))
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 # TODO: LongSubSeq with compatible alphabet
@@ -223,22 +223,22 @@ end
 
 # For UTF8-strings combined with an ASCII kmer alphabet, we convert to byte vector
 @inline function build_kmer(
-    R::AsciiEncode,
-    ::Type{T},
-    s::Union{String, SubString{String}},
-) where {T}
-    build_kmer(R, T, codeunits(s))
+        R::AsciiEncode,
+        ::Type{T},
+        s::Union{String, SubString{String}},
+    ) where {T}
+    return build_kmer(R, T, codeunits(s))
 end
 
 # For byte vectors, we can build a kmer iff the kmer alphabet is AsciiAlphabet
 @inline function build_kmer(R::AsciiEncode, ::Type{T}, s::AbstractVector{UInt8}) where {T}
     length(s) == ksize(T) || error("Length of sequence must be K elements to build Kmer")
-    unsafe_extract(R, T, s, 1)
+    return unsafe_extract(R, T, s, 1)
 end
 
 # The generic fallback - dispatch on whether we can check length once
 @inline function build_kmer(R::RecodingScheme, T::Type, s)
-    build_kmer(Base.IteratorSize(typeof(s)), R, T, s)
+    return build_kmer(Base.IteratorSize(typeof(s)), R, T, s)
 end
 
 @inline function build_kmer(::Base.SizeUnknown, ::RecodingScheme, T::Type, s)
@@ -254,15 +254,15 @@ end
         (_, data) = leftshift_carry(data, bps, carry)
     end
     i == ksize(T) || error("Length of sequence must be K elements to build Kmer")
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 @inline function build_kmer(
-    ::Union{Base.HasLength, Base.HasShape},
-    ::RecodingScheme,
-    T::Type,
-    s,
-)
+        ::Union{Base.HasLength, Base.HasShape},
+        ::RecodingScheme,
+        T::Type,
+        s,
+    )
     length(s) == ksize(T) || error("Length of sequence must be K elements to build Kmer")
     data = zero_tuple(T)
     A = Alphabet(T)
@@ -272,7 +272,7 @@ end
         carry = UInt(BioSequences.encode(A, symbol))
         (_, data) = leftshift_carry(data, bps, carry)
     end
-    T(unsafe, data)
+    return T(unsafe, data)
 end
 
 ################################################
@@ -296,12 +296,12 @@ function BioSequences.LongSequence{A}(kmer::Kmer{A}) where {A <: Alphabet}
     else
         _fill_shift!(kmer, data)
     end
-    LongSequence{A}(data, length(kmer) % UInt)
+    return LongSequence{A}(data, length(kmer) % UInt)
 end
 
 @inline function _fill_unshift!(kmer::Kmer, data::Vector{UInt64})
     bps = BioSequences.BitsPerSymbol(Alphabet(kmer))
-    @inbounds for i in eachindex(kmer.data)
+    return @inbounds for i in eachindex(kmer.data)
         data[i] = BioSequences.reversebits(kmer.data[i], bps)
     end
 end
@@ -319,7 +319,7 @@ end
         chunk |= right_shift(kmer.data[i + 1] & right_mask, rightsh)
         data[i] = BioSequences.reversebits(chunk, bps)
     end
-    @inbounds data[nce] =
+    return @inbounds data[nce] =
         BioSequences.reversebits(left_shift((kmer.data[nce] & left_mask), leftsh), bps)
 end
 
@@ -362,7 +362,7 @@ macro mer_str(seq, flag)
     ncu = ncodeunits(trimmed)
     # Unlike @dna_str, we default to 2-bit alphabets, because kmers
     # by convention are usually 2-bit only
-    if flag == "dna" || flag == "d"
+    return if flag == "dna" || flag == "d"
         Kmer{DNAAlphabet{2}, ncu}(trimmed)
     elseif flag == "rna" || flag == "r"
         Kmer{RNAAlphabet{2}, ncu}(trimmed)

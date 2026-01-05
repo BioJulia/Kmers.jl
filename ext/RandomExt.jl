@@ -86,11 +86,11 @@ end
 
 @inline function random_tuples(rng::AbstractRNG, v::Val{bits}) where {bits}
     usize = 8 * sizeof(UInt)
-    random_tuples(rng, v, Val{iszero(mod(bits, usize))}())
+    return random_tuples(rng, v, Val{iszero(mod(bits, usize))}())
 end
 
 @inline function random_tuples(rng::AbstractRNG, ::Val{bits}, ::Val{true}) where {bits}
-    ntuple(i -> rand(rng, UInt), cld(bits, 8 * sizeof(UInt)))
+    return ntuple(i -> rand(rng, UInt), cld(bits, 8 * sizeof(UInt)))
 end
 
 @inline function random_tuples(rng::AbstractRNG, ::Val{bits}, ::Val{false}) where {bits}

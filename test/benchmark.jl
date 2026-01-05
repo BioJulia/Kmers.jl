@@ -11,7 +11,7 @@ function reducer(it)
     for i in it
         y ⊻= extract_kmer(typeof(it), i).data[1]
     end
-    y
+    return y
 end
 
 using Random: Xoshiro
@@ -106,7 +106,7 @@ function unsafe_extract_minimizer(seq::LongDNA{2}, i::Int, ::Val{K}, ::Val{W}) w
             kmer = new_kmer
         end
     end
-    kmer
+    return kmer
 end
 
 function benchmark_minimizer(seq)
@@ -115,7 +115,7 @@ function benchmark_minimizer(seq)
         mer = unsafe_extract_minimizer(seq, i, Val{8}(), Val{20}())
         y ⊻= mer.data[1]
     end
-    y
+    return y
 end
 
 println("Minimizer")

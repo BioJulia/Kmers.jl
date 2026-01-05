@@ -37,17 +37,17 @@ Base.IteratorSize(::Type{<:UnambiguousKmers{A, K, <:NucSeq{2}}}) where {A <: Two
 Base.length(it::UnambiguousKmers{A, K, <:NucSeq{2}}) where {A, K} = length(it.it)
 
 function Base.eltype(::Type{<:UnambiguousKmers{A, K}}) where {A, K}
-    Tuple{derive_type(Kmer{A, K}), Int}
+    return Tuple{derive_type(Kmer{A, K}), Int}
 end
 
 source_type(::Type{UnambiguousKmers{A, K, S}}) where {A, K, S} = S
 
 # Constructors
 function UnambiguousKmers{A, K}(s::S) where {S, A <: TwoBit, K}
-    UnambiguousKmers{A, K, S}(FwKmers{A, K}(s))
+    return UnambiguousKmers{A, K, S}(FwKmers{A, K}(s))
 end
 function UnambiguousKmers{A, K, S}(s::S) where {S, A <: TwoBit, K}
-    UnambiguousKmers{A, K, S}(FwKmers{A, K}(s))
+    return UnambiguousKmers{A, K, S}(FwKmers{A, K}(s))
 end
 
 "`UnambiguousDNAMers{K, S}`: Alias for `UnambiguousKmers{DNAAlphabet{2}, K, S}`"
@@ -58,14 +58,14 @@ const UnambiguousRNAMers{K, S} = UnambiguousKmers{RNAAlphabet{2}, K, S}
 
 @inline function Base.iterate(it::UnambiguousKmers{A, K, S}, state...) where {A, K, S}
     R = RecodingScheme(A(), S)
-    iterate_kmer(R, it, state...)
+    return iterate_kmer(R, it, state...)
 end
 
 @inline function iterate_kmer(::Copyable, it::UnambiguousKmers)
     itval = iterate(it.it)
     isnothing(itval) && return nothing
     (kmer, state) = itval
-    ((kmer, 1), state)
+    return ((kmer, 1), state)
 end
 
 @inline function iterate_kmer(::Copyable, it::UnambiguousKmers, state::Tuple{Kmer, Integer})
@@ -73,23 +73,23 @@ end
     isnothing(itval) && return nothing
     (_, i) = state
     (kmer, state) = itval
-    ((kmer, i - ksize(typeof(kmer)) + 1), state)
+    return ((kmer, i - ksize(typeof(kmer)) + 1), state)
 end
 
 @inline function iterate_kmer(
-    ::RecodingScheme,
-    it::UnambiguousKmers{A, K, S},
-) where {A, K, S}
+        ::RecodingScheme,
+        it::UnambiguousKmers{A, K, S},
+    ) where {A, K, S}
     T = derive_type(Kmer{A, K})
     state = (T(unsafe, zero_tuple(T)), K, 1)
-    iterate_kmer(RecodingScheme(A(), S), it, state)
+    return iterate_kmer(RecodingScheme(A(), S), it, state)
 end
 
 @inline function iterate_kmer(
-    ::RecodingScheme,
-    it::UnambiguousKmers,
-    state::Tuple{Kmer, Int, Int},
-)
+        ::RecodingScheme,
+        it::UnambiguousKmers,
+        state::Tuple{Kmer, Int, Int},
+    )
     (kmer, remaining, index) = state
     K = ksize(typeof(kmer))
     while !iszero(remaining)
@@ -103,14 +103,14 @@ end
             kmer = shift(kmer, symbol)
         end
     end
-    ((kmer, index - K), (kmer, 1, index))
+    return ((kmer, index - K), (kmer, 1, index))
 end
 
 @inline function iterate_kmer(
-    ::AsciiEncode,
-    it::UnambiguousKmers{A, K, S},
-    state::Tuple{Kmer, Int, Int},
-) where {A <: TwoBit, K, S}
+        ::AsciiEncode,
+        it::UnambiguousKmers{A, K, S},
+        state::Tuple{Kmer, Int, Int},
+    ) where {A <: TwoBit, K, S}
     src = used_source(RecodingScheme(A(), S), it.it.seq)
     Base.require_one_based_indexing(src)
     (kmer, remaining, index) = state
@@ -128,14 +128,14 @@ end
             kmer = shift_encoding(kmer, encoding % UInt)
         end
     end
-    ((kmer, index - K), (kmer, 1, index))
+    return ((kmer, index - K), (kmer, 1, index))
 end
 
 @inline function iterate_kmer(
-    ::FourToTwo,
-    it::UnambiguousKmers{A, K, S},
-    state::Tuple{Kmer, Int, Int},
-) where {A <: TwoBit, K, S}
+        ::FourToTwo,
+        it::UnambiguousKmers{A, K, S},
+        state::Tuple{Kmer, Int, Int},
+    ) where {A <: TwoBit, K, S}
     (kmer, remaining, index) = state
     while !iszero(remaining)
         index > lastindex(it.it.seq) && return nothing
@@ -144,5 +144,5 @@ end
         index += 1
         remaining = isone(count_ones(encoding)) ? remaining - 1 : K
     end
-    ((kmer, index - K), (kmer, 1, index))
+    return ((kmer, index - K), (kmer, 1, index))
 end

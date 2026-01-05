@@ -38,6 +38,8 @@ struct DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
     end
 end
 
+Base.empty(::Type{<:DynamicKmer{A, U}}) where {A, U} = _new_dynamic_kmer(A, zero(U))
+
 utype(::Type{<:DynamicKmer{A, U}}) where {A, U} = U
 
 "Alias for DynamicKmer{DNAAlphabet{2}, <:Unsigned}"
@@ -126,7 +128,8 @@ end
 
 @assert UInt == UInt64
 
-function Kmer{A, K, N}(x::DynamicKmer) where {A <: Alphabet, K, N}
+# TODO: Also use dispatch to construct kmers from DynamicKmer...
+function Kmer{A, K, N}(x::DynamicKmer{A}) where {A <: Alphabet, K, N}
     check_kmer(Kmer{A, K, N})
     length(x) == K || error("Must construct kmer from length K DynamicKmer")
     # This is now a compile time constant
@@ -151,12 +154,13 @@ const HASH_MASK = 0x6ff6e9f0462d5162 % UInt
 
 Base.copy(x::DynamicKmer) = x
 Base.hash(x::DynamicKmer, h::UInt64) = hash(x.x, h ⊻ HASH_MASK)
-fx_hash(x::DynamicKmer, u::UInt64) = (bitrotate(x.x, 5) ⊻ x.x) * FX_CONSTANT
+fx_hash(x::DynamicKmer, u::UInt64) = (bitrotate(h, 5) ⊻ x.x) * FX_CONSTANT
 Base.:(==)(a::DynamicKmer, b::DynamicKmer) = a.x == b.x
 Base.isless(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = isless(a.x, b.x)
 Base.cmp(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = cmp(a.x, b.x)
 
 @inline function Base.getindex(x::DynamicKmer{A}, idx::AbstractUnitRange{<:Integer}) where {A}
+    isempty(idx) && return empty(typeof(x))
     @boundscheck checkbounds(x, idx)
     bps = BioSequences.bits_per_symbol(x)
     len = length(idx)

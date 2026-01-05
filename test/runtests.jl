@@ -47,7 +47,7 @@ struct CharAlphabet <: Alphabet end
 Base.eltype(::Type{CharAlphabet}) = CharSymbol
 BioSequences.symbols(::CharAlphabet) = ntuple(i -> CharSymbol(Char(i - 1)), Val{128}())
 BioSequences.encode(::CharAlphabet, c::CharSymbol) = reinterpret(UInt32, c.x) % UInt
-BioSequences.decode(::CharAlphabet, c::UInt) = CharSymbol(reinterpret(Char, c % UInt32))
+BioSequences.decode(::CharAlphabet, c::Unsigned) = CharSymbol(reinterpret(Char, c % UInt32))
 BioSequences.BitsPerSymbol(::CharAlphabet) = BioSequences.BitsPerSymbol{32}()
 
 struct GenericNucAlphabet <: NucleicAcidAlphabet{8} end

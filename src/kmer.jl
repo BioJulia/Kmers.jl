@@ -205,10 +205,6 @@ Base.:(==)(x::BioSequence, y::Kmer) = throw(MethodError(==, (x, y)))
 
 Base.hash(x::Kmer, h::UInt) = hash(x.data, h ⊻ ksize(typeof(x)))
 
-if Sys.WORD_SIZE != 64
-    error("Kmer.jl only supports 64-bit systems")
-end
-
 # These constants are from the original implementation
 @static if Sys.WORD_SIZE == 32
     # typemax(UInt32) / golden ratio

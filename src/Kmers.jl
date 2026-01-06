@@ -28,6 +28,7 @@ export Kmer,
     DynamicDNAKmer,
     DynamicRNAKmer,
     DynamicAAKmer,
+    @dmer_str,
 
     # Immutable operations
     push,

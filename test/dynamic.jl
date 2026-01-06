@@ -21,6 +21,11 @@ using BioSequences
             end
         end
 
+        # Test macro equivalence with constructor
+        @test dmer"ATGTCGTTAGT"d == DynamicDNAKmer{UInt64}(dna"ATGTCGTTAGT")
+        @test dmer"AUGUCGAGUGUAUGC"r == DynamicRNAKmer{UInt64}(rna"AUGUCGAGUGUAUGC")
+        @test dmer"KWOP"a == DynamicAAKmer{UInt64}(aa"KWOP")
+
         d = DynamicDNAKmer{UInt}(dna"ATGTCGTTAGT")
         @test DynamicRNAKmer(d) == d
         @test DynamicRNAKmer{UInt64}(d) == d
@@ -72,7 +77,7 @@ using BioSequences
     @testset "From DynamicKmer" begin
         # Same backing type, same alphabet
         s = dna"TAGCTGA"
-        d1 = DynamicDNAKmer{UInt64}(s)
+        d1 = dmer"TAGCTGA"d
         d2 = DynamicDNAKmer{UInt64}(d1)
         @test d2 == d1
         @test d2 === d1  # Should be identical
@@ -93,7 +98,7 @@ using BioSequences
         @test d32_narrow == dna"TAGC"
 
         # Same alphabet family (DNA/RNA), different alphabets
-        d_dna = DynamicDNAKmer{UInt64}(dna"ATGTCGTTAGT")
+        d_dna = dmer"ATGTCGTTAGT"d
         d_rna = DynamicRNAKmer{UInt64}(d_dna)
         @test d_rna == d_dna
         @test length(d_rna) == length(d_dna)
@@ -105,7 +110,7 @@ using BioSequences
         @test length(d_rna64) == length(d_dna32)
 
         # Test with amino acids
-        aa_d64 = DynamicAAKmer{UInt64}(aa"KWOP")
+        aa_d64 = dmer"KWOP"a
         aa_d128 = DynamicAAKmer{UInt128}(aa_d64)
         @test aa_d128 == aa_d64
         @test length(aa_d128) == length(aa_d64)
@@ -157,7 +162,7 @@ using BioSequences
         @test string(dkmer_aa) == string(kmer_aa)
 
         # Test error on length mismatch
-        dkmer = DynamicDNAKmer{UInt64}(dna"TAG")
+        dkmer = dmer"TAG"d
         @test_throws Exception Kmer{DNAAlphabet{2}, 5, 1}(dkmer)
     end
 
@@ -170,7 +175,7 @@ end
 
 @testset "Indexing and iteration" begin
     @testset "Scalar indexing" begin
-        m = DynamicDNAKmer{UInt64}(dna"TAGCTGAC")
+        m = dmer"TAGCTGAC"d
         @test m[1] == DNA_T
         @test m[3] == DNA_G
         @test m[8] == DNA_C
@@ -182,11 +187,11 @@ end
     end
 
     @testset "Range indexing" begin
-        m = DynamicDNAKmer{UInt64}(dna"TAGCTGAC")
-        @test m[1:3] == DynamicDNAKmer{UInt64}(dna"TAG")
-        @test m[2:5] == DynamicDNAKmer{UInt64}(dna"AGCT")
-        @test m[6:8] == DynamicDNAKmer{UInt64}(dna"GAC")
-        @test m[1:0] == DynamicDNAKmer{UInt64}(dna"")
+        m = dmer"TAGCTGAC"d
+        @test m[1:3] == dmer"TAG"d
+        @test m[2:5] == dmer"AGCT"d
+        @test m[6:8] == dmer"GAC"d
+        @test m[1:0] == dmer""d
 
         @test_throws BoundsError m[0:3]
         @test_throws BoundsError m[6:9]
@@ -194,42 +199,42 @@ end
 
     @testset "Iteration" begin
         s = dna"TAGCTGAC"
-        m = DynamicDNAKmer{UInt64}(s)
+        m = dmer"TAGCTGAC"d
         @test collect(m) == collect(s)
     end
 end
 
 @testset "Comparison and equality" begin
     @testset "Equality" begin
-        @test DynamicDNAKmer{UInt64}(dna"TAG") == DynamicDNAKmer{UInt64}(dna"TAG")
-        @test DynamicDNAKmer{UInt64}(dna"TAG") != DynamicDNAKmer{UInt64}(dna"TAC")
-        @test DynamicDNAKmer{UInt64}(dna"") == DynamicDNAKmer{UInt64}(dna"")
+        @test dmer"TAG"d == dmer"TAG"d
+        @test dmer"TAG"d != dmer"TAC"d
+        @test dmer""d == dmer""d
     end
 
     @testset "Ordering" begin
-        @test DynamicDNAKmer{UInt64}(dna"TAG") < DynamicDNAKmer{UInt64}(dna"TGA")
-        @test DynamicDNAKmer{UInt64}(dna"AAA") < DynamicDNAKmer{UInt64}(dna"AAC")
-        @test DynamicDNAKmer{UInt64}(dna"TAG") > DynamicDNAKmer{UInt64}(dna"TAC")
+        @test dmer"TAG"d < dmer"TGA"d
+        @test dmer"AAA"d < dmer"AAC"d
+        @test dmer"TAG"d > dmer"TAC"d
     end
 
     @testset "Comparison of different lengths" begin
-        @test DynamicDNAKmer{UInt64}(dna"TAG") < DynamicDNAKmer{UInt64}(dna"TAGA")
-        @test DynamicDNAKmer{UInt64}(dna"TAGA") > DynamicDNAKmer{UInt64}(dna"TAG")
+        @test dmer"TAG"d < dmer"TAGA"d
+        @test dmer"TAGA"d > dmer"TAG"d
     end
 
     @testset "cmp function" begin
         # Test cmp returns -1, 0, or 1
-        @test cmp(DynamicDNAKmer{UInt64}(dna"TAG"), DynamicDNAKmer{UInt64}(dna"TAG")) == 0
-        @test cmp(DynamicDNAKmer{UInt64}(dna"TAG"), DynamicDNAKmer{UInt64}(dna"TGA")) < 0
-        @test cmp(DynamicDNAKmer{UInt64}(dna"TGA"), DynamicDNAKmer{UInt64}(dna"TAG")) > 0
+        @test cmp(dmer"TAG"d, dmer"TAG"d) == 0
+        @test cmp(dmer"TAG"d, dmer"TGA"d) < 0
+        @test cmp(dmer"TGA"d, dmer"TAG"d) > 0
 
         # Test with RNA
-        @test cmp(DynamicRNAKmer{UInt64}(rna"UAG"), DynamicRNAKmer{UInt64}(rna"UAG")) == 0
-        @test cmp(DynamicRNAKmer{UInt64}(rna"UAG"), DynamicRNAKmer{UInt64}(rna"UGA")) < 0
+        @test cmp(dmer"UAG"r, dmer"UAG"r) == 0
+        @test cmp(dmer"UAG"r, dmer"UGA"r) < 0
 
         # Test with different lengths
-        @test cmp(DynamicDNAKmer{UInt64}(dna"TAG"), DynamicDNAKmer{UInt64}(dna"TAGA")) < 0
-        @test cmp(DynamicDNAKmer{UInt64}(dna"TAGA"), DynamicDNAKmer{UInt64}(dna"TAG")) > 0
+        @test cmp(dmer"TAG"d, dmer"TAGA"d) < 0
+        @test cmp(dmer"TAGA"d, dmer"TAG"d) > 0
     end
 
     @testset "Comparison across different integer types" begin
@@ -279,16 +284,16 @@ end
 
 @testset "Integer conversion" begin
     @testset "as_integer" begin
-        m1 = DynamicDNAKmer{UInt64}(dna"TAG")
+        m1 = dmer"TAG"d
         u1 = as_integer(m1)
         @test u1 isa Unsigned
 
-        m2 = DynamicDNAKmer{UInt64}(dna"TAC")
+        m2 = dmer"TAC"d
         u2 = as_integer(m2)
         @test u1 != u2
 
         # Empty kmer
-        @test as_integer(DynamicDNAKmer{UInt64}(dna"")) == 0
+        @test as_integer(dmer""d) == 0
     end
 
     @testset "from_integer" begin
@@ -314,9 +319,9 @@ end
 end
 
 @testset "Hashing" begin
-    m1 = DynamicDNAKmer{UInt64}(dna"TAG")
-    m2 = DynamicDNAKmer{UInt64}(dna"TAG")
-    m3 = DynamicDNAKmer{UInt64}(dna"TAC")
+    m1 = dmer"TAG"d
+    m2 = dmer"TAG"d
+    m3 = dmer"TAC"d
 
     # Same kmers hash to same value
     @test hash(m1) == hash(m2)
@@ -332,14 +337,14 @@ end
     # Length must be part of hash: TCA and TC have identical coding bits
     # (since A encodes to 00, which looks like padding), but different lengths.
     # They must hash differently despite having the same as_integer representation.
-    m1 = DynamicDNAKmer{UInt64}(dna"TCA")
-    m2 = DynamicDNAKmer{UInt64}(dna"TC")
+    m1 = dmer"TCA"d
+    m2 = dmer"TC"d
     @test hash(m1) != hash(m2)
 
     @testset "fx_hash" begin
-        m1 = DynamicDNAKmer{UInt64}(dna"TAG")
-        m2 = DynamicDNAKmer{UInt64}(dna"TAG")
-        m3 = DynamicDNAKmer{UInt64}(dna"TAC")
+        m1 = dmer"TAG"d
+        m2 = dmer"TAG"d
+        m3 = dmer"TAC"d
 
         # Same kmers should produce same fx_hash
         @test Kmers.fx_hash(m1, UInt64(0)) == Kmers.fx_hash(m2, UInt64(0))
@@ -353,8 +358,8 @@ end
         # Length must be part of hash: TCA and TC have identical coding bits
         # (since A encodes to 00, which looks like padding), but different lengths.
         # They must hash differently despite having the same as_integer representation.
-        m1 = DynamicDNAKmer{UInt64}(dna"TCA")
-        m2 = DynamicDNAKmer{UInt64}(dna"TC")
+        m1 = dmer"TCA"d
+        m2 = dmer"TC"d
         @test Kmers.fx_hash(m1, UInt64(0)) != Kmers.fx_hash(m2, UInt64(0))
     end
 end
@@ -363,15 +368,15 @@ end
     @testset "Reverse" begin
         # Test with 2-bit DNA
         s = dna"TAGCTGA"
-        m = DynamicDNAKmer{UInt64}(s)
+        m = dmer"TAGCTGA"d
         @test reverse(m) == DynamicDNAKmer{UInt64}(reverse(s))
 
         # Test empty sequence
-        @test reverse(DynamicDNAKmer{UInt64}(dna"")) == DynamicDNAKmer{UInt64}(dna"")
+        @test reverse(dmer""d) == dmer""d
 
         # Test with 2-bit RNA
         s_rna = rna"UAGCUGA"
-        m_rna = DynamicRNAKmer{UInt64}(s_rna)
+        m_rna = dmer"UAGCUGA"r
         @test reverse(m_rna) == DynamicRNAKmer{UInt64}(reverse(s_rna))
 
         # Test with 4-bit DNA
@@ -381,19 +386,19 @@ end
 
         # Test with amino acids
         s_aa = aa"KWOP"
-        m_aa = DynamicAAKmer{UInt64}(s_aa)
+        m_aa = dmer"KWOP"a
         @test reverse(m_aa) == DynamicAAKmer{UInt64}(reverse(s_aa))
     end
 
     @testset "Complement" begin
         # Test with 2-bit DNA
         s = dna"TAGCTGA"
-        m = DynamicDNAKmer{UInt64}(s)
+        m = dmer"TAGCTGA"d
         @test complement(m) == DynamicDNAKmer{UInt64}(complement(s))
 
         # Test with 2-bit RNA
         s_rna = rna"UAGCUGA"
-        m_rna = DynamicRNAKmer{UInt64}(s_rna)
+        m_rna = dmer"UAGCUGA"r
         @test complement(m_rna) == DynamicRNAKmer{UInt64}(complement(s_rna))
 
         # Test with 4-bit DNA (includes ambiguous bases)
@@ -410,12 +415,12 @@ end
     @testset "Reverse complement" begin
         # Test with 2-bit DNA
         s = dna"TAGCTGA"
-        m = DynamicDNAKmer{UInt64}(s)
+        m = dmer"TAGCTGA"d
         @test reverse_complement(m) == DynamicDNAKmer{UInt64}(reverse_complement(s))
 
         # Test with 2-bit RNA
         s_rna = rna"UAGCUGA"
-        m_rna = DynamicRNAKmer{UInt64}(s_rna)
+        m_rna = dmer"UAGCUGA"r
         @test reverse_complement(m_rna) == DynamicRNAKmer{UInt64}(reverse_complement(s_rna))
 
         # Test with 4-bit DNA
@@ -430,27 +435,27 @@ end
     end
 
     @testset "Canonical" begin
-        m1 = DynamicDNAKmer{UInt64}(dna"TAGCTGA")
-        m2 = DynamicDNAKmer{UInt64}(dna"TCAGCTA")
+        m1 = dmer"TAGCTGA"d
+        m2 = dmer"TCAGCTA"d
         @test canonical(m1) == canonical(m2)
-        @test iscanonical(DynamicDNAKmer{UInt64}(dna"AATT"))
-        @test iscanonical(DynamicDNAKmer{UInt64}(dna"TTAA"))
+        @test iscanonical(dmer"AATT"d)
+        @test iscanonical(dmer"TTAA"d)
         @test iscanonical(empty(m1))
-        @test !iscanonical(DynamicDNAKmer{UInt64}(dna"TGGA"))
+        @test !iscanonical(dmer"TGGA"d)
     end
 end
 
 @testset "Counting" begin
     @testset "Count GC" begin
-        @test count(isGC, DynamicDNAKmer{UInt64}(dna"TATCGGAGA")) == 4
-        @test count(isGC, DynamicDNAKmer{UInt64}(dna"TATATATAAAAA")) == 0
-        @test count(isGC, DynamicDNAKmer{UInt64}(dna"")) == 0
+        @test count(isGC, dmer"TATCGGAGA"d) == 4
+        @test count(isGC, dmer"TATATATAAAAA"d) == 0
+        @test count(isGC, dmer""d) == 0
 
-        @test count(isGC, DynamicRNAKmer{UInt64}(rna"AUGUCGUAG")) == 4
+        @test count(isGC, dmer"AUGUCGUAG"r) == 4
     end
 
     @testset "Count symbols" begin
-        m = DynamicDNAKmer{UInt64}(dna"TAGCTGA")
+        m = dmer"TAGCTGA"d
         @test count(==(DNA_A), m) == 2
         @test count(==(DNA_T), m) == 2
         @test count(==(DNA_G), m) == 2

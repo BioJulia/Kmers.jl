@@ -492,3 +492,42 @@ function shift_encoding(x::DynamicKmer{A, U}, encoding::U) where {A <: Alphabet,
 end
 
 Base.adjoint(x::DynamicKmer) = x
+
+"""
+    @dmer_str -> DynamicKmer
+
+Construct a `DynamicKmer{A, UInt64}` from the given string. The macro must be used with a flag
+after the input string, e.g. `d` in `dmer"TAG"d` or `a` in `dmer"PCW"a`, signifying
+the alphabet of the dynamic kmer.
+The flags `d = DNAAlphabet{2}`, `r = RNAAlphabet{2}` and `a = AminoAcidAlphabet`
+are recognized.
+
+# Examples
+```jldoctest
+julia> dmer"UGCUA"r
+5nt DynamicRNAKmer{UInt64}:
+UGCUA
+
+julia> dmer"YDLLKKR"a
+7aa DynamicAAKmer{UInt64}:
+YDLLKKR
+
+julia> dmer"TATTAGCA"d
+8nt DynamicDNAKmer{UInt64}
+TATTAGCA
+```
+"""
+macro dmer_str(seq, flag)
+    trimmed = BioSequences.remove_newlines(seq)
+    # Unlike @dna_str, we default to 2-bit alphabets, because kmers
+    # by convention are usually 2-bit only
+    return if flag == "dna" || flag == "d"
+        DynamicDNAKmer{UInt64}(trimmed)
+    elseif flag == "rna" || flag == "r"
+        DynamicRNAKmer{UInt64}(trimmed)
+    elseif flag == "aa" || flag == "a"
+        DynamicAAKmer{UInt64}(trimmed)
+    else
+        error("Invalid type flag: '$(flag)'")
+    end
+end

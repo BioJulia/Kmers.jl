@@ -38,6 +38,15 @@ struct DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
     end
 end
 
+Base.summary(x::DynamicKmer{<:Union{DNAAlphabet, RNAAlphabet}}) = string(length(x), "nt ",  typeof(x))
+Base.summary(x::DynamicKmer{AminoAcidAlphabet}) = string(length(x), "aa ",  typeof(x))
+Base.summary(x::DynamicKmer) = string(length(x), "-symbol ",  typeof(x))
+
+function Base.show(io::IO, ::MIME"text/plain", s::DynamicKmer)
+    println(io, summary(s), ':')
+    return print(io, s)
+end
+
 Base.empty(::Type{<:DynamicKmer{A, U}}) where {A, U} = _new_dynamic_kmer(A, zero(U))
 
 utype(::Type{<:DynamicKmer{A, U}}) where {A, U} = U

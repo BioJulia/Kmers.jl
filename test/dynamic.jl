@@ -75,6 +75,33 @@ using BioSequences
         end
     end
 
+    @testset "To Kmer with N=2 (>64 coding bits)" begin
+        # For 2-bit DNA: need >32 bases for >64 coding bits
+        s_dna = dna"TAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCT"  # 33 bases = 66 bits
+        dkmer_dna = DynamicKmer{DNAAlphabet{2}, UInt128}(s_dna)
+        kmer_dna = Kmer{DNAAlphabet{2}, 33, 2}(dkmer_dna)
+        @test length(kmer_dna) == length(dkmer_dna)
+        @test string(dkmer_dna) == string(kmer_dna)
+
+        # For 2-bit RNA
+        s_rna = rna"UGCUGAUGCUGAUGCUGAUGCUGAUGCUGAUGA"  # 33 bases = 66 bits
+        dkmer_rna = DynamicKmer{RNAAlphabet{2}, UInt128}(s_rna)
+        kmer_rna = Kmer{RNAAlphabet{2}, 33, 2}(dkmer_rna)
+        @test length(kmer_rna) == length(dkmer_rna)
+        @test string(dkmer_rna) == string(kmer_rna)
+
+        # For 8-bit amino acids: need >8 bases for >64 coding bits
+        s_aa = aa"KWOPPLKWM"  # 9 bases = 72 bits
+        dkmer_aa = DynamicKmer{AminoAcidAlphabet, UInt128}(s_aa)
+        kmer_aa = Kmer{AminoAcidAlphabet, 9, 2}(dkmer_aa)
+        @test length(kmer_aa) == length(dkmer_aa)
+        @test string(dkmer_aa) == string(kmer_aa)
+
+        # Test error on length mismatch
+        dkmer = DynamicDNAKmer{UInt64}(dna"TAG")
+        @test_throws Exception Kmer{DNAAlphabet{2}, 5, 1}(dkmer)
+    end
+
     @testset "Capacity limits" begin
         # Test that exceeding capacity throws
         @test_throws Exception DynamicDNAKmer{UInt32}(dna"T"^30)
@@ -130,6 +157,21 @@ end
         @test DynamicDNAKmer{UInt64}(dna"TAG") < DynamicDNAKmer{UInt64}(dna"TAGA")
         @test DynamicDNAKmer{UInt64}(dna"TAGA") > DynamicDNAKmer{UInt64}(dna"TAG")
     end
+
+    @testset "cmp function" begin
+        # Test cmp returns -1, 0, or 1
+        @test cmp(DynamicDNAKmer{UInt64}(dna"TAG"), DynamicDNAKmer{UInt64}(dna"TAG")) == 0
+        @test cmp(DynamicDNAKmer{UInt64}(dna"TAG"), DynamicDNAKmer{UInt64}(dna"TGA")) < 0
+        @test cmp(DynamicDNAKmer{UInt64}(dna"TGA"), DynamicDNAKmer{UInt64}(dna"TAG")) > 0
+
+        # Test with RNA
+        @test cmp(DynamicRNAKmer{UInt64}(rna"UAG"), DynamicRNAKmer{UInt64}(rna"UAG")) == 0
+        @test cmp(DynamicRNAKmer{UInt64}(rna"UAG"), DynamicRNAKmer{UInt64}(rna"UGA")) < 0
+
+        # Test with different lengths
+        @test cmp(DynamicDNAKmer{UInt64}(dna"TAG"), DynamicDNAKmer{UInt64}(dna"TAGA")) < 0
+        @test cmp(DynamicDNAKmer{UInt64}(dna"TAGA"), DynamicDNAKmer{UInt64}(dna"TAG")) > 0
+    end
 end
 
 @testset "Integer conversion" begin
@@ -184,30 +226,104 @@ end
     h2 = hash(m1, UInt(456))
     @test h1 != h2
 
-    # Length is part of hash
+    # Length must be part of hash: TCA and TC have identical coding bits
+    # (since A encodes to 00, which looks like padding), but different lengths.
+    # They must hash differently despite having the same as_integer representation.
     m1 = DynamicDNAKmer{UInt64}(dna"TCA")
     m2 = DynamicDNAKmer{UInt64}(dna"TC")
     @test hash(m1) != hash(m2)
+
+    @testset "fx_hash" begin
+        m1 = DynamicDNAKmer{UInt64}(dna"TAG")
+        m2 = DynamicDNAKmer{UInt64}(dna"TAG")
+        m3 = DynamicDNAKmer{UInt64}(dna"TAC")
+
+        # Same kmers should produce same fx_hash
+        @test Kmers.fx_hash(m1, UInt64(0)) == Kmers.fx_hash(m2, UInt64(0))
+
+        # Different kmers should produce different fx_hash values
+        @test Kmers.fx_hash(m1, UInt64(0)) != Kmers.fx_hash(m3, UInt64(0))
+
+        # Different seeds should produce different hashes
+        @test Kmers.fx_hash(m1, UInt64(123)) != Kmers.fx_hash(m1, UInt64(456))
+
+        # Length must be part of hash: TCA and TC have identical coding bits
+        # (since A encodes to 00, which looks like padding), but different lengths.
+        # They must hash differently despite having the same as_integer representation.
+        m1 = DynamicDNAKmer{UInt64}(dna"TCA")
+        m2 = DynamicDNAKmer{UInt64}(dna"TC")
+        @test Kmers.fx_hash(m1, UInt64(0)) != Kmers.fx_hash(m2, UInt64(0))
+    end
 end
 
 @testset "Biological operations" begin
     @testset "Reverse" begin
-        m = DynamicDNAKmer{UInt64}(dna"TAGCTGA")
-        @test reverse(m) == DynamicDNAKmer{UInt64}(dna"AGTCGAT")
+        # Test with 2-bit DNA
+        s = dna"TAGCTGA"
+        m = DynamicDNAKmer{UInt64}(s)
+        @test reverse(m) == DynamicDNAKmer{UInt64}(reverse(s))
+
+        # Test empty sequence
         @test reverse(DynamicDNAKmer{UInt64}(dna"")) == DynamicDNAKmer{UInt64}(dna"")
+
+        # Test with 2-bit RNA
+        s_rna = rna"UAGCUGA"
+        m_rna = DynamicRNAKmer{UInt64}(s_rna)
+        @test reverse(m_rna) == DynamicRNAKmer{UInt64}(reverse(s_rna))
+
+        # Test with 4-bit DNA
+        s_4bit = dna"TAGCTGA"
+        m_4bit = DynamicKmer{DNAAlphabet{4}, UInt64}(s_4bit)
+        @test reverse(m_4bit) == DynamicKmer{DNAAlphabet{4}, UInt64}(reverse(s_4bit))
+
+        # Test with amino acids
+        s_aa = aa"KWOP"
+        m_aa = DynamicAAKmer{UInt64}(s_aa)
+        @test reverse(m_aa) == DynamicAAKmer{UInt64}(reverse(s_aa))
     end
 
     @testset "Complement" begin
-        m = DynamicDNAKmer{UInt64}(dna"TAGCTGA")
-        @test complement(m) == DynamicDNAKmer{UInt64}(dna"ATCGACT")
+        # Test with 2-bit DNA
+        s = dna"TAGCTGA"
+        m = DynamicDNAKmer{UInt64}(s)
+        @test complement(m) == DynamicDNAKmer{UInt64}(complement(s))
 
-        m2 = DynamicRNAKmer{UInt64}(rna"UAGCUGA")
-        @test complement(m2) == DynamicRNAKmer{UInt64}(rna"AUCGACU")
+        # Test with 2-bit RNA
+        s_rna = rna"UAGCUGA"
+        m_rna = DynamicRNAKmer{UInt64}(s_rna)
+        @test complement(m_rna) == DynamicRNAKmer{UInt64}(complement(s_rna))
+
+        # Test with 4-bit DNA (includes ambiguous bases)
+        s_4bit = LongSequence{DNAAlphabet{4}}(dna"TAGCTGAW")  # W = A or T
+        m_4bit = DynamicKmer{DNAAlphabet{4}, UInt64}(s_4bit)
+        @test complement(m_4bit) == DynamicKmer{DNAAlphabet{4}, UInt64}(complement(s_4bit))
+
+        # Test with 4-bit RNA
+        s_rna_4bit = LongSequence{RNAAlphabet{4}}(rna"UAGCUGAW")  # W = A or U
+        m_rna_4bit = DynamicKmer{RNAAlphabet{4}, UInt64}(s_rna_4bit)
+        @test complement(m_rna_4bit) == DynamicKmer{RNAAlphabet{4}, UInt64}(complement(s_rna_4bit))
     end
 
     @testset "Reverse complement" begin
-        m = DynamicDNAKmer{UInt64}(dna"TAGCTGA")
-        @test reverse_complement(m) == DynamicDNAKmer{UInt64}(dna"TCAGCTA")
+        # Test with 2-bit DNA
+        s = dna"TAGCTGA"
+        m = DynamicDNAKmer{UInt64}(s)
+        @test reverse_complement(m) == DynamicDNAKmer{UInt64}(reverse_complement(s))
+
+        # Test with 2-bit RNA
+        s_rna = rna"UAGCUGA"
+        m_rna = DynamicRNAKmer{UInt64}(s_rna)
+        @test reverse_complement(m_rna) == DynamicRNAKmer{UInt64}(reverse_complement(s_rna))
+
+        # Test with 4-bit DNA
+        s_4bit = LongSequence{DNAAlphabet{4}}(dna"TAGCTGA")
+        m_4bit = DynamicKmer{DNAAlphabet{4}, UInt64}(s_4bit)
+        @test reverse_complement(m_4bit) == DynamicKmer{DNAAlphabet{4}, UInt64}(reverse_complement(s_4bit))
+
+        # Test with 4-bit RNA
+        s_rna_4bit = LongSequence{RNAAlphabet{4}}(rna"UAGCUGA")
+        m_rna_4bit = DynamicKmer{RNAAlphabet{4}, UInt64}(s_rna_4bit)
+        @test reverse_complement(m_rna_4bit) == DynamicKmer{RNAAlphabet{4}, UInt64}(reverse_complement(s_rna_4bit))
     end
 
     @testset "Canonical" begin

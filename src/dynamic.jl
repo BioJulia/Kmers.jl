@@ -110,18 +110,6 @@ end
 
 Base.length(x::DynamicKmer) = (x.x & length_mask(typeof(x))) % Int
 
-function DynamicKmer{A, U}(kmer::Kmer{A}) where {A <: Alphabet, U <: Unsigned}
-    T = DynamicKmer{A, U}
-    K = length(kmer)
-    if capacity(T) < K
-        error("Kmer size exceeds maximum size of dynamic kmer")
-    end
-    u = as_integer(kmer) % U
-    bps = BioSequences.bits_per_symbol(A())
-    shift = 8 * sizeof(T) - (K * bps)
-    return _new_dynamic_kmer(A, left_shift(u, shift) | (K % U))
-end
-
 function Kmer{A, K}(x::DynamicKmer{A}) where {A <: Alphabet, K}
     return @inline derive_type(Kmer{A, K})(x)
 end
@@ -154,7 +142,7 @@ const HASH_MASK = 0x6ff6e9f0462d5162 % UInt
 
 Base.copy(x::DynamicKmer) = x
 Base.hash(x::DynamicKmer, h::UInt64) = hash(x.x, h ⊻ HASH_MASK)
-fx_hash(x::DynamicKmer, u::UInt64) = (bitrotate(h, 5) ⊻ x.x) * FX_CONSTANT
+fx_hash(x::DynamicKmer, h::UInt64) = (bitrotate(h, 5) ⊻ x.x) * FX_CONSTANT
 Base.:(==)(a::DynamicKmer, b::DynamicKmer) = a.x == b.x
 Base.isless(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = isless(a.x, b.x)
 Base.cmp(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = cmp(a.x, b.x)

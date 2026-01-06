@@ -172,6 +172,37 @@ end
         @test cmp(DynamicDNAKmer{UInt64}(dna"TAG"), DynamicDNAKmer{UInt64}(dna"TAGA")) < 0
         @test cmp(DynamicDNAKmer{UInt64}(dna"TAGA"), DynamicDNAKmer{UInt64}(dna"TAG")) > 0
     end
+
+    @testset "Comparison across different integer types" begin
+        s1 = dna"TAG"
+        s2 = dna"TAC"
+        s3 = dna"TAGA"
+
+        m32_1 = DynamicDNAKmer{UInt32}(s1)
+        m64_1 = DynamicDNAKmer{UInt64}(s1)
+        m32_2 = DynamicDNAKmer{UInt32}(s2)
+        m64_2 = DynamicDNAKmer{UInt64}(s2)
+
+        # Test equality across types
+        @test m32_1 == m64_1
+        @test m32_2 == m64_2
+        @test m32_1 != m64_2
+
+        # Test ordering across types
+        @test m32_2 < m64_1  # TAC < TAG
+        @test m64_1 > m32_2  # TAG > TAC
+
+        # Test cmp across types
+        @test cmp(m32_1, m64_1) == 0
+        @test cmp(m32_2, m64_1) < 0
+        @test cmp(m64_1, m32_2) > 0
+
+        # Test with different lengths
+        m32_3 = DynamicDNAKmer{UInt32}(s3)
+        @test m32_1 < m32_3
+        @test m64_1 < m32_3
+        @test cmp(m32_1, m32_3) < 0
+    end
 end
 
 @testset "Integer conversion" begin
@@ -370,4 +401,9 @@ end
         @test m == s
         @test length(m) == 3
     end
+end
+
+@testset "Misc" begin
+    d = DynamicAAKmer{UInt32}("WPK")
+    @test only([d]') === d
 end

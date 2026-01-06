@@ -114,28 +114,20 @@ function Kmer{A, K}(x::DynamicKmer{A}) where {A <: Alphabet, K}
     return @inline derive_type(Kmer{A, K})(x)
 end
 
-@assert UInt == UInt64
-
-# TODO: Also use dispatch to construct kmers from DynamicKmer...
+# This kmer construction and the one below is efficient, as kmers and dynamic kmers
+# share a very similar encoding scheme.
 function Kmer{A, K, N}(x::DynamicKmer{A}) where {A <: Alphabet, K, N}
     check_kmer(Kmer{A, K, N})
     length(x) == K || error("Must construct kmer from length K DynamicKmer")
-    # This is now a compile time constant
-    noncoding = 8 * sizeof(x) - BioSequences.bits_per_symbol(x) * K
-    return if N == 0
-        Kmer{A, K, N}(unsafe, ())
-    elseif N == 1
-        u1 = right_shift(x.x, noncoding) % UInt
-        Kmer{A, K, N}(unsafe, (u1,))
-    else
-        un = right_shift(x.x, noncoding)
-        Nu = div(sizeof(x), sizeof(UInt))
-        B = sizeof(x) * 8
-        t = ntuple(Nu) do i
-            right_shift(un, B - i * 8 * sizeof(UInt)) % UInt
-        end
-        Kmer{A, K, N}(unsafe, t)
-    end
+    return from_integer(Kmer{A, K, N}, as_integer(x))
+end
+
+function Kmer{A1, K, N}(
+        x::DynamicKmer{A2}
+    ) where {M, A1 <: NucleicAcidAlphabet{M}, A2 <: NucleicAcidAlphabet{M}, K, N}
+    check_kmer(Kmer{A1, K, N})
+    length(x) == K || error("Must construct kmer from length K DynamicKmer")
+    return from_integer(Kmer{A1, K, N}, as_integer(x))
 end
 
 const HASH_MASK = 0x6ff6e9f0462d5162 % UInt
@@ -143,9 +135,67 @@ const HASH_MASK = 0x6ff6e9f0462d5162 % UInt
 Base.copy(x::DynamicKmer) = x
 Base.hash(x::DynamicKmer, h::UInt64) = hash(x.x, h ⊻ HASH_MASK)
 fx_hash(x::DynamicKmer, h::UInt64) = (bitrotate(h, 5) ⊻ x.x) * FX_CONSTANT
-Base.:(==)(a::DynamicKmer, b::DynamicKmer) = a.x == b.x
-Base.isless(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = isless(a.x, b.x)
-Base.cmp(a::DynamicKmer{A}, b::DynamicKmer{A}) where {A} = cmp(a.x, b.x)
+
+Base.:(==)(a::DynamicKmer{A, U}, b::DynamicKmer{A, U}) where {A, U} = a === b
+
+# This is similar to Base.promote, except we use it internally only in this package
+# for dynamic kmers. We use it to compare dynamic kmers with compatible alphabets,
+# which may differ in alphabet or encoded data eltype.
+Base.@constprop :aggressive Base.@assume_effects :foldable function promote_dynamic(
+        a::DynamicKmer{A, U1},
+        b::DynamicKmer{A, U2},
+    ) where {A <: Alphabet, U1, U2}
+    return if U1 == U2
+        (a, b)
+    elseif sizeof(U1) < sizeof(U2)
+        u = widen_to(U2, a)
+        a = _new_dynamic_kmer(A, u)
+        (a, b)
+    else
+        u = widen_to(U1, b)
+        b = _new_dynamic_kmer(A, u)
+        (a, b)
+    end
+end
+
+# Same as above, but complicated by the fact that they do not share alphabet.
+Base.@constprop :aggressive Base.@assume_effects :foldable function promote_dynamic(
+        a::DynamicKmer{<:NucleicAcidAlphabet{N}, U1},
+        b::DynamicKmer{<:NucleicAcidAlphabet{N}, U2}
+    ) where {N, U1, U2}
+    return if U1 == U2
+        b = _new_dynamic_kmer(typeof(Alphabet(a)), b.x)
+        (a, b)
+    elseif sizeof(U1) < sizeof(U2)
+        u = widen_to(U2, a)
+        a = _new_dynamic_kmer(typeof(Alphabet(b)), u)
+        (a, b)
+    else
+        u = widen_to(U1, b)
+        b = _new_dynamic_kmer(typeof(Alphabet(a)), u)
+        (a, b)
+    end
+end
+
+function Base.:(==)(a::DynamicKmer{A, U1}, b::DynamicKmer{A, U2}) where {A, U1, U2}
+    (a, b) = promote_dynamic(a, b)
+    return a === b
+end
+
+function Base.:(==)(a::DynamicKmer{<:NucleicAcidAlphabet{N}, U1}, b::DynamicKmer{<:NucleicAcidAlphabet{N}, U2}) where {N, U1, U2}
+    (a, b) = promote_dynamic(a, b)
+    return a === b
+end
+
+function Base.isless(a::DynamicKmer, b::DynamicKmer)
+    (a, b) = promote_dynamic(a, b)
+    return isless(a.x, b.x)
+end
+
+function Base.cmp(a::DynamicKmer, b::DynamicKmer)
+    (a, b) = promote_dynamic(a, b)
+    return cmp(a.x, b.x)
+end
 
 @inline function Base.getindex(x::DynamicKmer{A}, idx::AbstractUnitRange{<:Integer}) where {A}
     isempty(idx) && return empty(typeof(x))
@@ -310,6 +360,12 @@ function build_dynamic_kmer(::Copyable, ::Type{T}, x::Kmer) where {T}
     return _new_dynamic_kmer(typeof(A), u)
 end
 
+function build_dynamic_kmer(::Copyable, ::Type{T}, x::DynamicKmer) where {T}
+    d = @inline switch_backing(utype(T), x)
+    A = Alphabet(T)
+    return _new_dynamic_kmer(typeof(A), d.x)
+end
+
 @inline function build_dynamic_kmer(
         R::AsciiEncode,
         ::Type{T},
@@ -366,6 +422,51 @@ end
         u |= left_shift(trailing_zeros(encoding) % U, shift)
     end
     return _new_dynamic_kmer(typeof(A), (len % U) | u)
+end
+
+# Switch encoding data of `x` to `T`. Error if it doesn't fit.
+function switch_backing_encoding(T::Type{<:BitUnsigned}, x::DynamicKmer{A, U}) where {A, U}
+    T == U && return x
+    return if sizeof(T) < sizeof(x)
+        narrow_to(T, x)
+    else
+        widen_to(T, x)
+    end
+end
+
+# Create a DynamicKmer{A, T} containig the same sequence as `x`, efficiently,
+# or error if `x` does not fit in that type.
+function narrow_to(T::Type{<:BitUnsigned}, x::DynamicKmer{A, U}) where {A, U}
+    newT = DynamicKmer{A, T}
+    if max_coding_bits(newT) < length(x)
+        error("Dynamic Kmer do not fit into integer size")
+    end
+    # Remove length from encoding
+    mask = length_mask(typeof(x))
+    u = x.x & ~mask
+
+    # Shift down to new location in smaller integer
+    shift = 8 * (sizeof(U) - sizeof(T))
+    u = right_shift(u, shift)
+
+    # Add length back and return
+    u |= (x.x & mask)
+    return u % T
+end
+
+# Create a DynamicKmer{A, T} containig the same sequence as `x`, efficiently
+function widen_to(T::Type{<:BitUnsigned}, x::DynamicKmer{A, U}) where {A, U}
+    # Remove length from encoding
+    mask = length_mask(typeof(x))
+    u = (x.x & ~mask) % T
+
+    # Shift up to new location in larger integer
+    shift = 8 * (sizeof(T) - sizeof(U))
+    u = left_shift(u, shift)
+
+    # Add length back and return
+    u |= (x.x & mask)
+    return u % T
 end
 
 """

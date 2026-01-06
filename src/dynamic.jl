@@ -65,15 +65,9 @@ Base.@constprop :aggressive Base.@assume_effects :foldable function max_coding_b
     0
 end
 
-Base.@constprop :aggressive Base.@assume_effects :foldable function length_bits(
-        T::Type{DynamicKmer{A, U}}
-    ) where {A, U}
-    8 * sizeof(U) - max_coding_bits(T)
-end
-
 @inline function length_mask(T::Type{<:DynamicKmer})
     U = BioSequences.encoded_data_eltype(T)
-    return one(U) << length_bits(T) - one(U)
+    return one(U) << (8 * sizeof(U) - max_coding_bits(T)) - one(U)
 end
 
 @inline function top_mask(::Type{U}, len::Integer) where {U <: Unsigned}

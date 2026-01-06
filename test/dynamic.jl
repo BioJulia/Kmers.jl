@@ -202,6 +202,19 @@ end
         @test m32_1 < m32_3
         @test m64_1 < m32_3
         @test cmp(m32_1, m32_3) < 0
+
+        # Also for AA types
+        s1 = aa"KPRCRLF"
+        s2 = aa"KPRCRLFAAA"
+
+        m64_1 = DynamicAAKmer{UInt64}(s1)
+        m128_1 = DynamicAAKmer{UInt128}(s1)
+        m128_2 = DynamicAAKmer{UInt128}(s2)
+
+        @test m64_1 == m128_1
+        @test cmp(m64_1, m128_1) == 0
+        @test m128_1 != m128_2
+        @test m128_1 < m128_2
     end
 end
 
@@ -383,6 +396,12 @@ end
         @test count(==(DNA_T), m) == 2
         @test count(==(DNA_G), m) == 2
         @test count(==(DNA_C), m) == 1
+
+        m = DynamicAAKmer{UInt128}(aa"WLAKWVMARQKW")
+        @test count(==(AA_W), m) == 3
+        @test count(==(AA_Q), m) == 1
+        @test count(==(AA_A), m) == 2
+        @test count(==(AA_C), m) == 0
     end
 end
 

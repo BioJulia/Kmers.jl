@@ -1028,6 +1028,46 @@ end
 
         @test_throws MethodError count(isGC, mer"ATATA"a) # amino acid mer
     end
+
+    @testset "Count symbols" begin
+        # Test with 2-bit DNA
+        m = mer"TAGCTGA"d
+        @test count(==(DNA_A), m) == 2
+        @test count(==(DNA_T), m) == 2
+        @test count(==(DNA_G), m) == 2
+        @test count(==(DNA_C), m) == 1
+
+        # Test with 2-bit RNA
+        m_rna = mer"UAGCUGA"r
+        @test count(==(RNA_A), m_rna) == 2
+        @test count(==(RNA_U), m_rna) == 2
+        @test count(==(RNA_G), m_rna) == 2
+        @test count(==(RNA_C), m_rna) == 1
+
+        # Test with amino acids
+        m_aa = mer"KWOPPLKW"a
+        @test count(==(AA_K), m_aa) == 2
+        @test count(==(AA_W), m_aa) == 2
+        @test count(==(AA_P), m_aa) == 2
+        @test count(==(AA_L), m_aa) == 1
+        @test count(==(AA_O), m_aa) == 1
+
+        # Test symbols not present (should be zero)
+        @test count(==(DNA_C), mer"TAGTAG"d) == 0
+        @test count(==(RNA_G), mer"UUUAAA"r) == 0
+        @test count(==(AA_M), mer"KWOP"a) == 0
+
+        # Test edge cases
+        @test count(==(DNA_A), mer""d) == 0
+        @test count(==(DNA_A), mer"AAAA"d) == 4
+
+        # Test with longer kmers (N > 1)
+        m_long = mer"TAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCT"d  # 33 bases
+        @test count(==(DNA_A), m_long) == 8
+        @test count(==(DNA_T), m_long) == 9
+        @test count(==(DNA_G), m_long) == 8
+        @test count(==(DNA_C), m_long) == 8
+    end
 end
 
 @testset "Dynamic kmers" begin

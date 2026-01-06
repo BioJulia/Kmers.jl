@@ -20,6 +20,10 @@ using BioSequences
                 @test m == s
             end
         end
+
+        d = DynamicDNAKmer{UInt}(dna"ATGTCGTTAGT")
+        @test DynamicRNAKmer(d) == d
+        @test DynamicRNAKmer{UInt64}(d) == d
     end
 
     @testset "Two to four bit alphabet" begin
@@ -63,6 +67,61 @@ using BioSequences
             @test dkmer == s
             @test length(dkmer) == length(kmer)
         end
+    end
+
+    @testset "From DynamicKmer" begin
+        # Same backing type, same alphabet
+        s = dna"TAGCTGA"
+        d1 = DynamicDNAKmer{UInt64}(s)
+        d2 = DynamicDNAKmer{UInt64}(d1)
+        @test d2 == d1
+        @test d2 === d1  # Should be identical
+        @test length(d2) == length(d1)
+
+        # Different backing type, same alphabet - widening
+        d32 = DynamicDNAKmer{UInt32}(dna"TAGC")
+        d64 = DynamicDNAKmer{UInt64}(d32)
+        @test d64 == d32
+        @test length(d64) == length(d32)
+        @test d64 == dna"TAGC"
+
+        # Different backing type, same alphabet - narrowing
+        d128 = DynamicDNAKmer{UInt128}(dna"TAGC")
+        d32_narrow = DynamicDNAKmer{UInt32}(d128)
+        @test d32_narrow == d128
+        @test length(d32_narrow) == length(d128)
+        @test d32_narrow == dna"TAGC"
+
+        # Same alphabet family (DNA/RNA), different alphabets
+        d_dna = DynamicDNAKmer{UInt64}(dna"ATGTCGTTAGT")
+        d_rna = DynamicRNAKmer{UInt64}(d_dna)
+        @test d_rna == d_dna
+        @test length(d_rna) == length(d_dna)
+
+        # Different backing type AND different alphabet
+        d_dna32 = DynamicDNAKmer{UInt32}(dna"TAGC")
+        d_rna64 = DynamicRNAKmer{UInt64}(d_dna32)
+        @test d_rna64 == d_dna32
+        @test length(d_rna64) == length(d_dna32)
+
+        # Test with amino acids
+        aa_d64 = DynamicAAKmer{UInt64}(aa"KWOP")
+        aa_d128 = DynamicAAKmer{UInt128}(aa_d64)
+        @test aa_d128 == aa_d64
+        @test length(aa_d128) == length(aa_d64)
+
+        # Test with empty kmers
+        empty_d32 = DynamicDNAKmer{UInt32}(dna"")
+        empty_d64 = DynamicDNAKmer{UInt64}(empty_d32)
+        @test empty_d64 == empty_d32
+        @test length(empty_d64) == 0
+
+        # Test with 4-bit alphabets
+        s_4bit = LongSequence{DNAAlphabet{4}}(dna"TAGCN")
+        d_4bit_32 = DynamicKmer{DNAAlphabet{4}, UInt32}(s_4bit)
+        d_4bit_64 = DynamicKmer{DNAAlphabet{4}, UInt64}(d_4bit_32)
+        @test d_4bit_64 == d_4bit_32
+        @test length(d_4bit_64) == length(d_4bit_32)
     end
 
     @testset "To Kmer" begin

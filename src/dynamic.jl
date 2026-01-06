@@ -299,7 +299,7 @@ function DynamicKmer{T1}(x::DynamicKmer{T2}) where {
     return _new_dynamic_kmer(T1, x.x)
 end
 
-# Constructor dispatchtes to RecodingScheme
+# Constructor dispatches to RecodingScheme
 function DynamicKmer{A, U}(x) where {A <: Alphabet, U <: Unsigned}
     return build_dynamic_kmer(RecodingScheme(A(), typeof(x)), DynamicKmer{A, U}, x)
 end
@@ -355,9 +355,9 @@ function build_dynamic_kmer(::Copyable, ::Type{T}, x::Kmer) where {T}
 end
 
 function build_dynamic_kmer(::Copyable, ::Type{T}, x::DynamicKmer) where {T}
-    d = @inline switch_backing(utype(T), x)
+    u = @inline switch_backing_encoding(utype(T), x)
     A = Alphabet(T)
-    return _new_dynamic_kmer(typeof(A), d.x)
+    return _new_dynamic_kmer(typeof(A), u)
 end
 
 @inline function build_dynamic_kmer(
@@ -488,7 +488,6 @@ function shift_encoding(x::DynamicKmer{A, U}, encoding::U) where {A <: Alphabet,
     u = x.x & ~mask
     u = left_shift(u, BioSequences.bits_per_symbol(x))
     u |= left_shift(encoding, noncoding_bits(x))
-    u | (x.x & mask)
     return _new_dynamic_kmer(A, u | (x.x & mask))
 end
 

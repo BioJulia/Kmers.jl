@@ -638,7 +638,7 @@ end
     # Test zero BPS: capacity should be clamped to typemax(Int)
     @test capacity(DynamicKmer{ZeroBPSAlphabet, UInt8}) == clamp(typemax(UInt8), Int)
     @test capacity(DynamicKmer{ZeroBPSAlphabet, UInt32}) == clamp(typemax(UInt32), Int)
-    @test capacity(DynamicKmer{ZeroBPSAlphabet, UInt128}) == clamp(typemax(UInt128), Int)
+    @test capacity(DynamicKmer{ZeroBPSAlphabet, UInt128}) == typemax(Int)
 
     # Test non-zero BPS: capacity should be in range 0:div(8 * sizeof(U), B)
     for (A, bps) in [(DNAAlphabet{2}, 2), (DNAAlphabet{4}, 4), (AminoAcidAlphabet, 8)]

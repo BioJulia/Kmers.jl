@@ -697,29 +697,29 @@ end
     @testset "Different genetic codes" begin
         # Vertebrate mitochondrial code: AGA and AGG are stop codons
         vert_mito = BioSequences.vertebrate_mitochondrial_genetic_code
-        @test translate(dmer"ATGAGA"d; code=vert_mito) == dmer"M*"a  # AGA is stop
+        @test translate(dmer"ATGAGA"d; code = vert_mito) == dmer"M*"a  # AGA is stop
 
         # Standard code: AGA and AGG code for R (Arginine)
         @test translate(dmer"ATGAGA"d) == dmer"MR"a
         @test translate(dmer"ATGAGG"d) == dmer"MR"a
 
         # Test with different backing types
-        @test translate(DynamicDNAKmer{UInt64}(dna"ATGAGA"); code=vert_mito) == dmer"M*"a
-        @test translate(DynamicRNAKmer{UInt32}(rna"AUGAGA"); code=vert_mito) == dmer"M*"a
+        @test translate(DynamicDNAKmer{UInt64}(dna"ATGAGA"); code = vert_mito) == dmer"M*"a
+        @test translate(DynamicRNAKmer{UInt32}(rna"AUGAGA"); code = vert_mito) == dmer"M*"a
 
         # Test with 4-bit alphabets
-        @test translate(DynamicKmer{DNAAlphabet{4}, UInt64}(dna"ATGAGA"); code=vert_mito) == dmer"M*"a
+        @test translate(DynamicKmer{DNAAlphabet{4}, UInt64}(dna"ATGAGA"); code = vert_mito) == dmer"M*"a
     end
 
     # alternative_start flag
     @testset "alternative_start" begin
         # Without alternative_start: TTG codes for L (Leucine)
-        @test translate(dmer"TTGCCC"d; alternative_start=false) == dmer"LP"a
-        @test translate(dmer"UUGCCC"r; alternative_start=false) == dmer"LP"a
+        @test translate(dmer"TTGCCC"d; alternative_start = false) == dmer"LP"a
+        @test translate(dmer"UUGCCC"r; alternative_start = false) == dmer"LP"a
 
         # With alternative_start: first codon becomes M regardless
-        @test translate(dmer"TTGCCC"d; alternative_start=true) == dmer"MP"a
-        @test translate(dmer"UUGCCC"r; alternative_start=true) == dmer"MP"a
+        @test translate(dmer"TTGCCC"d; alternative_start = true) == dmer"MP"a
+        @test translate(dmer"UUGCCC"r; alternative_start = true) == dmer"MP"a
     end
 
     # Ambiguous codons (only for 4-bit alphabets)
@@ -729,13 +729,13 @@ end
         @test translate(d_ambig) == dmer"KTAJBX"a
 
         # With allow_ambiguous_codons=false, ambiguous codons throw
-        @test_throws Exception translate(d_ambig; allow_ambiguous_codons=false)
+        @test_throws Exception translate(d_ambig; allow_ambiguous_codons = false)
 
         # Test various ambiguous nucleotides
         # W = A or T, so TWG could be AAG (K) or TAG (*)
         # With allow_ambiguous, should give X (ambiguous)
         d_w = DynamicKmer{DNAAlphabet{4}, UInt64}(dna"ATGTWG")
-        result_w = translate(d_w; allow_ambiguous_codons=true)
+        result_w = translate(d_w; allow_ambiguous_codons = true)
         @test length(result_w) == 2  # M and something
     end
 

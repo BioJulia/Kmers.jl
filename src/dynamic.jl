@@ -656,7 +656,7 @@ julia> d == d2 # does not mutate immutable d
 false
 
 julia> push(dmer"RRKRLVD"a, AA_W)
-ERROR: ArgumentError: DynamicKmer is already at max capacity
+ERROR: BoundsError: attempt to access DynamicAAKmer{UInt64} at index [8]
 [...]
 ```
 """
@@ -710,7 +710,7 @@ julia> d == d2 # does not mutate immutable d
 false
 
 julia> push_first(dmer"RRKRLVD"a, AA_W)
-ERROR: ArgumentError: DynamicKmer is already at max capacity
+ERROR: BoundsError: attempt to access DynamicAAKmer{UInt64} at index [8]
 [...]
 ```
 """
@@ -768,7 +768,7 @@ julia> d == d2
 false
 
 julia> pop(dmer""a)
-ERROR: ArgumentError: Cannot pop empty kmer
+ERROR: BoundsError: attempt to access DynamicAAKmer{UInt64} at index [0]
 [...]
 ```
 """
@@ -809,7 +809,7 @@ julia> d == d2
 false
 
 julia> pop_first(dmer""r)
-ERROR: ArgumentError: Cannot pop empty kmer
+ERROR: BoundsError: attempt to access DynamicRNAKmer{UInt64} at index [0]
 [...]
 ```
 """

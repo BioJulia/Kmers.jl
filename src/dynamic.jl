@@ -132,7 +132,7 @@ ERROR: MethodError: no method matching capacity(::Type{DynamicRNAKmer})
 """
 function capacity(T::Type{<:DynamicKmer{A, U}}) where {A, U}
     bps = BioSequences.bits_per_symbol(A())
-    if iszero(bps)
+    return if iszero(bps)
         # If no bits are coding, all bits are used for length.
         # We truncate at typemax(Int)
         clamp(typemax(U), Int)
@@ -809,3 +809,25 @@ function pop_first(x::DynamicKmer{A, U}) where {A, U}
 end
 
 @noinline throw_argumenterror(s::String) = throw(ArgumentError(s))
+
+function Base.setindex(kmer::DynamicKmer{A, U}, v, i::Integer) where {A, U}
+    i = Int(i)::Int
+    @boundscheck checkbounds(kmer, i)
+
+    # Convert to the element type of A, then encode to a U
+    E = eltype(typeof(kmer))
+    sT = convert(E, v)::E
+    enc = U(BioSequences.encode(A(), sT))::U
+    bps = BioSequences.bits_per_symbol(A())
+    iszero(bps) && return kmer
+
+    # Zero out the bits that code ofr the i'th symbol in `kmer`
+    shift = 8 * sizeof(U) - i * bps
+    mask = U(1) << bps - U(1)
+    u = kmer.x
+    u &= ~left_shift(mask, shift)
+
+    # Now add in the encoding bits at the right location and return kmer
+    u |= left_shift(enc, shift)
+    return _new_dynamic_kmer(A, u)
+end

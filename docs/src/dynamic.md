@@ -53,4 +53,5 @@ DynamicKmer
 DynamicDNAKmer
 DynamicRNAKmer
 DynamicAAKmer
+capacity
 ```

@@ -609,6 +609,28 @@ end
     @test_throws ArgumentError pop_first(DynamicAAKmer{UInt128}(aa""))
 end
 
+@testset "setindex" begin
+    # Basic functionality
+    d = dmer"TAGCTGA"d
+    @test Base.setindex(d, DNA_C, 1) == dmer"CAGCTGA"d
+    @test Base.setindex(d, DNA_A, 4) == dmer"TAGATGA"d
+    @test Base.setindex(d, DNA_T, 7) == dmer"TAGCTGT"d
+    @test d == dmer"TAGCTGA"d  # Original unchanged
+
+    # Different alphabets and backing types
+    @test Base.setindex(dmer"AUGC"r, RNA_G, 2) == dmer"AGGC"r
+    @test Base.setindex(dmer"KWOP"a, AA_L, 3) == dmer"KWLP"a
+    @test Base.setindex(DynamicDNAKmer{UInt32}(dna"ATGC"), DNA_G, 2) == DynamicDNAKmer{UInt32}(dna"AGGC")
+
+    # Type conversion
+    @test Base.setindex(dmer"TAG"d, 'C', 2) == dmer"TCG"d
+
+    # Bounds checking
+    @test_throws BoundsError Base.setindex(dmer"TAGC"d, DNA_A, 0)
+    @test_throws BoundsError Base.setindex(dmer"TAGC"d, DNA_A, 5)
+    @test_throws BoundsError Base.setindex(dmer""d, DNA_A, 1)
+end
+
 @testset "capacity" begin
     # Create a zero-BPS alphabet for testing
     struct ZeroBPSAlphabet <: Alphabet end

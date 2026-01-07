@@ -118,11 +118,11 @@ end
 @inline nsize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = N
 
 @inline function n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N}
-    per_word_capacity(Kmer{A, K, N}) * N - K
+    return per_word_capacity(Kmer{A, K, N}) * N - K
 end
 
 @inline function bits_unused(T::Type{<:Kmer})
-    n_unused(T) * BioSequences.bits_per_symbol(Alphabet(T))
+    return n_unused(T) * BioSequences.bits_per_symbol(Alphabet(T))
 end
 
 @inline function n_coding_elements(::Type{<:Kmer{A, K}}) where {A, K}

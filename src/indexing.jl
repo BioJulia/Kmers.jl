@@ -75,6 +75,7 @@ end
 @inline function Base.setindex(kmer::Kmer, i::Integer, s)
     @boundscheck checkbounds(kmer, i)
     bps = BioSequences.bits_per_symbol(kmer)
+    iszero(bps) && return kmer
     symbol = convert(eltype(kmer), s)
     encoding = UInt(BioSequences.encode(Alphabet(kmer), symbol))
     (i, o) = BioSequences.bitindex(kmer, i % UInt)

@@ -29,16 +29,22 @@ For example, here is the maximum number of coding bits when using `A = DNAAlphab
 
 The remaining bits are used to store the length of the kmer.
 
+Dynamic kmers can be constructed with the `dmer_str` macro, similar to kmers:
+
+```@docs
+@dmer_str
+```
+
 ### Using dynamically sized kmers
 * Dynamic kmers can be constructed from a normal BioSequence or string, and can then be treated like a normal `BioSequence`.
 
 ```jldoctest
 julia> m = DynamicRNAKmer{UInt32}("AUGUCGA")
-7nt RNA Sequence:
+7nt DynamicRNAKmer{UInt32}:
 AUGUCGA
 
 julia> complement(m)
-7nt RNA Sequence:
+7nt DynamicRNAKmer{UInt32}:
 UACAGCU
 ```
 

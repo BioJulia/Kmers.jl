@@ -486,6 +486,129 @@ end
     end
 end
 
+@testset "push and push_first" begin
+    for (dkmer_fn, longseq_fn) in Any[[push, push!], [push_first, pushfirst!]]
+        for (dkmer, symbol) in Any[
+                (dmer"TAGC"d, DNA_A),
+                (dmer"AUGC"r, RNA_U),
+                (dmer""d, DNA_T),
+                (dmer""r, RNA_G),
+                (DynamicDNAKmer{UInt32}(dna"TAG"), DNA_G),
+                (DynamicRNAKmer{UInt32}(rna"AUG"), RNA_C),
+                (DynamicAAKmer{UInt64}(aa"KWOP"), AA_L),
+                (DynamicAAKmer{UInt128}(aa"MWP"), AA_K),
+            ]
+            # Apply operation to DynamicKmer
+            result_dkmer = dkmer_fn(dkmer, symbol)
+
+            # Apply operation to LongSequence for comparison
+            longseq = LongSequence{typeof(Alphabet(dkmer))}(dkmer)
+            longseq_fn(longseq, symbol)
+
+            # Test equality
+            @test result_dkmer == longseq
+            @test length(result_dkmer) == length(longseq)
+            @test length(result_dkmer) == length(dkmer) + 1
+
+            # Test that result has correct type
+            @test result_dkmer isa typeof(dkmer)
+
+            # Test that original is unchanged (immutability)
+            @test length(dkmer) == length(result_dkmer) - 1
+        end
+    end
+
+    # Test type conversion (pushing DNA to RNA kmer and vice versa)
+    @test push(dmer"ATGC"d, RNA_U) == dmer"ATGCT"d
+    @test push(dmer"AUGC"r, DNA_T) == dmer"AUGCU"r
+    @test push_first(dmer"ATGC"d, RNA_U) == dmer"TATGC"d
+    @test push_first(dmer"AUGC"r, DNA_T) == dmer"UAUGC"r
+
+    # Test character conversion
+    @test push(dmer"TAG"d, 'C') == dmer"TAGC"d
+    @test push_first(dmer"TAG"d, 'A') == dmer"ATAG"d
+
+    # Test chaining operations
+    @test push(push(dmer"TAG"d, DNA_C), DNA_A) == dmer"TAGCA"d
+    @test push_first(push_first(dmer"TAG"d, DNA_C), DNA_A) == dmer"ACTAG"d
+
+    # Test error when kmer is at max capacity
+    # For UInt32 with 2-bit DNA: capacity = 14
+    d_full = DynamicDNAKmer{UInt32}(dna"T"^14)
+    @test_throws ArgumentError push(d_full, DNA_A)
+    @test_throws ArgumentError push_first(d_full, DNA_A)
+
+    # For UInt64 with 2-bit DNA: capacity = 29
+    d64_full = DynamicDNAKmer{UInt64}(dna"A"^29)
+    @test_throws ArgumentError push(d64_full, DNA_T)
+    @test_throws ArgumentError push_first(d64_full, DNA_G)
+
+    # For UInt32 with 8-bit AA: capacity = 3
+    aa32_full = DynamicAAKmer{UInt32}(aa"WPK")
+    @test_throws ArgumentError push(aa32_full, AA_L)
+    @test_throws ArgumentError push_first(aa32_full, AA_M)
+
+    # Verify we can push to capacity-1 without error
+    d_almost_full = DynamicDNAKmer{UInt64}(dna"T"^28)
+    @test length(push(d_almost_full, DNA_A)) == 29
+    @test length(push_first(d_almost_full, DNA_G)) == 29
+end
+
+@testset "pop and pop_first" begin
+    for (dkmer_fn, longseq_fn) in Any[[pop, pop!], [pop_first, popfirst!]]
+        for dkmer in Any[
+                dmer"TAGCA"d,
+                dmer"AUGCU"r,
+                dmer"T"d,
+                dmer"A"r,
+                DynamicDNAKmer{UInt32}(dna"TAGG"),
+                DynamicRNAKmer{UInt32}(rna"AUGC"),
+                DynamicAAKmer{UInt64}(aa"KWOPL"),
+                DynamicAAKmer{UInt128}(aa"MWPK"),
+            ]
+            # Apply operation to DynamicKmer
+            result_dkmer = dkmer_fn(dkmer)
+
+            # Apply operation to LongSequence for comparison
+            longseq = LongSequence{typeof(Alphabet(dkmer))}(dkmer)
+            longseq_fn(longseq)
+
+            # Test equality
+            @test result_dkmer == longseq
+            @test length(result_dkmer) == length(longseq)
+            @test length(result_dkmer) == length(dkmer) - 1
+
+            # Test that result has correct type
+            @test result_dkmer isa typeof(dkmer)
+
+            # Test that original is unchanged (immutability)
+            @test length(dkmer) == length(result_dkmer) + 1
+        end
+    end
+
+    # Test specific sequences to verify correctness
+    @test pop(dmer"TAGCA"d) == dmer"TAGC"d
+    @test pop(dmer"AUGCU"r) == dmer"AUGC"r
+    @test pop_first(dmer"TAGCA"d) == dmer"AGCA"d
+    @test pop_first(dmer"AUGCU"r) == dmer"UGCU"r
+
+    # Test chaining operations
+    @test pop(pop(dmer"TAGCA"d)) == dmer"TAG"d
+    @test pop_first(pop_first(dmer"TAGCA"d)) == dmer"GCA"d
+
+    # Test popping down to empty
+    @test pop(dmer"T"d) == dmer""d
+    @test pop_first(dmer"A"r) == dmer""r
+
+    # Test error when popping empty kmer
+    @test_throws ArgumentError pop(dmer""d)
+    @test_throws ArgumentError pop_first(dmer""d)
+    @test_throws ArgumentError pop(dmer""r)
+    @test_throws ArgumentError pop_first(dmer""r)
+    @test_throws ArgumentError pop(DynamicAAKmer{UInt64}(aa""))
+    @test_throws ArgumentError pop_first(DynamicAAKmer{UInt128}(aa""))
+end
+
 @testset "Misc" begin
     d = DynamicAAKmer{UInt32}("WPK")
     @test only([d]') === d

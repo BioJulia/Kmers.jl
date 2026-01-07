@@ -15,14 +15,16 @@ See also: [`DynamicDNAKmer`](@ref), [`Kmer`](@ref)
 # Examples
 ```jldoctest
 julia> m = DynamicRNAKmer{UInt32}(rna"AUGCUGA")
-7nt RNA Sequence:
+7nt DynamicRNAKmer{UInt32}:
 AUGCUGA
 
 julia> reverse_complement(m)
-7nt RNA Sequence:
+7nt DynamicRNAKmer{UInt32}:
 UCAGCAU
 
 julia> DNAKmer{7}(m)
+DNA 7-mer:
+ATGCTGA
 ```
 """
 struct DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
@@ -38,9 +40,9 @@ struct DynamicKmer{A <: Alphabet, U <: Unsigned} <: BioSequence{A}
     end
 end
 
-Base.summary(x::DynamicKmer{<:Union{DNAAlphabet, RNAAlphabet}}) = string(length(x), "nt ",  typeof(x))
-Base.summary(x::DynamicKmer{AminoAcidAlphabet}) = string(length(x), "aa ",  typeof(x))
-Base.summary(x::DynamicKmer) = string(length(x), "-symbol ",  typeof(x))
+Base.summary(x::DynamicKmer{<:Union{DNAAlphabet, RNAAlphabet}}) = string(length(x), "nt ", typeof(x))
+Base.summary(x::DynamicKmer{AminoAcidAlphabet}) = string(length(x), "aa ", typeof(x))
+Base.summary(x::DynamicKmer) = string(length(x), "-symbol ", typeof(x))
 
 function Base.show(io::IO, ::MIME"text/plain", s::DynamicKmer)
     println(io, summary(s), ':')
@@ -112,6 +114,7 @@ function BioSequences.extract_encoded_element(x::DynamicKmer, i::Integer)
 end
 
 Base.length(x::DynamicKmer) = (x.x & length_mask(typeof(x))) % Int
+Base.isempty(x::DynamicKmer) = iszero(x.x)
 
 function Kmer{A, K}(x::DynamicKmer{A}) where {A <: Alphabet, K}
     return @inline derive_type(Kmer{A, K})(x)
@@ -266,7 +269,7 @@ versions.
 # Examples
 ```jldoctest
 julia> d = DynamicDNAKmer{UInt32}(dna"TAGTGCTGTAGGC")
-13nt DNA Sequence:
+13nt DynamicDNAKmer{UInt32}:
 TAGTGCTGTAGGC
 
 julia> u = as_integer(d);
@@ -488,7 +491,7 @@ julia> enc = UInt32(0x0a); # encoding of DNA_Y in 4-bit alphabets
 julia> kmer = DynamicKmer{DNAAlphabet{4}, UInt32}("TAGA");
 
 julia> Kmers.shift_encoding(kmer, enc)
-4nt DNA Sequence:
+4nt DynamicKmer{DNAAlphabet{4}, UInt32}:
 AGAY
 ```
 """
@@ -522,7 +525,7 @@ julia> dmer"YDLLKKR"a
 YDLLKKR
 
 julia> dmer"TATTAGCA"d
-8nt DynamicDNAKmer{UInt64}
+8nt DynamicDNAKmer{UInt64}:
 TATTAGCA
 ```
 """
@@ -540,3 +543,188 @@ macro dmer_str(seq, flag)
         error("Invalid type flag: '$(flag)'")
     end
 end
+
+"""
+    push(x::T, s)::T where {T <: DynamicKmer}
+
+Create a new `DynamicKmer` of type `T` by adding the symbol `s` to the end of `x`.
+The argument `s` is converted to the element type of `x` first, so e.g. pushing DNA
+to an RNA kmer may work.
+
+Throw an `ArgumentError` if `x` is already at max capacity.
+
+See also: [`push_first`](@ref), [`pop`](@ref), [`pop_first`](@ref)
+
+# Examples
+```jldoctest
+julia> d = dmer"TGTGCTGA"d
+8nt DynamicDNAKmer{UInt64}:
+TGTGCTGA
+
+julia> d2 = push(d, 'G') # converts from Char to DNA
+9nt DynamicDNAKmer{UInt64}:
+TGTGCTGAG
+
+julia> d == d2 # does not mutate immutable d
+false
+
+julia> push(dmer"RRKRLVD"a, AA_W)
+ERROR: ArgumentError: DynamicKmer is already at max capacity
+[...]
+```
+"""
+function push(x::DynamicKmer{A, U}, s) where {A, U}
+    T = typeof(x)
+    E = eltype(x)
+    sT = convert(E, s)::E
+    enc = U(BioSequences.encode(A(), sT))::U
+    bps = BioSequences.bits_per_symbol(A())
+
+    # Update new length. Since length is stored in bottom bits,
+    # we can simply add it directly. Neat!
+    u = x.x + 0x01
+    new_len = (u & length_mask(T)) % Int
+    new_len > capacity(T) && throw_argumenterror("DynamicKmer is already at max capacity")
+
+    shift = (8 * sizeof(U)) - (bps * new_len)
+    u |= left_shift(enc, shift)
+    return _new_dynamic_kmer(A, u)
+end
+
+"""
+    push_first(x::T, s)::T where {T <: DynamicKmer}
+
+Create a new `DynamicKmer` of type `T` by adding the symbol `s` to the start of `x`.
+The argument `s` is converted to the element type of `x` first, so e.g. pushing DNA
+to an RNA kmer may work.
+
+Throw an `ArgumentError` if `x` is already at max capacity.
+
+See also: [`push`](@ref), [`pop`](@ref), [`pop_first`](@ref)
+
+# Examples
+```jldoctest
+julia> d = dmer"TGTGCTGA"d
+8nt DynamicDNAKmer{UInt64}:
+TGTGCTGA
+
+julia> d2 = push_first(d, 'G') # converts from Char to DNA
+9nt DynamicDNAKmer{UInt64}:
+GTGTGCTGA
+
+julia> d == d2 # does not mutate immutable d
+false
+
+julia> push_first(dmer"RRKRLVD"a, AA_W)
+ERROR: ArgumentError: DynamicKmer is already at max capacity
+[...]
+```
+"""
+function push_first(x::DynamicKmer{A, U}, s) where {A, U}
+    T = typeof(x)
+    E = eltype(x)
+    sT = convert(E, s)::E
+    enc = U(BioSequences.encode(A(), sT))::U
+    bps = BioSequences.bits_per_symbol(A())
+
+    mask = length_mask(T)
+    # Remove length. Since we shift, the length would be garbled
+    u = x.x & ~mask
+    # Shift down to make room for symbol at head
+    u >>= bps
+    # Add in symbol at head
+    shift = 8 * sizeof(U) - bps
+    u |= enc << shift
+
+    # Add in new length
+    new_len = (x.x & mask) + 0x01
+    (new_len % Int) > capacity(T) && throw_argumenterror("DynamicKmer is already at max capacity")
+    u |= new_len
+    return _new_dynamic_kmer(A, u)
+end
+
+"""
+    pop(x::DynamicKmer{A, U})::DynamicKmer{A, U}
+
+Returns a new dynamic kmer with the last symbol of the input `x` removed.
+Throws an `ArgumentError` if `x` is empty.
+
+See also: [`pop_first`](@ref), [`push`](@ref), [`push_first`](@ref)
+
+# Examples
+```jldoctest
+julia> d = dmer"EDEAVY"a
+6aa DynamicAAKmer{UInt64}:
+EDEAVY
+
+julia> d2 = pop(d)
+5aa DynamicAAKmer{UInt64}:
+EDEAV
+
+julia> d == d2
+false
+
+julia> pop(dmer""a)
+ERROR: ArgumentError: Cannot pop empty kmer
+[...]
+```
+"""
+function pop(x::DynamicKmer{A, U}) where {A, U}
+    isempty(x) && throw_argumenterror("Cannot pop empty kmer")
+
+    # Decrement length
+    u = x.x
+    u -= one(u)
+
+    # Remove the symbol
+    bps = BioSequences.bits_per_symbol(A())
+    mask = U(1) << bps - U(1)
+    shift = 8 * sizeof(U) - length(x) * bps
+    u &= ~left_shift(mask, shift)
+    return _new_dynamic_kmer(A, u)
+end
+
+"""
+    pop_first(x::DynamicKmer{A, U})::DynamicKmer{A, U}
+
+Returns a new dynamic kmer with the first symbol of the input `x` removed.
+Throws an `ArgumentError` if `x` is empty.
+
+See also: [`pop`](@ref), [`push`](@ref), [`push_first`](@ref)
+
+# Examples
+```jldoctest
+julia> d = dmer"UGCGUAGCUA"r
+10nt DynamicRNAKmer{UInt64}:
+UGCGUAGCUA
+
+julia> d2 = pop_first(d)
+9nt DynamicRNAKmer{UInt64}:
+GCGUAGCUA
+
+julia> d == d2
+false
+
+julia> pop_first(dmer""r)
+ERROR: ArgumentError: Cannot pop empty kmer
+[...]
+```
+"""
+function pop_first(x::DynamicKmer{A, U}) where {A, U}
+    isempty(x) && throw_argumenterror("Cannot pop empty kmer")
+
+    # Remove length, since we need to shift it to pop first,
+    # and shifting would move the length bits
+    mask = length_mask(DynamicKmer{A, U})
+    u = x.x & ~mask
+
+    # Remove the symbol by shifting
+    bps = BioSequences.bits_per_symbol(A())
+    u <<= bps
+
+    # Add in length back minus one
+    u |= (x.x & mask) - 0x01
+    return _new_dynamic_kmer(A, u)
+end
+
+@noinline throw_argumenterror(s::String) = throw(ArgumentError(s))

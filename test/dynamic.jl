@@ -29,6 +29,11 @@ using BioSequences
         d = DynamicDNAKmer{UInt}(dna"ATGTCGTTAGT")
         @test DynamicRNAKmer(d) == d
         @test DynamicRNAKmer{UInt64}(d) == d
+
+        # From a large kmer
+        m = mer"TAGTGCTGTAGTAGTGCTGTATGATGTCTGCATGC"d
+        dm = DynamicDNAKmer{UInt128}(m)
+        @test LongSequence(m) == LongSequence(dm)
     end
 
     @testset "Two to four bit alphabet" begin

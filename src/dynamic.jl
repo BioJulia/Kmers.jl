@@ -438,6 +438,7 @@ end
             u |= left_shift(i % U, shift)
             shift -= 64
         end
+        u
     end
 
     # Kmers keep thier coding bits in the lowest part of the data,

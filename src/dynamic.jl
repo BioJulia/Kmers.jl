@@ -130,12 +130,19 @@ ERROR: MethodError: no method matching capacity(::Type{DynamicRNAKmer})
 [...]
 ```
 """
-function capacity(T::Type{<:DynamicKmer{A, U}}) where {A, U}
+Base.@constprop :aggressive Base.@assume_effects :foldable function capacity(
+        T::Type{<:DynamicKmer{A, U}}
+    ) where {A, U}
     bps = BioSequences.bits_per_symbol(A())
     return if iszero(bps)
-        # If no bits are coding, all bits are used for length.
-        # We truncate at typemax(Int)
-        clamp(typemax(U), Int)
+        # Clamp has a bug in Julia 1.10 and below which causes a normal `clamp`
+        # call to overflow if typemax(U) > typemax(Int).
+        # Therefore, use a manual implementation.
+        if typemax(U) > typemax(Int)
+            typemax(Int)
+        else
+            Int(typemax(U))::Int
+        end
     else
         div(max_coding_bits(T), bps)
     end

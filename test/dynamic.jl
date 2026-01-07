@@ -535,18 +535,18 @@ end
     # Test error when kmer is at max capacity
     # For UInt32 with 2-bit DNA: capacity = 14
     d_full = DynamicDNAKmer{UInt32}(dna"T"^14)
-    @test_throws ArgumentError push(d_full, DNA_A)
-    @test_throws ArgumentError push_first(d_full, DNA_A)
+    @test_throws BoundsError push(d_full, DNA_A)
+    @test_throws BoundsError push_first(d_full, DNA_A)
 
     # For UInt64 with 2-bit DNA: capacity = 29
     d64_full = DynamicDNAKmer{UInt64}(dna"A"^29)
-    @test_throws ArgumentError push(d64_full, DNA_T)
-    @test_throws ArgumentError push_first(d64_full, DNA_G)
+    @test_throws BoundsError push(d64_full, DNA_T)
+    @test_throws BoundsError push_first(d64_full, DNA_G)
 
     # For UInt32 with 8-bit AA: capacity = 3
     aa32_full = DynamicAAKmer{UInt32}(aa"WPK")
-    @test_throws ArgumentError push(aa32_full, AA_L)
-    @test_throws ArgumentError push_first(aa32_full, AA_M)
+    @test_throws BoundsError push(aa32_full, AA_L)
+    @test_throws BoundsError push_first(aa32_full, AA_M)
 
     # Verify we can push to capacity-1 without error
     d_almost_full = DynamicDNAKmer{UInt64}(dna"T"^28)
@@ -601,12 +601,10 @@ end
     @test pop_first(dmer"A"r) == dmer""r
 
     # Test error when popping empty kmer
-    @test_throws ArgumentError pop(dmer""d)
-    @test_throws ArgumentError pop_first(dmer""d)
-    @test_throws ArgumentError pop(dmer""r)
-    @test_throws ArgumentError pop_first(dmer""r)
-    @test_throws ArgumentError pop(DynamicAAKmer{UInt64}(aa""))
-    @test_throws ArgumentError pop_first(DynamicAAKmer{UInt128}(aa""))
+    @test_throws BoundsError pop(dmer""d)
+    @test_throws BoundsError pop_first(dmer""d)
+    @test_throws BoundsError pop(DynamicAAKmer{UInt64}(aa""))
+    @test_throws BoundsError pop_first(DynamicAAKmer{UInt128}(aa""))
 end
 
 @testset "setindex" begin
@@ -654,6 +652,136 @@ end
     # Test that larger backing type gives larger or equal capacity
     @test capacity(DynamicDNAKmer{UInt32}) <= capacity(DynamicDNAKmer{UInt64})
     @test capacity(DynamicAAKmer{UInt32}) <= capacity(DynamicAAKmer{UInt64})
+end
+
+@testset "translate" begin
+    # Basic translation - 2-bit alphabets
+    @testset "Basic 2-bit" begin
+        # DNA 2-bit with different backing types
+        @test translate(dmer"ATGTAA"d) == dmer"M*"a
+        @test translate(DynamicDNAKmer{UInt32}(dna"ATGTAA")) == dmer"M*"a
+        @test translate(DynamicDNAKmer{UInt64}(dna"ATGTAA")) == dmer"M*"a
+
+        # RNA 2-bit with different backing types
+        @test translate(dmer"AUGUAA"r) == dmer"M*"a
+        @test translate(DynamicRNAKmer{UInt32}(rna"AUGUAA")) == dmer"M*"a
+        @test translate(DynamicRNAKmer{UInt64}(rna"AUGUAA")) == dmer"M*"a
+
+        # Longer sequences
+        @test translate(dmer"TCTACACCCTAG"d) == dmer"STP*"a
+        @test translate(dmer"UCUACACCCUAG"r) == dmer"STP*"a
+    end
+
+    # Basic translation - 4-bit alphabets
+    @testset "Basic 4-bit" begin
+        # DNA 4-bit with different backing types
+        d = DynamicKmer{DNAAlphabet{4}, UInt64}(dna"TGGCCCGATTGA")
+        @test translate(d) == dmer"WPD*"a
+
+        # UInt128 works with 4-bit since capacity is smaller
+        d128 = DynamicKmer{DNAAlphabet{4}, UInt128}(dna"ATGTAA")
+        @test translate(d128) == dmer"M*"a
+
+        # RNA 4-bit with different backing types
+        r = DynamicKmer{RNAAlphabet{4}, UInt64}(rna"UGGCCCGAUUGA")
+        @test translate(r) == dmer"WPD*"a
+
+        r32 = DynamicKmer{RNAAlphabet{4}, UInt32}(rna"AUGUAA")
+        @test translate(r32) == dmer"M*"a
+
+        r128 = DynamicKmer{RNAAlphabet{4}, UInt128}(rna"AUGUAA")
+        @test translate(r128) == dmer"M*"a
+    end
+
+    # Different genetic codes
+    @testset "Different genetic codes" begin
+        # Vertebrate mitochondrial code: AGA and AGG are stop codons
+        vert_mito = BioSequences.vertebrate_mitochondrial_genetic_code
+        @test translate(dmer"ATGAGA"d; code=vert_mito) == dmer"M*"a  # AGA is stop
+
+        # Standard code: AGA and AGG code for R (Arginine)
+        @test translate(dmer"ATGAGA"d) == dmer"MR"a
+        @test translate(dmer"ATGAGG"d) == dmer"MR"a
+
+        # Test with different backing types
+        @test translate(DynamicDNAKmer{UInt64}(dna"ATGAGA"); code=vert_mito) == dmer"M*"a
+        @test translate(DynamicRNAKmer{UInt32}(rna"AUGAGA"); code=vert_mito) == dmer"M*"a
+
+        # Test with 4-bit alphabets
+        @test translate(DynamicKmer{DNAAlphabet{4}, UInt64}(dna"ATGAGA"); code=vert_mito) == dmer"M*"a
+    end
+
+    # alternative_start flag
+    @testset "alternative_start" begin
+        # Without alternative_start: TTG codes for L (Leucine)
+        @test translate(dmer"TTGCCC"d; alternative_start=false) == dmer"LP"a
+        @test translate(dmer"UUGCCC"r; alternative_start=false) == dmer"LP"a
+
+        # With alternative_start: first codon becomes M regardless
+        @test translate(dmer"TTGCCC"d; alternative_start=true) == dmer"MP"a
+        @test translate(dmer"UUGCCC"r; alternative_start=true) == dmer"MP"a
+    end
+
+    # Ambiguous codons (only for 4-bit alphabets)
+    @testset "Ambiguous codons" begin
+        # With allow_ambiguous_codons=true (default), ambiguous codons translate
+        d_ambig = DynamicKmer{DNAAlphabet{4}, UInt128}("AAAACWGCSWTARACADA")
+        @test translate(d_ambig) == dmer"KTAJBX"a
+
+        # With allow_ambiguous_codons=false, ambiguous codons throw
+        @test_throws Exception translate(d_ambig; allow_ambiguous_codons=false)
+
+        # Test various ambiguous nucleotides
+        # W = A or T, so TWG could be AAG (K) or TAG (*)
+        # With allow_ambiguous, should give X (ambiguous)
+        d_w = DynamicKmer{DNAAlphabet{4}, UInt64}(dna"ATGTWG")
+        result_w = translate(d_w; allow_ambiguous_codons=true)
+        @test length(result_w) == 2  # M and something
+    end
+
+    # Error: Length not divisible by 3
+    @testset "Length not divisible by 3" begin
+        @test_throws ArgumentError translate(dmer"A"d)
+        @test_throws ArgumentError translate(dmer"UG"r)
+        @test_throws ArgumentError translate(dmer"CUGUAGUUGUCGC"r)
+        @test_throws ArgumentError translate(DynamicKmer{RNAAlphabet{4}, UInt32}(rna"AUGC"))
+    end
+
+    # Error: Sequences with gaps (only for 4-bit alphabets)
+    @testset "Sequences with gaps" begin
+        @test_throws Exception translate(DynamicKmer{RNAAlphabet{4}, UInt64}(rna"-UGAUG"))
+        @test_throws Exception translate(DynamicKmer{DNAAlphabet{4}, UInt64}(dna"AT-ATG"))
+        @test_throws Exception translate(DynamicKmer{RNAAlphabet{4}, UInt64}(rna"AUGAU-"))
+        @test_throws Exception translate(DynamicKmer{DNAAlphabet{4}, UInt64}(dna"A--"))
+    end
+
+    # Error: Input type capacity too large for output
+    @testset "Capacity overflow" begin
+        # UInt128 with 2-bit alphabet has capacity ~63, which translates to 21 AA
+        # needing 168 bits, exceeding UInt128's 128 bits
+        # This should error at translation time
+        @test_throws ErrorException translate(DynamicDNAKmer{UInt128}(dna"ATG"))
+        @test_throws ErrorException translate(DynamicRNAKmer{UInt128}(rna"AUG"))
+
+        # Even empty sequences should error due to type-based capacity check
+        @test_throws ErrorException translate(DynamicDNAKmer{UInt128}(dna""))
+        @test_throws ErrorException translate(DynamicRNAKmer{UInt128}(rna""))
+    end
+
+    # Edge cases
+    @testset "Edge cases" begin
+        # Empty sequence (length 0 is divisible by 3, produces 0 AA)
+        @test translate(dmer""d) == dmer""a
+        @test translate(dmer""r) == dmer""a
+        @test translate(DynamicDNAKmer{UInt32}(dna"")) == dmer""a
+        @test translate(DynamicKmer{DNAAlphabet{4}, UInt64}(dna"")) == dmer""a
+
+        # Very long sequence (near capacity) - 2-bit
+        # For UInt64 with 2-bit DNA, capacity is 31, so 30 nt = 10 AA
+        long_dna = dmer"ATGATGATGATGATGATGATGATGATG"d
+        @test length(translate(long_dna)) == 9
+        @test LongSequence(translate(long_dna)) == aa"MMMMMMMMM"
+    end
 end
 
 @testset "Misc" begin

@@ -637,7 +637,7 @@ Create a new `DynamicKmer` of type `T` by adding the symbol `s` to the end of `x
 The argument `s` is converted to the element type of `x` first, so e.g. pushing DNA
 to an RNA kmer may work.
 
-Throw an `ArgumentError` if `x` is already at max capacity.
+Throw an `BoundsError` if `x` is already at max capacity.
 See [`capacity`](@ref) to obtain the maximum capacity of `T`.
 
 See also: [`push_first`](@ref), [`pop`](@ref), [`pop_first`](@ref)
@@ -662,21 +662,27 @@ ERROR: ArgumentError: DynamicKmer is already at max capacity
 """
 function push(x::DynamicKmer{A, U}, s) where {A, U}
     T = typeof(x)
-    E = eltype(x)
-    sT = convert(E, s)::E
-    enc = U(BioSequences.encode(A(), sT))::U
-    bps = BioSequences.bits_per_symbol(A())
 
     # Update new length. Since length is stored in bottom bits,
     # we can simply add it directly. Neat!
     u = x.x + 0x01
     new_len = (u & length_mask(T)) % Int
-    new_len > capacity(T) && throw_argumenterror("DynamicKmer is already at max capacity")
+
+    @boundscheck if new_len > capacity(T)
+        boundserror(x, capacity(T) + 1)
+    end
+
+    E = eltype(x)
+    sT = convert(E, s)::E
+    enc = U(BioSequences.encode(A(), sT))::U
+    bps = BioSequences.bits_per_symbol(A())
 
     shift = (8 * sizeof(U)) - (bps * new_len)
     u |= left_shift(enc, shift)
     return _new_dynamic_kmer(A, u)
 end
+
+@noinline boundserror(x, i) = throw(BoundsError(x, i))
 
 """
     push_first(x::T, s)::T where {T <: DynamicKmer}
@@ -685,7 +691,7 @@ Create a new `DynamicKmer` of type `T` by adding the symbol `s` to the start of 
 The argument `s` is converted to the element type of `x` first, so e.g. pushing DNA
 to an RNA kmer may work.
 
-Throw an `ArgumentError` if `x` is already at max capacity.
+Throw an `BoundsError` if `x` is already at max capacity.
 See [`capacity`](@ref) to obtain the maximum capacity of `T`.
 
 See also: [`push`](@ref), [`pop`](@ref), [`pop_first`](@ref)
@@ -710,6 +716,17 @@ ERROR: ArgumentError: DynamicKmer is already at max capacity
 """
 function push_first(x::DynamicKmer{A, U}, s) where {A, U}
     T = typeof(x)
+
+    # Update new length. Since length is stored in bottom bits,
+    # we can simply add it directly. Neat!
+    u = x.x + 0x01
+    new_len = (u & length_mask(T)) % Int
+
+    @boundscheck if new_len > capacity(T)
+        boundserror(x, capacity(T) + 1)
+    end
+
+
     E = eltype(x)
     sT = convert(E, s)::E
     enc = U(BioSequences.encode(A(), sT))::U
@@ -725,9 +742,7 @@ function push_first(x::DynamicKmer{A, U}, s) where {A, U}
     u |= enc << shift
 
     # Add in new length
-    new_len = (x.x & mask) + 0x01
-    (new_len % Int) > capacity(T) && throw_argumenterror("DynamicKmer is already at max capacity")
-    u |= new_len
+    u |= new_len % U
     return _new_dynamic_kmer(A, u)
 end
 
@@ -735,7 +750,7 @@ end
     pop(x::DynamicKmer{A, U})::DynamicKmer{A, U}
 
 Returns a new dynamic kmer with the last symbol of the input `x` removed.
-Throws an `ArgumentError` if `x` is empty.
+Throws an `BoundsError` if `x` is empty.
 
 See also: [`pop_first`](@ref), [`push`](@ref), [`push_first`](@ref)
 
@@ -758,7 +773,7 @@ ERROR: ArgumentError: Cannot pop empty kmer
 ```
 """
 function pop(x::DynamicKmer{A, U}) where {A, U}
-    isempty(x) && throw_argumenterror("Cannot pop empty kmer")
+    isempty(x) && boundserror(x, 0)
 
     # Decrement length
     u = x.x
@@ -776,7 +791,7 @@ end
     pop_first(x::DynamicKmer{A, U})::DynamicKmer{A, U}
 
 Returns a new dynamic kmer with the first symbol of the input `x` removed.
-Throws an `ArgumentError` if `x` is empty.
+Throws an `BoundsError` if `x` is empty.
 
 See also: [`pop`](@ref), [`push`](@ref), [`push_first`](@ref)
 
@@ -799,7 +814,7 @@ ERROR: ArgumentError: Cannot pop empty kmer
 ```
 """
 function pop_first(x::DynamicKmer{A, U}) where {A, U}
-    isempty(x) && throw_argumenterror("Cannot pop empty kmer")
+    isempty(x) && boundserror(x, 0)
 
     # Remove length, since we need to shift it to pop first,
     # and shifting would move the length bits
@@ -837,4 +852,118 @@ function Base.setindex(kmer::DynamicKmer{A, U}, v, i::Integer) where {A, U}
     # Now add in the encoding bits at the right location and return kmer
     u |= left_shift(enc, shift)
     return _new_dynamic_kmer(A, u)
+end
+
+"""
+    translate(
+        seq::DynamicKmer{<:Union{DNAAlphabet, RNAAlphabet}};
+        code::BioSequences.GeneticCode = BioSequences.standard_genetic_code,
+        allow_ambiguous_codons::Bool = true,
+        alternative_start::Bool = false,
+    )::DynamicAAKmer
+
+Translate a nucleotide `DynamicKmer` to a `DynamicAAKmer`.
+The type of the result is the smallest `DynamicAAKmer`, which is statically known to
+have a capacity large enough to hold the result.
+If the results cannot be statically guaranteed to fit in a `DynamicAAKmer{UInt128}`,
+throw an exception. Currently, this happens at > 15 amino acids.
+
+The arguments other than `seq` are identical to the method with `LongSequence`.
+
+# Examples
+```jldoctest
+julia> d = DynamicKmer{DNAAlphabet{4}, UInt64}("TGGCCCGATTGA");
+
+julia> translate(dmer"TGGCCCGATTGA"d)
+4aa DynamicAAKmer{UInt128}:
+WPD*
+
+julia> translate(DynamicDNAKmer{UInt32}("TGGCCCGATTGA"); alternative_start=true)
+4aa DynamicAAKmer{UInt64}:
+MPD*
+```
+"""
+function BioSequences.translate(
+        seq::DynamicKmer{<:Union{DNAAlphabet, RNAAlphabet}};
+        code::BioSequences.GeneticCode = BioSequences.standard_genetic_code,
+        allow_ambiguous_codons::Bool = true,
+        alternative_start::Bool = false,
+    )::DynamicAAKmer
+
+    # Check length of sequence is divisible by 3
+    (aalen, remainder) = divrem(length(seq) % UInt, 3 % UInt)
+    iszero(remainder) || throw_argumenterror("Dynamic kmer length not divisible by 3")
+
+    # Build the encoding. If `alternative_start`, we need to set the starting
+    # AA to AA_M, no matter what. So, we simply skip the first codon.
+    U = get_matching_aaseq_utype(typeof(seq))
+    u = zero(U)
+
+    # Begin by shifting to top bits, or, if alternative_start, top bits
+    # except the top 8 bits which should have the AA_M
+    shift = 8 * sizeof(U) - 8 - 8 * alternative_start
+    for i in (1 + alternative_start):(aalen % Int)
+        aa = inbounds_aa_from(seq, code, 3i - 2, allow_ambiguous_codons)
+        encoding = reinterpret(UInt8, aa) % U
+        u |= left_shift(encoding, shift)
+        shift -= 8
+    end
+
+    u |= aalen % U
+
+    # If alternative_start, we manually add the AA_M (encoding 0x0c)
+    # to the data at the top bits
+    if alternative_start
+        u |= left_shift(0x0c % U, 8 * sizeof(U) - 8)
+    end
+
+    return _new_dynamic_kmer(AminoAcidAlphabet, u)
+end
+
+@inline function inbounds_aa_from(
+        seq::DynamicKmer{<:Union{DNAAlphabet{2}, RNAAlphabet{2}}},
+        code::BioSequences.GeneticCode,
+        i::Int,
+        _::Bool,
+    )
+    a = BioSequences.extract_encoded_element(seq, i)
+    b = BioSequences.extract_encoded_element(seq, i + 1)
+    c = BioSequences.extract_encoded_element(seq, i + 2)
+    codon = (a << 4) | (b << 2) | c
+    return @inbounds code[codon % UInt64]
+end
+
+@inline function inbounds_aa_from(
+        seq::DynamicKmer{<:Union{DNAAlphabet{4}, RNAAlphabet{4}}},
+        code::BioSequences.GeneticCode,
+        i::Int,
+        allow_ambiguous_codons::Bool,
+    )
+    a = @inbounds reinterpret(RNA, seq[i])
+    b = @inbounds reinterpret(RNA, seq[i + 1])
+    c = @inbounds reinterpret(RNA, seq[i + 2])
+    return if isgap(a) | isgap(b) | isgap(c)
+        error("Cannot translate nucleotide sequences with gaps.")
+    elseif iscertain(a) & iscertain(b) & iscertain(c)
+        code[BioSequences.unambiguous_codon(a, b, c)]
+    else
+        BioSequences.try_translate_ambiguous_codon(code, a, b, c, allow_ambiguous_codons)
+    end
+end
+
+@inline Base.@constprop :aggressive Base.@assume_effects :foldable function get_matching_aaseq_utype(
+        T::Type{<:DynamicKmer{<:NucleicAcidAlphabet}}
+    )
+    max_aa = div(capacity(T) % UInt, UInt(3)) % Int
+    if max_aa < 2
+        UInt16
+    elseif max_aa < 4
+        UInt32
+    elseif max_aa < 8
+        UInt64
+    elseif max_aa < 16
+        UInt128
+    else
+        error("Cannot fit resulting AA sequence in a DynamicAAKmer{UInt128}")
+    end
 end

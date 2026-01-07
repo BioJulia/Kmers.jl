@@ -72,7 +72,7 @@ Base.@constprop :aggressive Base.@assume_effects :foldable function max_coding_b
     iszero(bps) && return 0
     n_bits = 8 * sizeof(U)
     for capacity in div(n_bits, bps):-1:0
-        len_bits = 64 - leading_zeros(capacity)
+        len_bits = 8 * sizeof(capacity) - leading_zeros(capacity)
         coding_bits = bps * capacity
         len_bits + coding_bits ≤ n_bits && return coding_bits
     end
@@ -177,8 +177,8 @@ end
 const HASH_MASK = 0x6ff6e9f0462d5162 % UInt
 
 Base.copy(x::DynamicKmer) = x
-Base.hash(x::DynamicKmer, h::UInt64) = hash(x.x, h ⊻ HASH_MASK)
-fx_hash(x::DynamicKmer, h::UInt64) = (bitrotate(h, 5) ⊻ x.x) * FX_CONSTANT
+Base.hash(x::DynamicKmer, h::UInt64) = hash(x.x, h ⊻ HASH_MASK) % UInt
+fx_hash(x::DynamicKmer, h::UInt64) = ((bitrotate(h, 5) ⊻ x.x) % UInt) * FX_CONSTANT
 
 Base.:(==)(a::DynamicKmer{A, U}, b::DynamicKmer{A, U}) where {A, U} = a === b
 
@@ -397,16 +397,51 @@ function build_dynamic_kmer(::Copyable, ::Type{T}, x::BioSequence) where {T}
 end
 
 # More efficient, since the internal representation is even closer.
-function build_dynamic_kmer(::Copyable, ::Type{T}, x::Kmer) where {T}
+# This function is huge, but a lot of it is compile time work, so force inline it.
+@inline function build_dynamic_kmer(::Copyable, ::Type{T}, x::Kmer) where {T}
     len = length(x)
     len > capacity(T) && error("Kmer size exceeds maximum capacity of dynamic kmer")
     A = Alphabet(T)
+    U = utype(T)
+    bps = BioSequences.bits_per_symbol(A)
+    # If no BPS, binary representation of dynamic kmer is no coding bits,
+    # and then simply the length in the lower bits.
+    if iszero(bps)
+        _new_dynamic_kmer(typeof(A), len % U)
+    end
+
+    if isempty(x)
+        return _new_dynamic_kmer(typeof(A), zero(U))
+    end
     tup = BioSequences.encoded_data(x)
-    # This is only valid on little-endian machines, but Kmers fails to compile
-    # on big-endian ones anyway
-    u = length(tup) == 1 ? (tup[1] % utype(T)) : reinterpret(UInt128, tup)
-    u = left_shift(u, 8 * sizeof(u) - length(x) * BioSequences.bits_per_symbol(A))
-    u |= len % typeof(u)
+    # Tuple length has to be at least one, since otherwise kmer would be empty,
+    # and branch above would have been taken
+    u = if length(tup) == 1
+        tup[1] % U
+    else
+        # Here, we know the tuple has at least 2 elements, so the kmer is at least
+        # 128 bits.
+        # We checked above that the kmer fits in T, so utype(T) must have at least 128
+        # bits, and the utype(T) can contain all bits in the tuple
+        # Note also that Kmers.jl only loads on little-endian 64-bit systems,
+        # so we can assume those things, too.
+        u = zero(utype(T))
+        shift = 8 * sizeof(u) - 64
+        for i in tup
+            u |= left_shift(i % U, shift)
+            shift -= 64
+        end
+    end
+
+    # Kmers keep thier coding bits in the lowest part of the data,
+    # and dynamic kmers in the upper.
+    # Also, the requested type U may be much bigger than the kmer's tuple,
+    # which requires further shift
+    shift = 8 * sizeof(U) - len * bps
+    u = left_shift(u, shift)
+
+    # Add in length
+    u |= len % U
     return _new_dynamic_kmer(typeof(A), u)
 end
 
@@ -475,7 +510,7 @@ end
 end
 
 # Switch encoding data of `x` to `T`. Error if it doesn't fit.
-function switch_backing_encoding(T::Type{<:BitUnsigned}, x::DynamicKmer{A, U}) where {A, U}
+function switch_backing_encoding(T::Type{<:Unsigned}, x::DynamicKmer{A, U}) where {A, U}
     T == U && return x
     return if sizeof(T) < sizeof(x)
         narrow_to(T, x)
@@ -486,7 +521,7 @@ end
 
 # Create a DynamicKmer{A, T} containig the same sequence as `x`, efficiently,
 # or error if `x` does not fit in that type.
-function narrow_to(T::Type{<:BitUnsigned}, x::DynamicKmer{A, U}) where {A, U}
+function narrow_to(T::Type{<:Unsigned}, x::DynamicKmer{A, U}) where {A, U}
     newT = DynamicKmer{A, T}
     if max_coding_bits(newT) < length(x)
         error("Dynamic Kmer do not fit into integer size")
@@ -505,7 +540,7 @@ function narrow_to(T::Type{<:BitUnsigned}, x::DynamicKmer{A, U}) where {A, U}
 end
 
 # Create a DynamicKmer{A, T} containig the same sequence as `x`, efficiently
-function widen_to(T::Type{<:BitUnsigned}, x::DynamicKmer{A, U}) where {A, U}
+function widen_to(T::Type{<:Unsigned}, x::DynamicKmer{A, U}) where {A, U}
     # Remove length from encoding
     mask = length_mask(typeof(x))
     u = (x.x & ~mask) % T

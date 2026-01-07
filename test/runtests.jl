@@ -419,19 +419,19 @@ end
     @testset "Setindex" begin
         mer = mer"PLQVAK"a
         setindex = Base.setindex
-        @test setindex(mer, 3, AA_K) == mer"PLKVAK"a
-        @test setindex(mer, 1, AA_R) == mer"RLQVAK"a
-        @test setindex(mer, 6, AA_M) == mer"PLQVAM"a
-        @test_throws BoundsError setindex(mer, 0, AA_K)
-        @test_throws BoundsError setindex(mer, 7, AA_K)
+        @test setindex(mer, AA_K, 3) == mer"PLKVAK"a
+        @test setindex(mer, AA_R, 1) == mer"RLQVAK"a
+        @test setindex(mer, AA_M, 6) == mer"PLQVAM"a
+        @test_throws BoundsError setindex(mer, AA_K, 0)
+        @test_throws BoundsError setindex(mer, AA_K, 7)
 
         mer = mer"ATGTCGTGA"d
-        @test setindex(mer, 1, DNA_T) == mer"TTGTCGTGA"d
-        @test setindex(mer, 5, DNA_C) == mer"ATGTCGTGA"d
-        @test setindex(mer, 5, DNA_A) == mer"ATGTAGTGA"d
+        @test setindex(mer, DNA_T, 1) == mer"TTGTCGTGA"d
+        @test setindex(mer, DNA_C, 5) == mer"ATGTCGTGA"d
+        @test setindex(mer, DNA_A, 5) == mer"ATGTAGTGA"d
 
         mer = mer"PLAKCVMARYKW"a
-        @test setindex(mer, 10, AA_Q) == mer"PLAKCVMARQKW"a
+        @test setindex(mer, AA_Q, 10) == mer"PLAKCVMARQKW"a
     end
 end
 

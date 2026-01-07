@@ -72,7 +72,7 @@ end
     return i + 1, o
 end
 
-@inline function Base.setindex(kmer::Kmer, i::Integer, s)
+@inline function Base.setindex(kmer::Kmer, s, i::Integer)
     @boundscheck checkbounds(kmer, i)
     bps = BioSequences.bits_per_symbol(kmer)
     iszero(bps) && return kmer

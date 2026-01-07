@@ -5,6 +5,9 @@ Dynamic kmers are immutable, bitstype `BioSequence`s similar to `Kmer`s.
 However, unlike the `Kmer` type, the length of a dynamic kmer is a run time
 value, and not a compile time value.
 
+Dynamic kmers types have a maximum number of symbols they can store,
+see [`capacity`](@ref) for details.
+
 Dynamic kmers are slightly less efficient than regular kmers.
 They are useful when a workload includes kmers of varying sizes, where the
 length specialization of the `Kmer` type would cause excessive compilation
@@ -67,11 +70,11 @@ Base.@constprop :aggressive Base.@assume_effects :foldable function max_coding_b
     ) where {A, U}
     bps = BioSequences.bits_per_symbol(A())
     iszero(bps) && return 0
-    B = 8 * sizeof(U)
-    for S in div(B, bps):-1:0
-        Lb = 64 - leading_zeros(S)
-        Sb = bps * S
-        Lb + Sb ≤ B && return Sb
+    n_bits = 8 * sizeof(U)
+    for capacity in div(n_bits, bps):-1:0
+        len_bits = 64 - leading_zeros(capacity)
+        coding_bits = bps * capacity
+        len_bits + coding_bits ≤ n_bits && return coding_bits
     end
     0
 end
@@ -101,7 +104,42 @@ end
     return iszero(x.x) ? x.x : top_mask(typeof(x), coding_bits(x))
 end
 
-capacity(T::Type{<:DynamicKmer}) = div(max_coding_bits(T), BioSequences.bits_per_symbol(Alphabet(T)))
+"""
+    capacity(T::Type{<:DynamicKmer{A, U}})::Int
+
+Compute the maximum number of symbols that an instance of the concrete
+type `T` can contain.
+This computation is a compile time constant and so should not take
+any runtime computation.
+
+The value of this number is not guaranteed to be stable across versions of Kmers.
+
+If `B` is the number of bits per symbol of `A`, the answer is `clamp(typemax(U), Int)`,
+else the answer is a number in `0:div(8 * sizeof(U), B)`
+
+# Examples
+```jldoctest
+julia> capacity(DynamicDNAKmer{UInt32})
+14
+
+julia> capacity(DynamicAAKmer{UInt8})
+0
+
+julia> capacity(DynamicRNAKmer) # NB: UnionAll type
+ERROR: MethodError: no method matching capacity(::Type{DynamicRNAKmer})
+[...]
+```
+"""
+function capacity(T::Type{<:DynamicKmer{A, U}}) where {A, U}
+    bps = BioSequences.bits_per_symbol(A())
+    if iszero(bps)
+        # If no bits are coding, all bits are used for length.
+        # We truncate at typemax(Int)
+        clamp(typemax(U), Int)
+    else
+        div(max_coding_bits(T), bps)
+    end
+end
 
 BioSequences.encoded_data_eltype(::Type{DynamicKmer{A, U}}) where {A, U} = U
 
@@ -558,6 +596,7 @@ The argument `s` is converted to the element type of `x` first, so e.g. pushing 
 to an RNA kmer may work.
 
 Throw an `ArgumentError` if `x` is already at max capacity.
+See [`capacity`](@ref) to obtain the maximum capacity of `T`.
 
 See also: [`push_first`](@ref), [`pop`](@ref), [`pop_first`](@ref)
 
@@ -605,6 +644,7 @@ The argument `s` is converted to the element type of `x` first, so e.g. pushing 
 to an RNA kmer may work.
 
 Throw an `ArgumentError` if `x` is already at max capacity.
+See [`capacity`](@ref) to obtain the maximum capacity of `T`.
 
 See also: [`push`](@ref), [`pop`](@ref), [`pop_first`](@ref)
 

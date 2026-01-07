@@ -20,6 +20,7 @@ export Kmer,
     @mer_str,
     fx_hash,
     derive_type,
+    capacity,
     as_integer,
     from_integer,
 

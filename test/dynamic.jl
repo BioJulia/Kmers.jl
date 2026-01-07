@@ -609,6 +609,31 @@ end
     @test_throws ArgumentError pop_first(DynamicAAKmer{UInt128}(aa""))
 end
 
+@testset "capacity" begin
+    # Create a zero-BPS alphabet for testing
+    struct ZeroBPSAlphabet <: Alphabet end
+    Base.eltype(::Type{ZeroBPSAlphabet}) = DNA
+    BioSequences.BitsPerSymbol(::ZeroBPSAlphabet) = BioSequences.BitsPerSymbol{0}()
+
+    # Test zero BPS: capacity should be clamped to typemax(Int)
+    @test capacity(DynamicKmer{ZeroBPSAlphabet, UInt8}) == clamp(typemax(UInt8), Int)
+    @test capacity(DynamicKmer{ZeroBPSAlphabet, UInt32}) == clamp(typemax(UInt32), Int)
+    @test capacity(DynamicKmer{ZeroBPSAlphabet, UInt128}) == clamp(typemax(UInt128), Int)
+
+    # Test non-zero BPS: capacity should be in range 0:div(8 * sizeof(U), B)
+    for (A, bps) in [(DNAAlphabet{2}, 2), (DNAAlphabet{4}, 4), (AminoAcidAlphabet, 8)]
+        for U in [UInt8, UInt32, UInt64]
+            cap = capacity(DynamicKmer{A, U})
+            max_possible = div(8 * sizeof(U), bps)
+            @test 0 <= cap <= max_possible
+        end
+    end
+
+    # Test that larger backing type gives larger or equal capacity
+    @test capacity(DynamicDNAKmer{UInt32}) <= capacity(DynamicDNAKmer{UInt64})
+    @test capacity(DynamicAAKmer{UInt32}) <= capacity(DynamicAAKmer{UInt64})
+end
+
 @testset "Misc" begin
     d = DynamicAAKmer{UInt32}("WPK")
     @test only([d]') === d

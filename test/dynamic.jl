@@ -437,7 +437,7 @@ end
     @testset "Canonical" begin
         m1 = dmer"TAGCTGA"d
         m2 = dmer"TCAGCTA"d
-        @test canonical(m1) == canonical(m2)
+        @test canonical(m1) == canonical(m2) == m1
         @test iscanonical(dmer"AATT"d)
         @test iscanonical(dmer"TTAA"d)
         @test iscanonical(empty(m1))

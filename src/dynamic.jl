@@ -239,6 +239,12 @@ end
 
 BioSequences.iscanonical(x::DynamicKmer) = x <= reverse_complement(x)
 
+# This is more efficient than the fallback because RC'ing is cheap
+function BioSequences.canonical(x::DynamicKmer{<:NucleicAcidAlphabet})
+    rc = reverse_complement(x)
+    return x < rc ? x : rc
+end
+
 function BioSequences._n_gc(x::DynamicKmer{<:NucleicAcidAlphabet})
     u = x.x & ~length_mask(typeof(x))
     return BioSequences.gc_bitcount(u, Alphabet(x))

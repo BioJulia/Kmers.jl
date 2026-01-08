@@ -7,7 +7,7 @@ function BioSequences._n_gc(x::Kmer{<:TwoBit})
     return n
 end
 
-@inline function BioSequences.count_symbol(x::DynamicKmer, sym::BioSymbol)
+@inline function BioSequences.count_symbol(x::Oligomer, sym::BioSymbol)
     iszero(BioSequences.bits_per_symbol(x)) && return length(x)
     u = x.x
     iszero(u) && return 0

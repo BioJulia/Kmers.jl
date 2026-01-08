@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Kmers.jl provides the `Kmer` and `DynamicKmer` types for efficient k-mer representation in bioinformatics. This is a BioJulia package that is tightly coupled to BioSequences.jl and relies heavily on its internals.
+Kmers.jl provides the `Kmer` and `Oligomer` types for efficient k-mer representation in bioinformatics. This is a BioJulia package that is tightly coupled to BioSequences.jl and relies heavily on its internals.
 
 **Key Concepts:**
 - **Kmer**: Immutable bitstype sequences of fixed length `K` (compile-time). Stored directly in registers for maximum efficiency. Parameterized as `Kmer{A,K,N}` where `A` is the Alphabet, `K` is the length, and `N` is the number of UInt tuples (derived, not a free parameter).
-- **DynamicKmer**: Similar to Kmer but with runtime length. Slightly less efficient but useful when working with varying k-mer sizes to avoid excessive compilation and type instability.
+- **Oligomer**: Similar to Kmer but with runtime length. Slightly less efficient but useful when working with varying k-mer sizes to avoid excessive compilation and type instability.
 
 **Performance Warning:** Kmers are highly optimized for small, fixed-length sequences. Operations that change length (push, pop, slicing) are type unstable unless the compiler can use constant folding. Kmers become inefficient for longer sequences (e.g., reverse-complement of 512-mer takes 16 μs vs 126 ns for LongSequence).
 
@@ -64,7 +64,7 @@ using Kmers
 - Unused bits are always **zero** and always in the **top bits of first UInt**
 - This layout simplifies comparison operators at the cost of more complex construction
 
-**DynamicKmer Layout (`struct DynamicKmer{A,U}`):**
+**Oligomer Layout (`struct Oligomer{A,U}`):**
 - Single unsigned integer `x::U` containing both data and length
 - Lower bits store the **length**
 - Upper bits store the **sequence data** (from top to bottom)
@@ -72,7 +72,7 @@ using Kmers
 
 ### RecodingScheme Dispatch
 
-Construction of both Kmer and DynamicKmer uses a `RecodingScheme` pattern to handle different input types efficiently:
+Construction of both Kmer and Oligomer uses a `RecodingScheme` pattern to handle different input types efficiently:
 
 - **`Copyable`**: Direct copy from compatible BioSequences (same or compatible alphabet)
 - **`AsciiEncode`**: Efficient ASCII string parsing for DNA/RNA/AA sequences
@@ -83,7 +83,7 @@ Construction of both Kmer and DynamicKmer uses a `RecodingScheme` pattern to han
 ### Source Structure
 
 - **`src/kmer.jl`**: Core Kmer type definition, type checking, basic operations
-- **`src/dynamic.jl`**: DynamicKmer type with runtime length
+- **`src/dynamic.jl`**: Oligomer type with runtime length
 - **`src/construction.jl`**: Kmer construction logic and RecodingScheme dispatch
 - **`src/construction_utils.jl`**: Unsafe extraction and shifting utilities for iterators
 - **`src/indexing.jl`**: Indexing operations (scalar, range, logical)
@@ -97,7 +97,7 @@ Construction of both Kmer and DynamicKmer uses a `RecodingScheme` pattern to han
 
 Tests are organized by feature:
 - **`test/runtests.jl`**: Main test runner with comprehensive Kmer tests
-- **`test/dynamic.jl`**: DynamicKmer-specific tests (included from runtests.jl)
+- **`test/dynamic.jl`**: Oligomer-specific tests (included from runtests.jl)
 - **`test/translation.jl`**: Translation and genetic code tests
 - **`test/benchmark.jl`**: Performance benchmarks
 - **`test/utils.jl`**: Test utilities
@@ -126,9 +126,9 @@ However, they are **distinct types** and cannot be directly compared with other 
 
 - `as_integer(kmer)`: Extract coding bits only (no length information)
 - `from_integer(Type, u)`: Reconstruct from integer (for Kmer)
-- `from_integer(Type, u, len)`: Reconstruct from integer with explicit length (for DynamicKmer)
+- `from_integer(Type, u, len)`: Reconstruct from integer with explicit length (for Oligomer)
 
-For DynamicKmer, `as_integer` and `from_integer` with different lengths may produce reproducible but incorrect results.
+For Oligomer, `as_integer` and `from_integer` with different lengths may produce reproducible but incorrect results.
 
 ### Unsafe Methods
 
@@ -143,9 +143,9 @@ When adding tests, follow the existing patterns:
 1. Group related tests in `@testset` blocks with descriptive names
 2. Test edge cases: empty sequences, length=1, maximum length
 3. Test multiple alphabets where applicable (DNA 2-bit, DNA 4-bit, RNA, AA)
-4. Test different integer widths for DynamicKmer (UInt32, UInt64, UInt128)
+4. Test different integer widths for Oligomer (UInt32, UInt64, UInt128)
 5. Test round-trip conversions (construct → as_integer → from_integer)
-6. For DynamicKmer: test widening and narrowing of backing integer types
+6. For Oligomer: test widening and narrowing of backing integer types
 
 ## Common Patterns
 
@@ -158,17 +158,17 @@ for s in [dna"TAGCTA", rna"UGCUGA", aa"PLKWM"]
 end
 ```
 
-### Testing DynamicKmer Type Conversions
+### Testing Oligomer Type Conversions
 
 ```julia
 # Same alphabet, different backing type
-d32 = DynamicDNAKmer{UInt32}(dna"TAGC")
-d64 = DynamicDNAKmer{UInt64}(d32)
+d32 = DNAOligomer{UInt32}(dna"TAGC")
+d64 = DNAOligomer{UInt64}(d32)
 @test d64 == d32
 
 # Different alphabets (DNA/RNA)
-d_dna = DynamicDNAKmer{UInt64}(dna"ATGT")
-d_rna = DynamicRNAKmer{UInt64}(d_dna)
+d_dna = DNAOligomer{UInt64}(dna"ATGT")
+d_rna = RNAOligomer{UInt64}(d_dna)
 @test d_rna == d_dna
 ```
 
@@ -176,10 +176,10 @@ d_rna = DynamicRNAKmer{UInt64}(d_dna)
 
 1. **BioSequences Integration**: This package depends heavily on BioSequences.jl internals. When in doubt about encoding, check BioSequences documentation.
 
-2. **Type Stability**: Length-changing operations on Kmer are inherently type-unstable. Consider recommending DynamicKmer for variable-length use cases.
+2. **Type Stability**: Length-changing operations on Kmer are inherently type-unstable. Consider recommending Oligomer for variable-length use cases.
 
 3. **Testing Philosophy**: The test suite is comprehensive. New features should have similar test coverage including edge cases, multiple alphabets, and round-trip conversions.
 
 4. **Performance**: Kmers are optimized for small k. For k > ~100, LongSequence may be more appropriate.
 
-5. **Little-Endian Assumption**: Some code (particularly Kmer to DynamicKmer conversion) assumes little-endian architecture. The package won't compile on big-endian systems.
+5. **Little-Endian Assumption**: Some code (particularly Kmer to Oligomer conversion) assumes little-endian architecture. The package won't compile on big-endian systems.

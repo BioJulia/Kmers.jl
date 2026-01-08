@@ -725,6 +725,9 @@ end
         # Longer sequences
         @test translate(dmer"TCTACACCCTAG"d) == dmer"STP*"a
         @test translate(dmer"UCUACACCCUAG"r) == dmer"STP*"a
+        s = randdnaseq(249)
+        t = translate(DNAOligomer{UInt512}(s))
+        @test LongSequence(t) == translate(s)
     end
 
     # Basic translation - 4-bit alphabets
@@ -746,6 +749,11 @@ end
 
         r128 = Oligomer{RNAAlphabet{4}, UInt128}(rna"AUGUAA")
         @test translate(r128) == dmer"M*"a
+
+        # Long sequence
+        s = randdnaseq(252)
+        t = translate(Oligomer{DNAAlphabet{4}, UInt1024}(s))
+        @test LongSequence(t) == translate(s)
     end
 
     # Different genetic codes
@@ -812,15 +820,21 @@ end
 
     # Error: Input type capacity too large for output
     @testset "Capacity overflow" begin
-        # UInt128 with 2-bit alphabet has capacity ~63, which translates to 21 AA
-        # needing 168 bits, exceeding UInt128's 128 bits
-        # This should error at translation time
-        @test_throws ErrorException translate(DNAOligomer{UInt128}(dna"ATG"))
-        @test_throws ErrorException translate(RNAOligomer{UInt128}(rna"AUG"))
+        # These tests have loaded BitIntegers, so the maximum backing integer
+        # is currently UInt1024.
+        # This means 1024-bit 2-bit alphabets overflow, but not 4-bit alphabets.
+        @test_throws ErrorException translate(DNAOligomer{UInt1024}(dna"ATG"))
+        @test_throws ErrorException translate(RNAOligomer{UInt1024}(rna"AUG"))
 
         # Even empty sequences should error due to type-based capacity check
-        @test_throws ErrorException translate(DNAOligomer{UInt128}(dna""))
-        @test_throws ErrorException translate(RNAOligomer{UInt128}(rna""))
+        @test_throws ErrorException translate(DNAOligomer{UInt1024}(dna""))
+        @test_throws ErrorException translate(RNAOligomer{UInt1024}(rna""))
+
+        # Not an overflow - 512 bits fit
+        @test translate(RNAOligomer{UInt512}(rna"")) == dmer""a
+
+        # 4-bit nucleotides do not overflow even when 1024 bits
+        @test translate(Oligomer{RNAAlphabet{4}, UInt1024}(rna"AUG")) == dmer"M"a
     end
 
     # Edge cases

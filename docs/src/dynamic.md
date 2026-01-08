@@ -209,8 +209,9 @@ Dynamic kmers can be translated to obtain `AAOligomer{U}` with various integer t
 The type of `U` is chosen depending on the input type, to ensure that the result will fit in
 the output type.
 
-Note that `DNAOligomer{UInt128}`, and its RNA equivalent, contains too many symbols to fit in
-`AAOligomer{UInt128}`, and therefore these cannot be translated (maximum 15 amino acids).
+By default, the largest `AAOligomer` type is `AAOligomer{UInt128}`. However, if the package
+BitIntegers.jl is loaded, Kmers.jl will make use of larger integer sizes,
+currently up to `UInt1024`.
 
 ```@docs
 BioSequences.translate(::Oligomer{<:Union{DNAAlphabet, RNAAlphabet}})

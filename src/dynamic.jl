@@ -863,8 +863,10 @@ end
 Translate a nucleotide `Oligomer` to a `AAOligomer`.
 The type of the result is the smallest `AAOligomer`, which is statically known to
 have a capacity large enough to hold the result.
-If the results cannot be statically guaranteed to fit in a `AAOligomer{UInt128}`,
-throw an exception. Currently, this happens at > 15 amino acids.
+
+If the result does not fit in the largest known `AAOligomer`, throw an exception.
+You can increase the largest known `AAOligomer` by loading the package
+BitIntegers.jl.
 
 The arguments other than `seq` are identical to the method with `LongSequence`.
 
@@ -949,11 +951,14 @@ end
     end
 end
 
+function get_large_bitsize end
+
 @inline Base.@constprop :aggressive Base.@assume_effects :foldable function get_matching_aaseq_utype(
         T::Type{<:Oligomer{<:NucleicAcidAlphabet}}
     )
     max_aa = div(capacity(T) % UInt, UInt(3)) % Int
-    if max_aa < 2
+
+    return if max_aa < 2
         UInt16
     elseif max_aa < 4
         UInt32
@@ -962,6 +967,13 @@ end
     elseif max_aa < 16
         UInt128
     else
-        error("Cannot fit resulting AA sequence in a AAOligomer{UInt128}")
+        if hasmethod(get_large_bitsize, Tuple{Val})
+            get_large_bitsize(Val{max_aa}())
+        else
+            error(
+                "AA oligo does not fit in 128 bits. " *
+                    "Load package BitIntegers to access Unsigned types larger than UInt128."
+            )
+        end
     end
 end

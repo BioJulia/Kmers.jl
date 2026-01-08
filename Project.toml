@@ -1,6 +1,6 @@
 name = "Kmers"
 uuid = "445028e4-d31f-4f27-89ad-17affd83fc22"
-version = "1.2.0"
+version = "1.3.0"
 authors = ["Jakob Nybo Nissen <jakobnybonissen@gmail.com>", "Sabrina Jaye Ward <sabrinajward@protonmail.com>"]
 
 [deps]
@@ -8,26 +8,31 @@ BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"
 BioSymbols = "3c28c6f8-a34d-59c4-9654-267d177fcfa9"
 
 [weakdeps]
-StringViews = "354b36f9-a18e-4713-926e-db85100087ba"
+BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StringViews = "354b36f9-a18e-4713-926e-db85100087ba"
 
 [extensions]
-StringViewsExt = "StringViews"
 RandomExt = "Random"
+StringViewsExt = "StringViews"
+BitIntegersExt = "BitIntegers"
 
 [compat]
-BioSequences = "~3.4.1, 3.5"
+BioSequences = "~3.5.1"
 BioSymbols = "5.1.3"
+BitIntegers = "0.3.5"
 Random = "1.10"
 StableRNGs = "1"
 StringViews = "1"
+Test = "1.10"
 julia = "1.10"
 
 [extras]
+BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 StringViews = "354b36f9-a18e-4713-926e-db85100087ba"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 
 [targets]
-test = ["Test", "Random", "StableRNGs", "StringViews"]
+test = ["Test", "Random", "BitIntegers", "StableRNGs", "StringViews"]

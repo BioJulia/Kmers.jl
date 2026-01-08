@@ -211,7 +211,7 @@ end
     for i in 0:(S - 1)
         encoding = UInt(BioSequences.extract_encoded_element(seq, from + i))::UInt
         isone(count_ones(encoding)) ||
-            throw_uncertain(Alphabet(kmer), eltype(seq), encoding)
+            throw_uncertain(Alphabet(kmer)::Alphabet, eltype(seq)::Type{<:BioSymbol}, encoding)
         kmer = shift_encoding(kmer, trailing_zeros(encoding) % UInt)
     end
     return kmer

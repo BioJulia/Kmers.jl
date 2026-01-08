@@ -17,6 +17,7 @@ makedocs(;
         "Iteration" => "iteration.md",
         "Translation" => "translation.md",
         "Hashing" => "hashing.md",
+        "Dynamic kmers" => "dynamic.md",
         "Random kmers" => "random.md",
         "K-mer replacements" => "replacements.md",
         "FAQ" => "faq.md",

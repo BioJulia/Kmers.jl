@@ -20,8 +20,16 @@ export Kmer,
     @mer_str,
     fx_hash,
     derive_type,
+    capacity,
     as_integer,
     from_integer,
+
+    # Dynamic
+    Oligomer,
+    DNAOligomer,
+    RNAOligomer,
+    AAOligomer,
+    @dmer_str,
 
     # Immutable operations
     push,
@@ -118,6 +126,7 @@ const BitInteger = Union{BitUnsigned, Int8, Int16, Int32, Int64, Int128}
 include("tuple_bitflipping.jl")
 include("kmer.jl")
 include("construction.jl")
+include("dynamic.jl")
 include("indexing.jl")
 include("transformations.jl")
 include("revtrans.jl")

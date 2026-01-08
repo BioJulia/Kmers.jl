@@ -116,9 +116,14 @@ end
 
 @inline ksize(::Type{<:Kmer{A, K}}) where {A, K} = K
 @inline nsize(::Type{<:Kmer{A, K, N}}) where {A, K, N} = N
-@inline n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N} = capacity(Kmer{A, K, N}) - K
-@inline bits_unused(T::Type{<:Kmer}) =
-    n_unused(T) * BioSequences.bits_per_symbol(Alphabet(T))
+
+@inline function n_unused(::Type{<:Kmer{A, K, N}}) where {A, K, N}
+    return per_word_capacity(Kmer{A, K, N}) * N - K
+end
+
+@inline function bits_unused(T::Type{<:Kmer})
+    return n_unused(T) * BioSequences.bits_per_symbol(Alphabet(T))
+end
 
 @inline function n_coding_elements(::Type{<:Kmer{A, K}}) where {A, K}
     return cld(BioSequences.bits_per_symbol(A()) * K, 8 * sizeof(UInt))
@@ -126,10 +131,6 @@ end
 
 @inline function per_word_capacity(::Type{<:Kmer{A}}) where {A}
     return div(8 * sizeof(UInt), BioSequences.bits_per_symbol(A()))
-end
-
-@inline function capacity(::Type{<:Kmer{A, K, N}}) where {A, K, N}
-    return per_word_capacity(Kmer{A, K, N}) * N
 end
 
 @inline function elements_in_head(::Type{<:Kmer{A, K, N}}) where {A, K, N}
@@ -204,10 +205,6 @@ Base.:(==)(x::Kmer, y::BioSequence) = throw(MethodError(==, (x, y)))
 Base.:(==)(x::BioSequence, y::Kmer) = throw(MethodError(==, (x, y)))
 
 Base.hash(x::Kmer, h::UInt) = hash(x.data, h ⊻ ksize(typeof(x)))
-
-if Sys.WORD_SIZE != 64
-    error("Kmer.jl only supports 64-bit systems")
-end
 
 # These constants are from the original implementation
 @static if Sys.WORD_SIZE == 32
@@ -362,7 +359,7 @@ function from_integer end
     return from_integer(derive_type(T), u)
 end
 
-@inline function from_integer(T::Type{<:Kmer{A, K, N}}, u::BitUnsigned) where {A, K, N}
+@inline function from_integer(T::Type{<:Kmer{A, K, N}}, u::Unsigned) where {A, K, N}
     check_kmer(T)
     bits = K * BioSequences.bits_per_symbol(A())
     iszero(bits) && return zero_kmer(T)

@@ -11,15 +11,21 @@ end
     iszero(BioSequences.bits_per_symbol(x)) && return length(x)
     u = x.x
     iszero(u) && return 0
-    U = utype(typeof(x))
-    enc = U(BioSequences.encode(Alphabet(x), sym))
+    enc = (BioSequences.encode(Alphabet(x), sym)) % UInt
     mask = coding_mask(x)
+    # If encoding is zeroed, make sure to set all noncoding bits to 1,
+    # so we don't count those.
     u = if iszero(enc)
         u | ~mask
     else
         u & mask
     end
-    return BioSequences.count_encoding(u, enc, BioSequences.BitsPerSymbol(x))
+    count = 0
+    for i in 0:(div(sizeof(x), sizeof(UInt)) - 1)
+        uuint = right_shift(u, i * 8 * sizeof(UInt)) % UInt
+        count += BioSequences.count_encoding(uuint, enc, BioSequences.BitsPerSymbol(x))
+    end
+    return count
 end
 
 @inline function BioSequences.count_symbol(x::Kmer, sym::BioSymbol)

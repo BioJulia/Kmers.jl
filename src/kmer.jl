@@ -359,7 +359,7 @@ function from_integer end
     return from_integer(derive_type(T), u)
 end
 
-@inline function from_integer(T::Type{<:Kmer{A, K, N}}, u::BitUnsigned) where {A, K, N}
+@inline function from_integer(T::Type{<:Kmer{A, K, N}}, u::Unsigned) where {A, K, N}
     check_kmer(T)
     bits = K * BioSequences.bits_per_symbol(A())
     iszero(bits) && return zero_kmer(T)

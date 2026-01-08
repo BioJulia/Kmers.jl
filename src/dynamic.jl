@@ -443,10 +443,7 @@ end
 
     # Kmers keep thier coding bits in the lowest part of the data,
     # and dynamic kmers in the upper.
-    # Also, the requested type U may be much bigger than the kmer's tuple,
-    # which requires further shift
-    shift = 8 * sizeof(U) - len * bps
-    u = left_shift(u, shift)
+    u = left_shift(u, bits_unused(typeof(x)))
 
     # Add in length
     u |= len % U

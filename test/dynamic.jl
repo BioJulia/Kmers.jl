@@ -1,6 +1,7 @@
 using Test
 using Kmers
 using BioSequences
+using BitIntegers
 
 @testset "Construction" begin
     @testset "Same alphabet, and ASCII alphabet" begin
@@ -32,8 +33,14 @@ using BioSequences
 
         # From a large kmer
         m = mer"TAGTGCTGTAGTAGTGCTGTATGATGTCTGCATGC"d
-        dm = DynamicDNAKmer{UInt128}(m)
+        dm = DynamicDNAKmer{UInt256}(m)
         @test LongSequence(m) == LongSequence(dm)
+
+        # Using large bitintegers - 240 2-bit nt = 480 bits should fit in
+        # 512 bits with plenty room for the runtime length
+        seq = randdnaseq(240)
+        dm = DynamicDNAKmer{UInt512}(seq)
+        @test string(seq) == string(dm)
     end
 
     @testset "Two to four bit alphabet" begin
@@ -64,7 +71,7 @@ using BioSequences
 
     @testset "Generic alphabet" begin
         for s in ["HE", "", "中Å!"]
-            m = DynamicKmer{CharAlphabet, UInt128}(s)
+            m = DynamicKmer{CharAlphabet, UInt512}(s)
             @test length(m) == length(s)
             @test string(m) == s
         end
@@ -119,6 +126,9 @@ using BioSequences
         aa_d128 = DynamicAAKmer{UInt128}(aa_d64)
         @test aa_d128 == aa_d64
         @test length(aa_d128) == length(aa_d64)
+        aa_d256 = DynamicAAKmer{UInt256}(aa_d64)
+        @test aa_d256 == aa_d64
+        @test length(aa_d256) == length(aa_d64)
 
         # Test with empty kmers
         empty_d32 = DynamicDNAKmer{UInt32}(dna"")
@@ -147,28 +157,28 @@ using BioSequences
     @testset "To Kmer with N=2 (>64 coding bits)" begin
         # For 2-bit DNA: need >32 bases for >64 coding bits
         s_dna = dna"TAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCT"  # 33 bases = 66 bits
-        dkmer_dna = DynamicKmer{DNAAlphabet{2}, UInt128}(s_dna)
-        kmer_dna = Kmer{DNAAlphabet{2}, 33, 2}(dkmer_dna)
+        dkmer_dna = DynamicKmer{DNAAlphabet{2}, UInt256}(s_dna)
+        kmer_dna = Kmer{DNAAlphabet{2}, 33}(dkmer_dna)
         @test length(kmer_dna) == length(dkmer_dna)
         @test string(dkmer_dna) == string(kmer_dna)
 
         # For 2-bit RNA
         s_rna = rna"UGCUGAUGCUGAUGCUGAUGCUGAUGCUGAUGA"  # 33 bases = 66 bits
-        dkmer_rna = DynamicKmer{RNAAlphabet{2}, UInt128}(s_rna)
-        kmer_rna = Kmer{RNAAlphabet{2}, 33, 2}(dkmer_rna)
+        dkmer_rna = DynamicKmer{RNAAlphabet{2}, UInt256}(s_rna)
+        kmer_rna = Kmer{RNAAlphabet{2}, 33}(dkmer_rna)
         @test length(kmer_rna) == length(dkmer_rna)
         @test string(dkmer_rna) == string(kmer_rna)
 
         # For 8-bit amino acids: need >8 bases for >64 coding bits
         s_aa = aa"KWOPPLKWM"  # 9 bases = 72 bits
-        dkmer_aa = DynamicKmer{AminoAcidAlphabet, UInt128}(s_aa)
-        kmer_aa = Kmer{AminoAcidAlphabet, 9, 2}(dkmer_aa)
+        dkmer_aa = DynamicKmer{AminoAcidAlphabet, UInt256}(s_aa)
+        kmer_aa = Kmer{AminoAcidAlphabet, 9}(dkmer_aa)
         @test length(kmer_aa) == length(dkmer_aa)
         @test string(dkmer_aa) == string(kmer_aa)
 
         # Test error on length mismatch
         dkmer = dmer"TAG"d
-        @test_throws Exception Kmer{DNAAlphabet{2}, 5, 1}(dkmer)
+        @test_throws Exception Kmer{DNAAlphabet{2}, 5}(dkmer)
     end
 
     @testset "Capacity limits" begin
@@ -279,11 +289,14 @@ end
         m64_1 = DynamicAAKmer{UInt64}(s1)
         m128_1 = DynamicAAKmer{UInt128}(s1)
         m128_2 = DynamicAAKmer{UInt128}(s2)
+        m256_1 = DynamicAAKmer{UInt256}(s1)
 
         @test m64_1 == m128_1
         @test cmp(m64_1, m128_1) == 0
         @test m128_1 != m128_2
         @test m128_1 < m128_2
+        @test m64_1 == m256_1
+        @test cmp(m256_1, m128_1) == 0
     end
 end
 
@@ -393,6 +406,11 @@ end
         s_aa = aa"KWOP"
         m_aa = dmer"KWOP"a
         @test reverse(m_aa) == DynamicAAKmer{UInt64}(reverse(s_aa))
+
+        # Test with larger bit integers
+        s_large = dna"TAGCTAGCTAGCTAGC"
+        m_large = DynamicDNAKmer{UInt256}(s_large)
+        @test reverse(m_large) == DynamicDNAKmer{UInt256}(reverse(s_large))
     end
 
     @testset "Complement" begin
@@ -437,6 +455,11 @@ end
         s_rna_4bit = LongSequence{RNAAlphabet{4}}(rna"UAGCUGA")
         m_rna_4bit = DynamicKmer{RNAAlphabet{4}, UInt64}(s_rna_4bit)
         @test reverse_complement(m_rna_4bit) == DynamicKmer{RNAAlphabet{4}, UInt64}(reverse_complement(s_rna_4bit))
+
+        # Test with larger bit integers
+        s_large = dna"TAGCTAGCTAGCTAGCTAGC"
+        m_large = DynamicDNAKmer{UInt512}(s_large)
+        @test reverse_complement(m_large) == DynamicDNAKmer{UInt512}(reverse_complement(s_large))
     end
 
     @testset "Canonical" begin
@@ -447,6 +470,11 @@ end
         @test iscanonical(dmer"TTAA"d)
         @test iscanonical(empty(m1))
         @test !iscanonical(dmer"TGGA"d)
+
+        # Test with larger bit integers
+        m_large = DynamicDNAKmer{UInt256}(dna"TAGCTAGCTAGC")
+        m_rc = reverse_complement(m_large)
+        @test canonical(m_large) == min(m_large, m_rc)
     end
 end
 
@@ -466,11 +494,16 @@ end
         @test count(==(DNA_G), m) == 2
         @test count(==(DNA_C), m) == 1
 
-        m = DynamicAAKmer{UInt128}(aa"WLAKWVMARQKW")
+        m = DynamicAAKmer{UInt256}(aa"WLAKWVMARQKW")
         @test count(==(AA_W), m) == 3
         @test count(==(AA_Q), m) == 1
         @test count(==(AA_A), m) == 2
         @test count(==(AA_C), m) == 0
+
+        # Test with even larger integers
+        m_large = DynamicDNAKmer{UInt512}(dna"TAGCTAGCTAGCTAGC")
+        @test count(==(DNA_T), m_large) == 4
+        @test count(==(DNA_A), m_large) == 4
     end
 end
 
@@ -483,7 +516,7 @@ end
 end
 
 @testset "Mixed integer types" begin
-    for U in [UInt8, UInt16, UInt32, UInt64, UInt128]
+    for U in [UInt8, UInt16, UInt32, UInt64, UInt128, UInt256, UInt512]
         s = dna"TAG"
         m = DynamicKmer{DNAAlphabet{2}, U}(s)
         @test m == s
@@ -501,7 +534,7 @@ end
                 (DynamicDNAKmer{UInt32}(dna"TAG"), DNA_G),
                 (DynamicRNAKmer{UInt32}(rna"AUG"), RNA_C),
                 (DynamicAAKmer{UInt64}(aa"KWOP"), AA_L),
-                (DynamicAAKmer{UInt128}(aa"MWP"), AA_K),
+                (DynamicAAKmer{UInt256}(aa"MWP"), AA_K),
             ]
             # Apply operation to DynamicKmer
             result_dkmer = dkmer_fn(dkmer, symbol)
@@ -557,6 +590,11 @@ end
     d_almost_full = DynamicDNAKmer{UInt64}(dna"T"^28)
     @test length(push(d_almost_full, DNA_A)) == 29
     @test length(push_first(d_almost_full, DNA_G)) == 29
+
+    # Test with larger bit integers
+    d256 = DynamicDNAKmer{UInt256}(dna"TAGC")
+    @test push(d256, DNA_G) == DynamicDNAKmer{UInt256}(dna"TAGCG")
+    @test push_first(d256, DNA_A) == DynamicDNAKmer{UInt256}(dna"ATAGC")
 end
 
 @testset "pop and pop_first" begin
@@ -610,6 +648,11 @@ end
     @test_throws BoundsError pop_first(dmer""d)
     @test_throws BoundsError pop(DynamicAAKmer{UInt64}(aa""))
     @test_throws BoundsError pop_first(DynamicAAKmer{UInt128}(aa""))
+
+    # Test with larger bit integers
+    d512 = DynamicDNAKmer{UInt512}(dna"TAGCA")
+    @test pop(d512) == DynamicDNAKmer{UInt512}(dna"TAGC")
+    @test pop_first(d512) == DynamicDNAKmer{UInt512}(dna"AGCA")
 end
 
 @testset "setindex" begin
@@ -632,6 +675,11 @@ end
     @test_throws BoundsError Base.setindex(dmer"TAGC"d, DNA_A, 0)
     @test_throws BoundsError Base.setindex(dmer"TAGC"d, DNA_A, 5)
     @test_throws BoundsError Base.setindex(dmer""d, DNA_A, 1)
+
+    # Test with larger bit integers
+    d256 = DynamicDNAKmer{UInt256}(dna"TAGCAT")
+    @test Base.setindex(d256, DNA_G, 3) == DynamicDNAKmer{UInt256}(dna"TAGCAT")
+    @test Base.setindex(d256, DNA_C, 1) == DynamicDNAKmer{UInt256}(dna"CAGCAT")
 end
 
 @testset "capacity" begin
@@ -657,6 +705,8 @@ end
     # Test that larger backing type gives larger or equal capacity
     @test capacity(DynamicDNAKmer{UInt32}) <= capacity(DynamicDNAKmer{UInt64})
     @test capacity(DynamicAAKmer{UInt32}) <= capacity(DynamicAAKmer{UInt64})
+    @test capacity(DynamicDNAKmer{UInt64}) <= capacity(DynamicDNAKmer{UInt256})
+    @test capacity(DynamicAAKmer{UInt128}) <= capacity(DynamicAAKmer{UInt512})
 end
 
 @testset "translate" begin

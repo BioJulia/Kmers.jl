@@ -6,7 +6,7 @@ using StableRNGs
 using Kmers
 using BioSequences
 using BioSymbols
-using StringViews
+using StringViews: StringView
 
 const SEED = 0xccfb2d5055d8c990
 

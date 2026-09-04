@@ -8,9 +8,9 @@ end
 ```
 
 !!! warning
-    The value of hashes are guaranteed to be reproducible for a given version
-    of Kmers.jl and Julia, but may __change__ in new minor versions of Julia
-    or Kmers.jl
+    Hash values are guaranteed to be reproducible for a given version
+    of Kmers.jl and Julia, but may **change** in new minor versions of Julia
+    or Kmers.jl.
 
 ## Hashing
 Kmers.jl implements `Base.hash`, yielding a `UInt` value:
@@ -20,10 +20,10 @@ julia> hash(mer"UGCUGUAC"r)
 0xe5057d38c8907b22
 ```
 
-The implementation of `Base.hash` for kmers strikes a compromise between providing a high-quality (non-cryptographic) hash, while being reasonably fast.
+The implementation of `Base.hash` for kmers strikes a compromise between providing a high-quality (non-cryptographic) hash and being reasonably fast.
 While hash collisions can easily be found, they are unlikely to occur at random.
-When kmers are of the same (or compatible) alphabets, different kmers hash to different values
-(not counting the occational hash collision), even when they have the same underlying bitpattern:
+When kmers have the same (or compatible) alphabets, different kmers hash to different values
+(not counting the occasional hash collision), even when they have the same underlying bit pattern:
 
 ```jldoctest
 julia> using BioSequences: encoded_data
@@ -37,7 +37,7 @@ julia> hash(a) == hash(b)
 false
 ```
 
-When they are of compatible alphabets, and have the same content, they hash to the same value.
+When they have compatible alphabets and the same content, they hash to the same value.
 Currently, only DNA and RNA of the alphabets `DNAAlphabet` and `RNAAlphabet` are compatible:
 
 ```jldoctest
@@ -46,7 +46,7 @@ julia> a = mer"UUGU"r; b = mer"TTGT"d;
 julia> a == b # equal
 true
 
-julia> a === b # not egal
+julia> a === b # not equal
 false
 
 julia> hash(a) === hash(b)

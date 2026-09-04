@@ -5,5 +5,8 @@ FASTX = "c2308a5c-f048-11e8-3e8a-31650f418d12"
 Kmers = "445028e4-d31f-4f27-89ad-17affd83fc22"
 MinHash = "4b3c9753-2685-44e9-8a29-365b96c023ed"
 
+[sources]
+Kmers = {path = ".."}
+
 [compat]
 Documenter = "1"

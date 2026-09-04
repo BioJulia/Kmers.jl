@@ -22,7 +22,7 @@ end
 # the `carry` argument to the right side of the resulting tuple.
 # Returns (new_carry, new_tuple)
 @inline function leftshift_carry(
-        x::Tuple{Vararg{T}},
+        x::Tuple{T, Vararg{T}},
         nbits::Integer,
         carry::T,
     ) where {T <: Unsigned}
@@ -33,7 +33,7 @@ end
 end
 
 @inline function rightshift_carry(
-        x::Tuple{Vararg{T}},
+        x::Tuple{T, Vararg{T}},
         nbits::Integer,
         carry::T,
     ) where {T <: Unsigned}

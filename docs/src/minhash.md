@@ -8,6 +8,7 @@ DocTestSetup = quote
     using MinHash
 end
 ```
+
 ## MinHash
 The MinHash algorithm is used in tools such as
 [Mash](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0997-x)
@@ -20,17 +21,16 @@ using BioSequences, MinHash, FASTX, Kmers
 # Write 25 sequences of length 20 to a buffer.
 # Try changing this to length 4 million!
 buffer = IOBuffer()
-writer = FASTAWriter(buffer)
+writer = FASTA.Writer(buffer)
 n_bytes = sum(1:25) do genome
-    rec = FASTARecord("seq_$(genome)", randdnaseq(20))
+    rec = FASTA.Record("seq_$(genome)", randdnaseq(20))
     write(writer, rec)
 end
 flush(writer)
 
-# Time minhashing the 50 genomes
-timing = @timed FASTAReader(seekstart(buffer); copy=false) do reader
+# Time minhashing the 25 genomes
+timing = @timed FASTA.Reader(seekstart(buffer)) do reader
     map(reader) do record
-        seq = codeunits(sequence(record))
         sketch(fx_hash, CanonicalDNAMers{16}(sequence(record)), 1000)
     end
 end

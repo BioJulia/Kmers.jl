@@ -7,8 +7,9 @@ DocTestSetup = quote
     using Random
 end
 ```
-# Random genration of Kmers
-Kmers.jl supports efficient random generation of kmers through a package extension, when the `Random` stdlib is loaded.
+
+# Random generation of Kmers
+Kmers.jl supports efficient random generation of kmers through a package extension when the `Random` stdlib is loaded.
 
 ## Sampling a symbol from a kmer
 ```jldoctest; filter = r"^AA_[PLQWHY]"
@@ -24,9 +25,9 @@ AA_H
 # Sampling a random kmer type
 When sampling a random kmer from a type, kmers are sampled from the following distributions:
 
-* For `T <: AAKmer`, the kmer symbols is uniformly sampled from the 20 standard proteogenic amino acids `ACDEFGHIKLMNPQRSTVWY`. This excludes amino acids such as selenocysteine, and pseudo-aas such as `AA_Term` and `AA_Gap`
-* For `T <: DNA{<:NucleicAcidAlphabet{4}}`, the kmer symbols is uniformly sampled from the 4 unambiguous nucleotides. E.g. for `T <: Kmer{DNAAlphabet{4}}`, the only symbols are `A`, `C`, `G` and `T`.
-* For all other kmer types, the symbols are sampled uniformly from all symbols in its alphabet.
+* For `T <: AAKmer`, the kmer symbols are uniformly sampled from the 20 standard proteinogenic amino acids `ACDEFGHIKLMNPQRSTVWY`. This excludes amino acids such as selenocysteine and pseudo-amino acids such as `AA_Term` and `AA_Gap`.
+* For `T <: Kmer{<:NucleicAcidAlphabet{4}}`, the kmer symbols are uniformly sampled from the 4 unambiguous nucleotides. E.g. for `T <: Kmer{DNAAlphabet{4}}`, the only symbols are `A`, `C`, `G`, and `T`.
+* For all other kmer types, the symbols are sampled uniformly from all symbols in their alphabets.
 
 You can sample from either a concrete type, or a type with the trailing `N` type parameter elided:
 ```jldoctest; filter = r"[A-Z]+"s

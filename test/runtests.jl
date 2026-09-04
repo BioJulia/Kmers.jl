@@ -11,6 +11,7 @@ using StringViews: StringView
 const SEED = 0xccfb2d5055d8c990
 
 include("utils.jl")
+include("translation.jl")
 
 @testset "BioSequences Interface" begin
     for A in
@@ -23,6 +24,34 @@ include("utils.jl")
                 false,
             )
         end
+    end
+end
+
+@testset "Oligo comparison" begin
+    dna8 = DNAOligo{UInt8}("TAG")
+    dna8_copy = DNAOligo{UInt8}("TAG")
+    rna8 = RNAOligo{UInt8}("UAG")
+    dna16 = DNAOligo{UInt16}("TAG")
+    dna4_16 = Oligo{DNAAlphabet{4}, UInt16}("TAG")
+    long = LongDNA{2}("TAG")
+    kmer = DNAKmer{3}("TAG")
+
+    @test dna8 == dna8_copy
+    @test dna8 == rna8
+    @test hash(dna8) == hash(dna8_copy)
+    @test hash(dna8) == hash(rna8)
+
+    for (a, b) in [(dna8, dna16), (dna16, dna4_16)]
+        @test_throws MethodError a == b
+        @test_throws MethodError b == a
+        @test_throws MethodError isequal(a, b)
+        @test_throws MethodError a < b
+        @test_throws MethodError cmp(a, b)
+    end
+
+    for (a, b) in [(dna8, long), (dna8, kmer)]
+        @test_throws MethodError a == b
+        @test_throws MethodError b == a
     end
 end
 
@@ -47,8 +76,15 @@ struct CharAlphabet <: Alphabet end
 Base.eltype(::Type{CharAlphabet}) = CharSymbol
 BioSequences.symbols(::CharAlphabet) = ntuple(i -> CharSymbol(Char(i - 1)), Val{128}())
 BioSequences.encode(::CharAlphabet, c::CharSymbol) = reinterpret(UInt32, c.x) % UInt
-BioSequences.decode(::CharAlphabet, c::UInt) = CharSymbol(reinterpret(Char, c % UInt32))
+BioSequences.decode(::CharAlphabet, c::Unsigned) = CharSymbol(reinterpret(Char, c % UInt32))
 BioSequences.BitsPerSymbol(::CharAlphabet) = BioSequences.BitsPerSymbol{32}()
+
+struct OneBPSAlphabet <: Alphabet end
+Base.eltype(::Type{OneBPSAlphabet}) = DNA
+BioSequences.symbols(::OneBPSAlphabet) = (DNA_A, DNA_C)
+BioSequences.encode(::OneBPSAlphabet, x::DNA) = x === DNA_A ? zero(UInt) : one(UInt)
+BioSequences.decode(::OneBPSAlphabet, x::Unsigned) = iszero(x) ? DNA_A : DNA_C
+BioSequences.BitsPerSymbol(::OneBPSAlphabet) = BioSequences.BitsPerSymbol{1}()
 
 struct GenericNucAlphabet <: NucleicAcidAlphabet{8} end
 Base.eltype(::Type{GenericNucAlphabet}) = DNA
@@ -102,7 +138,8 @@ const ALPHABETS = [
     @testset "Bad parameters" begin
         @test_throws Exception Kmer{DNAAlphabet, :foo, 1}("C")
         @test_throws Exception Kmer{DNAAlphabet, -1, 0}("")
-        @test_throws Exception Kmer{DNAAlphabet, 1, 2}("A")
+        @test_throws ArgumentError Kmer{DNAAlphabet{2}, 1, :foo}("A")
+        @test_throws ArgumentError Kmer{DNAAlphabet{2}, 1, 2}("A")
     end
 
     @testset "Construct from string" begin
@@ -275,6 +312,13 @@ end
         @test from_integer(AAKmer{2}, typemax(UInt128)) isa AAKmer{2}
         @test from_integer(AAKmer{14}, 0xff) isa AAKmer{14}
 
+        # Round trips are independent of the input integer width.
+        short_mer = mer"TAG"d
+        short_encoding = as_integer(short_mer)
+        for U in (UInt8, UInt16, UInt32, UInt64, UInt128)
+            @test from_integer(typeof(short_mer), short_encoding % U) === short_mer
+        end
+
         # Errors if bit type or kmer is too wide
         @test_throws ArgumentError from_integer(DNAKmer{67}, 0x01)
         @test_throws ArgumentError from_integer(AAKmer{20}, UInt(0))
@@ -419,19 +463,19 @@ end
     @testset "Setindex" begin
         mer = mer"PLQVAK"a
         setindex = Base.setindex
-        @test setindex(mer, 3, AA_K) == mer"PLKVAK"a
-        @test setindex(mer, 1, AA_R) == mer"RLQVAK"a
-        @test setindex(mer, 6, AA_M) == mer"PLQVAM"a
-        @test_throws BoundsError setindex(mer, 0, AA_K)
-        @test_throws BoundsError setindex(mer, 7, AA_K)
+        @test setindex(mer, AA_K, 3) == mer"PLKVAK"a
+        @test setindex(mer, AA_R, 1) == mer"RLQVAK"a
+        @test setindex(mer, AA_M, 6) == mer"PLQVAM"a
+        @test_throws BoundsError setindex(mer, AA_K, 0)
+        @test_throws BoundsError setindex(mer, AA_K, 7)
 
         mer = mer"ATGTCGTGA"d
-        @test setindex(mer, 1, DNA_T) == mer"TTGTCGTGA"d
-        @test setindex(mer, 5, DNA_C) == mer"ATGTCGTGA"d
-        @test setindex(mer, 5, DNA_A) == mer"ATGTAGTGA"d
+        @test setindex(mer, DNA_T, 1) == mer"TTGTCGTGA"d
+        @test setindex(mer, DNA_C, 5) == mer"ATGTCGTGA"d
+        @test setindex(mer, DNA_A, 5) == mer"ATGTAGTGA"d
 
         mer = mer"PLAKCVMARYKW"a
-        @test setindex(mer, 10, AA_Q) == mer"PLAKCVMARQKW"a
+        @test setindex(mer, AA_Q, 10) == mer"PLAKCVMARQKW"a
     end
 end
 
@@ -519,8 +563,8 @@ end
         @test_throws Exception translate(Kmer{RNAAlphabet{4}, 3}("UC-"))
 
         # Invalid alphabet
-        @test_throws Exception transate(mer"CCC"a)
-        @test_throws Exception transate(Kmer{CharAlphabet, 3}("GGG"))
+        @test_throws MethodError translate(mer"CCC"a)
+        @test_throws MethodError translate(Kmer{CharAlphabet, 3}("GGG"))
 
         # Compare to LongSequence
         for s in [
@@ -758,6 +802,8 @@ end
                 end
             end
         end
+
+        @test_throws BioSequences.EncodeError collect(FwRvIterator{DNAAlphabet{2}, 3}("TAGP"))
     end
 
     @testset "CanonicalKmers" begin
@@ -917,31 +963,122 @@ end
     @testset "Unsafe extract" begin
         seq = dna"TTGCTAGGGATTCGAGGATCCTCTAGAGCGCGGCACGATCTTAGCAC"
         unsafe_extract = Kmers.unsafe_extract
-        @test unsafe_extract(Kmers.FourToTwo(), DNAKmer{6, 1}, seq, 3) ==
+        @test @inferred(unsafe_extract(Kmers.FourToTwo(), DNAKmer{6, 1}, seq, 3)) ==
             DNAKmer{6}(seq[3:8])
         @test unsafe_extract(Kmers.FourToTwo(), DNAKmer{36, 2}, seq, 2) ==
             DNAKmer{36}(seq[2:37])
 
         seq = LongDNA{2}(seq)
-        @test unsafe_extract(Kmers.TwoToFour(), Kmer{DNAAlphabet{4}, 6, 1}, seq, 3) ==
+        @test @inferred(
+            unsafe_extract(Kmers.TwoToFour(), Kmer{DNAAlphabet{4}, 6, 1}, seq, 3)
+        ) ==
             Kmer{DNAAlphabet{4}, 6}(seq[3:8])
         @test unsafe_extract(Kmers.TwoToFour(), Kmer{DNAAlphabet{4}, 36, 3}, seq, 2) ==
             Kmer{DNAAlphabet{4}, 36}(seq[2:37])
 
-        @test unsafe_extract(Kmers.Copyable(), DNAKmer{6, 1}, seq, 3) ==
+        @test @inferred(unsafe_extract(Kmers.Copyable(), DNAKmer{6, 1}, seq, 3)) ==
             DNAKmer{6}(seq[3:8])
         @test unsafe_extract(Kmers.Copyable(), DNAKmer{36, 2}, seq, 2) ==
             DNAKmer{36}(seq[2:37])
 
         seq = codeunits(String(seq))
-        @test unsafe_extract(Kmers.AsciiEncode(), DNAKmer{6, 1}, seq, 3) ==
+        @test @inferred(unsafe_extract(Kmers.AsciiEncode(), DNAKmer{6, 1}, seq, 3)) ==
             DNAKmer{6}(seq[3:8])
         @test unsafe_extract(Kmers.AsciiEncode(), DNAKmer{36, 2}, seq, 2) ==
             DNAKmer{36}(seq[2:37])
 
         seq = LongSequence{CharAlphabet}("中国¨Å!人大æ网")
-        @test unsafe_extract(Kmers.GenericRecoding(), Kmer{CharAlphabet, 3, 2}, seq, 4) ==
+        @test @inferred(
+            unsafe_extract(Kmers.GenericRecoding(), Kmer{CharAlphabet, 3, 2}, seq, 4)
+        ) ==
             Kmer{CharAlphabet, 3}("Å!人")
+    end
+
+    @testset "Packed unsafe extract" begin
+        unsafe_extract = Kmers.unsafe_extract
+
+        function compare_packed_extract(recoding, T, source, from)
+            @test unsafe_extract(recoding, T, source, from) ==
+                Kmers.extract_elements(recoding, T, source, from)
+        end
+
+        source_2bit = LongDNA{2}(repeat("ACGT", 100))
+        source_4bit = LongDNA{4}(repeat("ACGT", 100))
+        for K in (0, 1, 15, 16, 17, 31, 32, 33, 63, 64, 65), from in (1, 2, 3, 31, 32)
+            from + K - 1 <= length(source_2bit) || continue
+            two_bit_type = derive_type(Kmer{DNAAlphabet{2}, K})
+            four_bit_type = derive_type(Kmer{DNAAlphabet{4}, K})
+            compare_packed_extract(Kmers.Copyable(), two_bit_type, source_2bit, from)
+            compare_packed_extract(Kmers.TwoToFour(), four_bit_type, source_2bit, from)
+            compare_packed_extract(Kmers.FourToTwo(), two_bit_type, source_4bit, from)
+        end
+
+        # DNA and RNA with the same bit width share their packed encoding.
+        compare_packed_extract(
+            Kmers.Copyable(),
+            derive_type(Kmer{RNAAlphabet{2}, 33}),
+            source_2bit,
+            2,
+        )
+
+        # Copyable alphabets are not limited to nucleic acids.
+        aa_source = LongAA(repeat("ARNDCQEGHILKMFPSTWYV", 20))
+        for K in (0, 1, 7, 8, 9, 15, 16, 17), from in (1, 2, 7, 8, 9)
+            from + K - 1 <= length(aa_source) || continue
+            compare_packed_extract(
+                Kmers.Copyable(),
+                derive_type(Kmer{AminoAcidAlphabet, K}),
+                aa_source,
+                from,
+            )
+        end
+
+        # One-bit alphabets use bit reversal rather than field-wise reversal.
+        one_bit_source = LongSequence{OneBPSAlphabet}(repeat([DNA_A, DNA_C], 200))
+        for K in (0, 1, 31, 32, 63, 64, 65), from in (1, 2, 31, 32)
+            from + K - 1 <= length(one_bit_source) || continue
+            compare_packed_extract(
+                Kmers.Copyable(),
+                derive_type(Kmer{OneBPSAlphabet, K}),
+                one_bit_source,
+                from,
+            )
+        end
+
+        # Views exercise source word offsets independently of the extraction offset.
+        source_2bit_view = view(source_2bit, 2:300)
+        source_4bit_view = view(source_4bit, 2:300)
+        for K in (1, 16, 17, 32, 33, 64), from in (1, 2, 31, 32)
+            two_bit_type = derive_type(Kmer{DNAAlphabet{2}, K})
+            four_bit_type = derive_type(Kmer{DNAAlphabet{4}, K})
+            compare_packed_extract(Kmers.Copyable(), two_bit_type, source_2bit_view, from)
+            compare_packed_extract(Kmers.TwoToFour(), four_bit_type, source_2bit_view, from)
+            compare_packed_extract(Kmers.FourToTwo(), two_bit_type, source_4bit_view, from)
+        end
+
+        # Empty extractions do not touch the source storage.
+        empty_source = LongDNA{2}("")
+        @test isempty(unsafe_extract(Kmers.Copyable(), DNAKmer{0, 0}, empty_source, 1))
+
+        # SeqOrView specializations do not replace the generic BioSequence fallback.
+        oligomer_source = DNAOligo{UInt128}(source_2bit[1:32])
+        oligomer_type = DNAKmer{17, 1}
+        @test unsafe_extract(Kmers.Copyable(), oligomer_type, oligomer_source, 3) ==
+            oligomer_type(oligomer_source[3:19])
+
+        function packed_extract_allocations(source_2bit, source_4bit)
+            two_bit_type = DNAKmer{33, 2}
+            four_bit_type = Kmer{DNAAlphabet{4}, 17, 2}
+            unsafe_extract(Kmers.Copyable(), two_bit_type, source_2bit, 2)
+            unsafe_extract(Kmers.TwoToFour(), four_bit_type, source_2bit, 2)
+            unsafe_extract(Kmers.FourToTwo(), two_bit_type, source_4bit, 2)
+            return (
+                @allocated(unsafe_extract(Kmers.Copyable(), two_bit_type, source_2bit, 2)),
+                @allocated(unsafe_extract(Kmers.TwoToFour(), four_bit_type, source_2bit, 2)),
+                @allocated(unsafe_extract(Kmers.FourToTwo(), two_bit_type, source_4bit, 2)),
+            )
+        end
+        @test all(iszero, packed_extract_allocations(source_2bit, source_4bit))
     end
 
     @testset "Unsafe shift from" begin
@@ -963,6 +1100,9 @@ end
         seq = codeunits(String(seq))
         mer = mer"KWPLCVAKVM"a
         @test ushift(Kmers.AsciiEncode(), mer, seq, 5, Val(4)) == mer"CVAKVMTAGG"a
+        @test_throws BioSequences.EncodeError ushift(
+            Kmers.AsciiEncode(), mer"TAG"d, codeunits("P"), 1, Val(1)
+        )
 
         seq = LongSequence{CharAlphabet}("中国¨Å!人大æ网")
         mer = Kmer{CharAlphabet, 5, 3}("中国¨Å!")
@@ -1016,6 +1156,81 @@ end
     end
 end
 
+@testset "Random oligomers" begin
+    @testset "Types and lengths" begin
+        for T in (
+                    DNAOligo{UInt8},
+                    RNAOligo{UInt32},
+                    Oligo{DNAAlphabet{4}, UInt64},
+                    Oligo{RNAAlphabet{4}, UInt64},
+                    AAOligo{UInt128},
+                ), len in (0, capacity(T))
+            oligomer = @inferred rand(StableRNG(SEED), T, len)
+            @test typeof(oligomer) === T
+            @test length(oligomer) == len
+        end
+
+        @test typeof(rand(DNAOligo{UInt16}, 3)) === DNAOligo{UInt16}
+        @test_throws ArgumentError rand(StableRNG(SEED), DNAOligo{UInt8}, -1)
+        @test_throws ArgumentError rand(
+            StableRNG(SEED), DNAOligo{UInt8}, capacity(DNAOligo{UInt8}) + 1
+        )
+    end
+
+    @testset "Alphabet sampling" begin
+        dna4 = rand(StableRNG(SEED), Oligo{DNAAlphabet{4}, UInt128}, 20)
+        @test all(i -> i in dna"ACGT", dna4)
+
+        amino_acids = rand(StableRNG(SEED), AAOligo{UInt128}, 15)
+        @test all(i -> i in aa"ACDEFGHIKLMNPQRSTVWY", amino_acids)
+    end
+
+    @testset "Packed sampling" begin
+        for T in (DNAOligo{UInt64}, RNAOligo{UInt64})
+            rng = StableRNG(SEED)
+            control = StableRNG(SEED)
+            rand(rng, T, capacity(T))
+            rand(control, UInt)
+            @test rand(rng, UInt) == rand(control, UInt)
+        end
+
+        rng = StableRNG(SEED)
+        control = StableRNG(SEED)
+        T = Oligo{DNAAlphabet{4}, UInt128}
+        rand(rng, T, 20)
+        rand(control, UInt)
+        rand(control, UInt)
+        @test rand(rng, UInt) == rand(control, UInt)
+    end
+
+    @testset "Instances" begin
+        oligomer = DNAOligo{UInt16}("TAGC")
+        @test rand(StableRNG(SEED), oligomer) in oligomer
+        @test typeof(@inferred(rand(StableRNG(SEED), oligomer))) === eltype(oligomer)
+        @test_throws ArgumentError rand(StableRNG(SEED), empty(typeof(oligomer)))
+    end
+
+    @testset "Shuffle" begin
+        for oligomer in (
+                DNAOligo{UInt32}("TAGCTAG"),
+                Oligo{RNAAlphabet{4}, UInt64}("AUGN-U"),
+                AAOligo{UInt128}("KWOPLVM"),
+            )
+            shuffled = @inferred shuffle(StableRNG(SEED), oligomer)
+            @test typeof(shuffled) === typeof(oligomer)
+            @test length(shuffled) == length(oligomer)
+            @test sort(collect(shuffled)) == sort(collect(oligomer))
+            @test shuffled == shuffle(StableRNG(SEED), oligomer)
+        end
+
+        empty_oligomer = empty(DNAOligo{UInt8})
+        singleton = DNAOligo{UInt8}("T")
+        @test @inferred(shuffle(StableRNG(SEED), empty_oligomer)) === empty_oligomer
+        @test @inferred(shuffle(StableRNG(SEED), singleton)) === singleton
+        @test typeof(shuffle(DNAOligo{UInt16}("TAG"))) === DNAOligo{UInt16}
+    end
+end
+
 @testset "Counting" begin
     @testset "Count GC" begin
         @test count(isGC, mer"TATCGGAGA"d) == 4
@@ -1028,6 +1243,50 @@ end
 
         @test_throws MethodError count(isGC, mer"ATATA"a) # amino acid mer
     end
+
+    @testset "Count symbols" begin
+        # Test with 2-bit DNA
+        m = mer"TAGCTGA"d
+        @test count(==(DNA_A), m) == 2
+        @test count(==(DNA_T), m) == 2
+        @test count(==(DNA_G), m) == 2
+        @test count(==(DNA_C), m) == 1
+
+        # Test with 2-bit RNA
+        m_rna = mer"UAGCUGA"r
+        @test count(==(RNA_A), m_rna) == 2
+        @test count(==(RNA_U), m_rna) == 2
+        @test count(==(RNA_G), m_rna) == 2
+        @test count(==(RNA_C), m_rna) == 1
+
+        # Test with amino acids
+        m_aa = mer"KWOPPLKW"a
+        @test count(==(AA_K), m_aa) == 2
+        @test count(==(AA_W), m_aa) == 2
+        @test count(==(AA_P), m_aa) == 2
+        @test count(==(AA_L), m_aa) == 1
+        @test count(==(AA_O), m_aa) == 1
+
+        # Test symbols not present (should be zero)
+        @test count(==(DNA_C), mer"TAGTAG"d) == 0
+        @test count(==(RNA_G), mer"UUUAAA"r) == 0
+        @test count(==(AA_M), mer"KWOP"a) == 0
+
+        # Test edge cases
+        @test count(==(DNA_A), mer""d) == 0
+        @test count(==(DNA_A), mer"AAAA"d) == 4
+
+        # Test with longer kmers (N > 1)
+        m_long = mer"TAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCT"d  # 33 bases
+        @test count(==(DNA_A), m_long) == 8
+        @test count(==(DNA_T), m_long) == 9
+        @test count(==(DNA_G), m_long) == 8
+        @test count(==(DNA_C), m_long) == 8
+    end
+end
+
+@testset "Dynamic kmers" begin
+    include("dynamic.jl")
 end
 
 end # module

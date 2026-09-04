@@ -22,6 +22,7 @@ const N = 10_000_000
 
 const seq_2bit = randseq(DNAAlphabet{2}(), N)
 const seq_4bit = randrnaseq(N)
+const seq_4bit_unambiguous = LongDNA{4}(seq_2bit)
 const seq_aa = randaaseq(N)
 const data = String(rand(codeunits("AaCcGgTt"), N))
 
@@ -121,5 +122,53 @@ end
 println("Minimizer")
 benchmark_minimizer(seq_2bit)
 @time "    2-bit LongSequence" benchmark_minimizer(seq_2bit)
+
+function benchmark_extract(recoding, ::Type{T}, seq, from) where {T}
+    h = zero(UInt)
+    stride = BioSequences.symbols_per_data_element(seq)
+    for i in 0:249_999
+        h ⊻= fx_hash(Kmers.unsafe_extract(recoding, T, seq, from + i * stride))
+    end
+    return h
+end
+
+println("unsafe_extract")
+for (name, recoding, T, seq, from) in [
+        ("Copyable, aligned small", Kmers.Copyable(), DNAKmer{16, 1}, seq_2bit, 1),
+        ("Copyable, misaligned small", Kmers.Copyable(), DNAKmer{16, 1}, seq_2bit, 2),
+        ("Copyable, aligned multiword", Kmers.Copyable(), DNAKmer{64, 2}, seq_2bit, 1),
+        ("Copyable, misaligned multiword", Kmers.Copyable(), DNAKmer{64, 2}, seq_2bit, 2),
+        (
+            "TwoToFour, aligned small",
+            Kmers.TwoToFour(),
+            Kmer{DNAAlphabet{4}, 16, 1},
+            seq_2bit,
+            1,
+        ),
+        (
+            "TwoToFour, misaligned multiword",
+            Kmers.TwoToFour(),
+            Kmer{DNAAlphabet{4}, 32, 2},
+            seq_2bit,
+            2,
+        ),
+        (
+            "FourToTwo, aligned small",
+            Kmers.FourToTwo(),
+            DNAKmer{16, 1},
+            seq_4bit_unambiguous,
+            1,
+        ),
+        (
+            "FourToTwo, misaligned multiword",
+            Kmers.FourToTwo(),
+            DNAKmer{64, 2},
+            seq_4bit_unambiguous,
+            2,
+        ),
+    ]
+    benchmark_extract(recoding, T, seq, from)
+    @time "    " * name benchmark_extract(recoding, T, seq, from)
+end
 
 end # module

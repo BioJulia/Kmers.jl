@@ -23,7 +23,7 @@ Also, remember that `Kmer`s are only efficient when short (at most a few hundred
 Kmers.jl implements reverse translation, which maps an amino acid sequence to one or more RNA sequences.
 While this process doesn't occur naturally (as far as we know), it is still useful for some analyses.
 
-Since genetic codes are degenerate, i.e. multiple codons code for the same amino acid, reverse translating a sequence does not return a nucleic acid sequence, but a vector of `CodonSet`:
+Since genetic codes are degenerate, i.e., multiple codons code for the same amino acid, reverse translating a sequence does not return a nucleic acid sequence, but a vector of `CodonSet`s:
 
 ```@docs
 reverse_translate
@@ -38,7 +38,7 @@ To avoid allocating a new `Vector`, you can use `reverse_translate!`:
 reverse_translate!
 ```
 
-Both functions take a genetic code as a keyword argument of the type `ReverseGeneticCode`. This object determines the mapping from amino acid to `CodonSet` - by default the [standard genetic code](https://en.wikipedia.org/wiki/DNA_and_RNA_codon_tables#Standard_RNA_codon_table) is used - this mapping is used by nearly all organisms.
+Both functions take a genetic code as a keyword argument of the type `ReverseGeneticCode`. This object determines the mapping from amino acids to `CodonSet`s. By default, the [standard genetic code](https://en.wikipedia.org/wiki/DNA_and_RNA_codon_tables#Standard_RNA_codon_table) is used; this mapping is used by nearly all organisms.
 
 Only the reverse standard genetic code is defined in Kmers.jl.
 To use another genetic code, build a `ReverseGeneticCode` object from an existing

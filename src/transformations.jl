@@ -54,9 +54,9 @@ function BioSequences.translate(
     T = Kmer{AminoAcidAlphabet, n_aa, N}
     data = zero_tuple(T)
     # In the next two lines: If alternative_start, we shift in the encoding of M
-    # to first place, then we skip the first 3 nucleotides
+    # to first place, then we skip the first codon
     (_, data) = leftshift_carry(data, 8, UInt(0x0c) * alternative_start)
-    @inbounds for i in (1 + (3 * alternative_start)):n_aa
+    @inbounds for i in (1 + alternative_start):n_aa
         a = seq[3i - 2]
         b = seq[3i - 1]
         c = seq[3i - 0]
@@ -82,9 +82,9 @@ function BioSequences.translate(
     T = Kmer{AminoAcidAlphabet, n_aa, N}
     data = zero_tuple(T)
     # In the next two lines: If alternative_start, we shift in the encoding of M
-    # to first place, then we skip the first 3 nucleotides
+    # to first place, then we skip the first codon
     (_, data) = leftshift_carry(data, 8, UInt(0x0c) * alternative_start)
-    @inbounds for i in (1 + (3 * alternative_start)):n_aa
+    @inbounds for i in (1 + alternative_start):n_aa
         a = reinterpret(RNA, seq[3i - 2])
         b = reinterpret(RNA, seq[3i - 1])
         c = reinterpret(RNA, seq[3i - 0])

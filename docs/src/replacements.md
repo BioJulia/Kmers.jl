@@ -9,7 +9,7 @@ end
 ```
 
 # [Building kmer replacements](@id replacements)
-_Kmer replacements_ is the general term for sequences that can be represented
+The term _kmer replacement_ refers to sequences that can be represented
 computationally like kmers, but are sampled differently. Examples include minimizers, strobemers, syncmers and k-min-mers.
 
 Since there is no end to the variations of kmer replacements, Kmers.jl does not try to implement all of them.

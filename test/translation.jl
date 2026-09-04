@@ -1,4 +1,24 @@
 @testset "Translation" begin
+    @testset "Alternative starts" begin
+        codes = (
+            BioSequences.standard_genetic_code,
+            BioSequences.vertebrate_mitochondrial_genetic_code,
+        )
+
+        # Nine amino acids require two UInts in the resulting amino-acid kmer.
+        for A in (DNAAlphabet{2}, RNAAlphabet{2}, DNAAlphabet{4}, RNAAlphabet{4}),
+                n_codons in (1, 2, 4, 9),
+                code in codes,
+                alternative_start in (false, true)
+            codon = A <: DNAAlphabet ? "TGA" : "UGA"
+            sequence = LongSequence{A}(repeat(codon, n_codons))
+            kmer = Kmer{A, 3 * n_codons}(sequence)
+
+            @test LongSequence{AminoAcidAlphabet}(translate(kmer; code, alternative_start)) ==
+                translate(sequence; code, alternative_start)
+        end
+    end
+
     sampler = BioSequences.SamplerWeighted(
         dna"ACGTMRSVWYHKDBN",
         vcat(fill(0.225, 4), fill(0.00909, 10)),
@@ -13,11 +33,10 @@
                     else
                         randseq(A{4}(), sampler, len)
                     end
-                    kmer = Kmer{A{N}}(seq)
-                    @test (
-                        translate(seq; alternative_start = alternative) ==
-                            translate(kmer; alternative_start = alternative)
-                    )
+                    kmer = Kmer{A{N}, len}(seq)
+                    @test LongSequence{AminoAcidAlphabet}(
+                        translate(kmer; alternative_start = alternative),
+                    ) == translate(seq; alternative_start = alternative)
                 end
             end
         end
@@ -25,7 +44,7 @@
 
     # Throws when ambiguous
     @test_throws Exception translate(
-        Kmer{RNAAlphabet{4}}("AUGCCGCMA"),
+        Kmer{RNAAlphabet{4}, 9}("AUGCCGCMA"),
         allow_ambiguous_codons = false,
     )
 
